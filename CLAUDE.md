@@ -66,6 +66,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
   `plot-bytecode.zip`, and `warm_up_plotting` draws a throwaway plot so the first real one costs
   what any other does (~0.1 s, against ~2 s of compiling and first-time setup before).
+- **Preview** (above the palette): takes no room while the input is empty; its room opens with
+  a line's first keystroke and stays until ⏎ or Esc, so the composer moves once per line, not per
+  keystroke. An unfinished line (`1/100+`) keeps the last preview, dimmed.
 - **"computing"** only appears after 300 ms (a CSS animation delay), so fast results don't flash it.
 - **Names** are whole words (sympy's `split_symbols` is deliberately not used): splitting made
   `xy` mean x·y until something named `xy` was defined, and hid `e` = 2.718… inside words. Results

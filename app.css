@@ -207,7 +207,9 @@ kbd {
   background: var(--bg);
 }
 
-/* takes room only while there's something to show (app.js keeps the tape's end in view) */
+/* takes room only while a line is being typed (app.js keeps the tape's end in view) */
+#preview.open { min-height: 2.6em; }
+#preview.stale { opacity: 0.4; }
 #preview {
   font-size: 15px;
   color: var(--muted);

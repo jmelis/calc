@@ -609,7 +609,7 @@ function editorSource() {
 function clearEditor() {
   input.value = "";
   if (mathField) mathField.value = "";
-  previewEl.innerHTML = "";
+  clearPreview();
 }
 
 function submit() {
@@ -667,7 +667,7 @@ input.addEventListener("keydown", (e) => {
     submit();
   } else if (e.key === "Escape") {
     input.value = "";
-    previewEl.innerHTML = "";
+    clearPreview();
   } else if (e.key === "Tab") {
     e.preventDefault();
     complete();
@@ -714,6 +714,15 @@ input.addEventListener("input", schedulePreview);
 let previewSeq = 0;
 let previewTimer = null;
 
+// The preview's room opens with a line's first keystroke and stays until the line is
+// done (⏎, Esc), so the composer doesn't jump while typing; an unfinished line (1/100+)
+// keeps the last preview, dimmed, instead of blanking it
+function clearPreview() {
+  previewSeq++; // a reply still on its way is stale
+  previewEl.innerHTML = "";
+  previewEl.classList.remove("open", "stale");
+}
+
 function schedulePreview() {
   clearTimeout(previewTimer);
   cancelAnimationFrame(previewTimer);
@@ -722,6 +731,7 @@ function schedulePreview() {
     // later, since MathLive can fire "input" before its value has the last keystroke
     previewTimer = requestAnimationFrame(() => {
       previewEl.innerHTML = "";
+      previewEl.classList.toggle("open", !!mathField.value);
       if (!mathField.value) return;
       try {
         previewEl.append(el("code", "converted", latexToCalc(mathField.value)));
@@ -733,8 +743,12 @@ function schedulePreview() {
   }
   previewTimer = setTimeout(() => {
     const src = input.value.trim();
-    previewEl.innerHTML = "";
-    if (!src) return;
+    if (!src) return clearPreview();
+    previewEl.classList.add("open");
+    if (src.startsWith(":") || previewEl.querySelector(".command-hint")) {
+      previewEl.innerHTML = "";
+      previewEl.classList.remove("stale");
+    }
     if (src.startsWith(":")) {
       const typed = src.slice(1);
       for (const [name, command] of Object.entries(COMMANDS)) {
@@ -755,8 +769,10 @@ function onPreview(msg) {
     conversions.delete(msg.seq);
   } else if (msg.target === "input") {
     if (msg.seq !== previewSeq) return;
-    if (msg.latex) tex(previewEl, msg.latex);
-    else previewEl.innerHTML = ""; // incomplete input: show nothing rather than an error
+    if (msg.latex) {
+      tex(previewEl, msg.latex);
+      previewEl.classList.remove("stale");
+    } else previewEl.classList.add("stale"); // unfinished: keep the last one, dimmed
   } else if (msg.target === "catalog") {
     const target = catalogDetail.querySelector(".example-math");
     if (target && msg.seq === catalogState.exampleSeq && msg.latex) tex(target, msg.latex);
