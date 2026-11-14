@@ -18,8 +18,10 @@ Rules:
 """
 import builtins
 import difflib
+import io
 import keyword
 import re
+import tokenize
 
 from sympy import Max, Min, Symbol
 from sympy.utilities.iterables import iterable
@@ -186,72 +188,56 @@ def split_names(s):
     return [n.strip() for n in s.split(",")]
 
 
+def _equals(src):
+    """
+    Where src's '=' are, from Python's tokenizer (which already tells = from ==, <=, :=
+    and skips strings): (top, inner). `top` is the (start, end) of the first '=' or ':='
+    outside brackets, or None. `inner` lists the equations inside brackets, one per
+    argument or element, as (start, eq_start, eq_end, end) offsets; an argument whose
+    left side is a bare name (dict=True) is a keyword argument, not an equation.
+    """
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(src).readline))
+    except (tokenize.TokenError, SyntaxError):
+        return None, []  # unbalanced or unfinished: left for the parser to report
+    top, inner = None, []
+    stack = []  # per open bracket, the argument so far: [start offset, first token, '=' token index]
+    for i, tok in enumerate(tokens):
+        if tok.type != tokenize.OP:
+            continue
+        if tok.string in "([{":
+            stack.append([tok.end[1], i + 1, None])
+        elif tok.string in ")]}," and stack:
+            start, first, eq = stack[-1]
+            keyword = eq == first + 1 and tokens[first].type == tokenize.NAME
+            if eq is not None and not keyword:
+                inner.append((start, tokens[eq].start[1], tokens[eq].end[1], tok.start[1]))
+            if tok.string == ",":
+                stack[-1] = [tok.end[1], i + 1, None]
+            else:
+                stack.pop()
+        elif tok.string == "=" and stack:
+            if stack[-1][2] is None:
+                stack[-1][2] = i
+        elif tok.string in ("=", ":=") and not stack and top is None:
+            top = tok.start[1], tok.end[1]
+    return top, inner
+
+
 def split_top_level_equals(src):
-    """Split on the first '=' outside brackets/strings that isn't part of ==, <=, >=, !=; a := b splits like a = b."""
-    depth = 0
-    quote = None
-    for i, ch in enumerate(src):
-        if quote:
-            if ch == quote and src[i - 1] != "\\":
-                quote = None
-        elif ch in "'\"":
-            quote = ch
-        elif ch in "([{":
-            depth += 1
-        elif ch in ")]}":
-            depth -= 1
-        elif ch == "=" and depth == 0:
-            prev = src[i - 1] if i else ""
-            nxt = src[i + 1] if i + 1 < len(src) else ""
-            if prev not in "=<>!" and nxt != "=":
-                return src[:i].removesuffix(":"), src[i + 1:]
-    return None
-
-
-CLOSERS = {"(": ")", "[": "]", "{": "}"}
+    """Split on the first '=' outside brackets and strings (not ==, <=, …); a := b splits like a = b."""
+    top, _ = _equals(src)
+    return None if top is None else (src[: top[0]], src[top[1]:])
 
 
 def rewrite_inner_equations(src):
     """solve(x^2 = 2, x) -> solve(Eq(x^2 , 2), x); keyword arguments (dict=True) are left alone."""
-
-    def group(i, closer):
-        """Rewrite from src[i] up to `closer`; return (text, index after closer)."""
-        args, current = [], []
-        while i < len(src):
-            ch = src[i]
-            if ch in "'\"":
-                end = src.find(ch, i + 1)
-                end = len(src) - 1 if end == -1 else end
-                current.append(src[i:end + 1])
-                i = end + 1
-            elif ch in CLOSERS:
-                inner, i = group(i + 1, CLOSERS[ch])
-                current.append(ch + inner + CLOSERS[ch])
-            elif ch == closer:
-                args.append("".join(current))
-                return ",".join(as_equation(a) for a in args), i + 1
-            elif ch == "," and closer:
-                args.append("".join(current))
-                current = []
-                i += 1
-            else:
-                current.append(ch)
-                i += 1
-        if closer:
-            raise ValueError("unbalanced brackets")
-        args.append("".join(current))
-        return ",".join(args), i
-
-    def as_equation(arg):
-        parts = split_top_level_equals(arg)
-        if parts is None or ASSIGN_RE.match(parts[0]):
-            return arg
-        return f"Eq({parts[0]}, {parts[1]})"
-
-    try:
-        return group(0, None)[0]
-    except ValueError:
-        return src  # leave it to the parser to report
+    edits = []  # (position, characters replaced, text): point edits, so nested ones don't collide
+    for start, eq_start, eq_end, end in _equals(src)[1]:
+        edits += [(start, 0, "Eq("), (eq_start, eq_end - eq_start, ","), (end, 0, ")")]
+    for pos, length, text in sorted(edits, key=lambda e: e[0], reverse=True):
+        src = src[:pos] + text + src[pos + length:]
+    return src
 
 
 def is_statement(src):

@@ -61,7 +61,12 @@ def test_classify(src, expected):
 @pytest.mark.parametrize(
     "src, expected",
     [
-        ("solve(x^2 = 2, x)", "solve(Eq(x^2 ,  2), x)"),
+        ("solve(x^2 = 2, x)", "solve(Eq(x^2 , 2), x)"),
+        ("solve([x + y = 3, x - y = 1], [x, y])", "solve([Eq(x + y , 3),Eq( x - y , 1)], [x, y])"),
+        ("f(g(x + 1 = 1) = 2)", "f(Eq(g(Eq(x + 1 , 1)) , 2))"),  # nested
+        ("g(x = 1)", "g(x = 1)"),  # a bare name before = is a keyword argument
+        ("plot(x, xlabel = 'a=b', ylabel='')", "plot(x, xlabel = 'a=b', ylabel='')"),
+        ("[a := 3]", "[a := 3]"),  # := inside brackets is Python's
         ("solve(x^2-4, x, dict=True)", "solve(x^2-4, x, dict=True)"),
         ('g("a=b")', 'g("a=b")'),
         ("solve((x", "solve((x"),  # unbalanced: left for the parser to report
