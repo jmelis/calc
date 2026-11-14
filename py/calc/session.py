@@ -18,7 +18,7 @@ import warnings
 from numbers import Number
 from tokenize import TokenError
 
-from sympy import Basic, Eq, Float, Function, Integer, Lambda, NumberSymbol, Rational, Symbol, pi, sstr
+from sympy import Basic, Eq, Float, Function, ImmutableMatrix, Integer, Lambda, NumberSymbol, Rational, Symbol, pi, sstr
 from sympy.matrices import MatrixBase
 from sympy.printing.latex import LatexPrinter
 
@@ -26,7 +26,7 @@ from . import stats
 from .catalog import catalog_entries
 from .parser import _GLOBALS, REFS_NAME, classify, is_statement, parse
 from .preview import _symbol, preview
-from .vectors import as_vector
+from .vectors import as_vector, is_matrix
 
 FLOAT_DIGITS = 15
 PLOT_FUNCTIONS = ("plot", "plot_parametric", "plot_implicit", "plot3d")
@@ -51,6 +51,10 @@ class _LatexPrinter(LatexPrinter):
 
     def _print_Symbol(self, expr, style="plain"):
         return _symbol(expr.name)
+
+    def _print_Vector(self, expr):
+        # [[1, 2], [3, 4]] is a matrix, so it looks like one; a flat list stays a list
+        return self._print(ImmutableMatrix(expr)) if is_matrix(expr) else self._print_list(expr)
 
 
 def latex(expr, **settings):
@@ -396,7 +400,7 @@ def _items(value, **settings):
     """A collection's elements as separate LaTeX pieces, so the page can wrap a long list
     like text (as one LaTeX expression it can only overflow): {open, close, items}."""
     brackets = next((b for kind, b in BRACKETS.items() if isinstance(value, kind)), None)
-    if brackets is None or len(value) < 2:
+    if brackets is None or len(value) < 2 or is_matrix(value):  # a matrix is one piece
         return None
     if isinstance(value, dict):
         items = [f"{latex(k, **settings)} : {latex(v, **settings)}" for k, v in value.items()]

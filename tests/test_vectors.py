@@ -80,7 +80,12 @@ def test_lists_of_other_things_are_python_lists():
 def test_vectors_show_as_lists_and_matrices_as_matrices():
     s = Session()
     assert s.run("[1, 2]", 1)["result"]["items"]["items"] == ["1", "2"]
-    assert r"\begin{matrix}" in s.run(f"{M}^2", 2)["result"]["latex"]
+    for src in [M, f"{M}^2", "[[1, 2]]"]:
+        result = s.run(src, 2)["result"]
+        assert r"\begin{matrix}" in result["latex"] and "items" not in result
+    assert result["text"] == "[[1, 2]]"  # inserted back as typed
+    assert "matrix" not in s.run("[[1, 2], [3]]", 3)["result"]["latex"]  # ragged: a list of lists
+    assert s.preview(M) == r"\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}"
 
 
 def test_vector_pickles():

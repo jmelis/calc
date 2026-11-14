@@ -126,6 +126,16 @@ def _plain(value):
     return [_plain(v) for v in value] if isinstance(value, list) else value
 
 
+def is_matrix(value):
+    """A list of equal-length rows of numbers and expressions: shown as a matrix."""
+    return (
+        isinstance(value, list)
+        and len(value) > 0
+        and all(isinstance(row, list) and len(row) == len(value[0]) > 0 and _flat(row) for row in value)
+        and _numeric(value)
+    )
+
+
 def _flat(value):
     return not any(isinstance(v, list) for v in value)
 

@@ -73,6 +73,11 @@ class _Renderer:
         return str(v), PREC_ATOM
 
     def _List(self, node):
+        # rows of equal length are a matrix (see vectors.py), and look like one
+        rows = node.elts
+        if rows and all(isinstance(r, ast.List) and len(r.elts) == len(rows[0].elts) > 0 for r in rows):
+            if not any(isinstance(e, (ast.List, ast.ListComp)) for r in rows for e in r.elts):
+                return self._call_matrix([node])
         return rf"\left[{self._items(node.elts)}\right]", PREC_ATOM
 
     def _Tuple(self, node):

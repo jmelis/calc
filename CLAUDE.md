@@ -84,7 +84,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Lists are vectors** (`vectors.py`): in calculator syntax `[ ]` and list comprehensions make a
   `Vector`, a list whose arithmetic and matrix methods work on `Matrix(self)`: flat is a column
   vector, a list of rows a matrix. Results are kept with `as_vector`: one-column matrices come back
-  as flat lists, so vectors stay lists. A vector before a matrix is a row (`[1, 1] M`); `*` between
+  as flat lists, so vectors stay lists. Equal-length rows print as a matrix (`is_matrix`; in the
+  preview too), but stay a list underneath. A vector before a matrix is a row (`[1, 1] M`); `*` between
   two vectors is an error pointing to `dot`/`cross`; `[0]*3` is math (`[0]`), not repetition.
   Python lines (below) keep plain lists.
 - **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
