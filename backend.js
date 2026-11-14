@@ -2,7 +2,7 @@
 // variables in IndexedDB, and runs the Python worker (worker.js).
 //
 // The page sends it messages ({type: "eval" | "preview" | "interrupt" | "clear" |
-// "reset" | "vars" | "forget", ...}) and gets back the same kinds of messages a
+// "delete" | "reset" | "vars" | "forget", ...}) and gets back the same kinds of messages a
 // server would push ({type: "init" | "pending" | "entry" | "tape" | "preview" |
 // "names" | "vars" | "status" | "ready", ...}). Like a server's, they're copies: the page
 // changes what it receives (adds entries, sets views), and that mustn't reach the tape.
@@ -144,7 +144,7 @@ class Backend {
   // --- messages from the page ---------------------------------------------------
 
   handle(msg) {
-    if (!this.worker && msg.type !== "interrupt") {
+    if (!this.worker && !["interrupt", "clear", "delete"].includes(msg.type)) {
       this.queued.push(msg); // still reading the saved tape; sent once the worker exists
       return true;
     }
@@ -162,6 +162,10 @@ class Backend {
         this.tape.entries = [];
         this.save();
         this.emit({ type: "tape", entries: [] });
+        break;
+      case "delete": // the page has already removed it from view
+        this.tape.entries = this.tape.entries.filter((e) => e.id !== msg.id);
+        this.save();
         break;
       case "reset":
         this.reset();

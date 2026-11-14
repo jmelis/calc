@@ -7,14 +7,16 @@ MathLive. A static site with no build step and no server, published at https://j
 ## Commands
 
 ```bash
-make serve        # static server at http://127.0.0.1:8000 (file:// doesn't work: no workers)
-make test         # uv run pytest; tests/test_latex.py also needs node
+make serve        # builds the bundle if needed, then serves http://127.0.0.1:8000 (file:// doesn't work)
+make test         # uv run pytest; tests/test_latex.py also needs node, test_bundle.py the bundle
+make bundle       # sympy-bytecode.zip: SymPy precompiled for the browser (tools/build_bundle.py)
 uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pytest
 ```
 
-Deployment is `.github/workflows/pages.yml`: every push to `main` runs the tests, then publishes
-only the files the browser loads (`index.html`, `*.css`, `*.js`, `py/calc/*.py`). A new top-level
-file the page needs must be added to that workflow's copy step.
+Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundle and runs the
+tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
+`py/calc/*.py`, `sympy-bytecode.zip`). A new top-level file the page needs must be added to that
+workflow's copy step.
 
 ## Architecture
 
@@ -31,6 +33,7 @@ latex.js: math input's LaTeX → calculator text (page side)
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on first `plot` |
+| `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages |
 | `py/calc/parser.py` | Calculator syntax → SymPy: `2x`, `sin x`, `^`, `5!`, `=` handling (assign / define / equation, also inside calls), `°`/`º`, `$n` |
 | `py/calc/preview.py` | Input → LaTeX by walking the AST of the transformed source. Never evaluates, so it's cheap and safe on every keystroke, and shows what was typed (`integrate(…)` renders as ∫) |
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs |
@@ -53,9 +56,14 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Interrupt** (Ctrl+C) terminates the worker and starts a new one from the state saved after the
   last result. Interrupting Python in place needs SharedArrayBuffer, i.e. cross-origin isolation
   headers that GitHub Pages can't send.
-- **Startup**: the saved tape shows immediately; input submitted before Python is ready queues as
-  "computing". A warm reload is ~3 s, most of it `import sympy` (unavoidable: SymPy imports nearly
-  everything at once).
+- **Startup**: the saved tape shows immediately (the welcome screen only once the tape is known to
+  be empty, so it doesn't flash); input submitted before Python is ready queues as "computing".
+  Importing SymPy from source took ~2 s of a ~3 s warm reload, compiling it every time, hence the
+  precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
+  xz, which would need a decompressor in the browser and time on every load).
+- **"computing"** only appears after 300 ms (a CSS animation delay), so fast results don't flash it.
+- **Deleting** (⌫ on a selected tape item) removes the entry from the tape only: its value stays
+  reachable as `$n`.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
   optional `float` and `degrees` views, and a `label` for assignments. Objects that can't round-trip
   as text are inserted as `$n`.
@@ -84,8 +92,11 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 
 - SymPy in the browser is whatever Pyodide ships. `PYODIDE_VERSION` in `worker.js` and the
   `sympy==` pin in `pyproject.toml` move together. When bumping Pyodide, also update the
-  `DOWNLOADS` sizes in `worker.js` (`curl -s --compressed URL | wc -c`; a stale size only makes the
-  progress bar less accurate) and the wheel file names there.
+  `RUNTIME` / `SOURCE_PACKAGES` sizes in `worker.js` (`curl -s --compressed URL | wc -c`; a stale
+  size only makes the progress bar less accurate) and the wheel file names there.
+- The bundle's bytecode is specific to Python's minor version: `tools/build_bundle.py` must run on
+  the same one as Pyodide (it checks `pyodide-lock.json`), so `.python-version` follows Pyodide's
+  Python too. It reads `PYODIDE_VERSION` from `worker.js`, so the wheels always match.
 - `parser.py` carries a fixed copy of SymPy's private `_implicit_application` (upstream breaks
   `sin x^2` once `x` is defined) and imports other SymPy internals. A SymPy bump can break it; the
   tests will tell.
@@ -133,5 +144,5 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 
 Keys: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>↑</kbd>/<kbd>↓</kbd>
 select tape items, <kbd>⏎</kbd> insert the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd>
-degrees, <kbd>c</kbd> copy LaTeX, <kbd>Tab</kbd> complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+
+degrees, <kbd>c</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entry, <kbd>Tab</kbd> complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+
 <kbd>C</kbd> interrupt, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.

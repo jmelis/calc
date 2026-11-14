@@ -70,6 +70,7 @@ kbd {
   text-align: center;
   margin-bottom: 18vh;
   line-height: 1.8;
+  min-width: 0;
 }
 #empty code {
   font-family: var(--mono);
@@ -80,7 +81,7 @@ kbd {
   margin: 0 0.2em;
   white-space: nowrap;
 }
-#empty .examples { line-height: 2.4; }
+#empty .examples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; }
 #empty .note { font-size: 13px; margin-top: 2em; }
 
 .entry {
@@ -172,13 +173,16 @@ kbd {
   white-space: pre-wrap;
 }
 
+/* only after 300 ms, so quick results don't flash it */
 .pending .out .math::after {
   content: "computing";
   font-family: var(--mono);
   font-size: 12px;
   color: var(--muted);
-  animation: pulse 1.2s ease-in-out infinite;
+  opacity: 0;
+  animation: appear 0s linear 0.3s forwards, pulse 1.2s ease-in-out 0.3s infinite;
 }
+@keyframes appear { to { opacity: 1; } }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
 /* --- composer ------------------------------------------------------------- */

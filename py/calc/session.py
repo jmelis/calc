@@ -71,7 +71,7 @@ class Session:
 
     def run(self, src, entry_id):
         """Evaluate one submission: {input_latex, outputs, result?, error?, names}."""
-        payload = {"input_latex": self.preview(src)}
+        payload = {"input_latex": self.preview(src)}  # before evaluating: what was typed, with the names known then
         stdout = io.StringIO()
         try:
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stdout), warnings.catch_warnings():
@@ -326,7 +326,7 @@ def _degrees(value):
     """The value read as an angle in radians, in degrees: pi/4 -> 45°. Only for real numbers."""
     if not isinstance(value, Basic) or isinstance(value, bool) or not value.is_number or value.is_real is not True:
         return None
-    degrees = (value * 180 / pi).simplify()
+    degrees = value * 180 / pi  # no simplify(): pi multiples cancel on their own, and it was most of a run's time
     if not degrees.is_Rational:
         degrees = degrees.evalf(FLOAT_DIGITS)
     text = sstr(degrees, full_prec=False)

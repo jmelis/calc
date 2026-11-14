@@ -14,7 +14,8 @@
 <body>
   <main>
     <div id="tape" role="log" aria-live="polite">
-      <div id="empty">
+      <!-- hidden until the saved tape has loaded and turns out empty, so it doesn't flash on reload -->
+      <div id="empty" hidden>
         <p>Type an expression and press <kbd>⏎</kbd>.</p>
         <p class="examples"><code>integrate(sin(x)^2, x)</code> <code>a = 3/7 + 1/5</code> <code>f(x) = x^2 + 1</code> <code>solve(x^2 = 2, x)</code></p>
         <p>Press <kbd>?</kbd> for the function catalog.</p>

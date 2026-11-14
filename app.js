@@ -197,7 +197,7 @@ function renderHints() {
     if (state.selected.part === "result" && entry?.result?.degrees) parts.push("<kbd>d</kbd> degrees");
     parts.push(state.selected.part === "result" && entry?.result?.latex !== undefined
       ? "<kbd>c</kbd> copy LaTeX" : "<kbd>c</kbd> copy");
-    parts.push("<kbd>Esc</kbd> back");
+    parts.push("<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
   } else if (state.mode === "math") {
     parts.push("<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>→</kbd> leave a box", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> text input");
   } else {
@@ -334,6 +334,20 @@ function insertSelected() {
     insertAtCursor(input.value.trim() && !isAtom ? `(${text})` : text);
   }
   select(null);
+}
+
+// Removes the selected entry (input and result) from the tape. Its value stays
+// reachable as $n; the selection moves to the item that takes its place.
+function deleteSelected() {
+  const id = state.selected.id;
+  const items = selectableItems();
+  const before = items.findIndex((item) => item.id === id);
+  state.entries = state.entries.filter((e) => e.id !== id);
+  tapeEl.querySelector(`.entry[data-id="${id}"]`)?.remove();
+  emptyEl.hidden = state.entries.length > 0;
+  send({ type: "delete", id });
+  const remaining = selectableItems();
+  select(remaining.length ? remaining[Math.min(before, remaining.length - 1)] : null);
 }
 
 function toggleView(view) {
@@ -614,6 +628,8 @@ function browseKey(e) {
     f: () => toggleView("float"),
     d: () => toggleView("degrees"),
     c: copySelected,
+    Backspace: deleteSelected,
+    Delete: deleteSelected,
   }[e.key];
   if (handled) {
     e.preventDefault();
@@ -1057,7 +1073,7 @@ function onMathKey(e) {
   }
   if (state.selected) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c"].includes(e.key)) {
+    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c", "Backspace", "Delete"].includes(e.key)) {
       stop(e);
       browseKey(e);
     } else select(null); // and the key reaches the math field
