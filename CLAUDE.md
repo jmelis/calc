@@ -89,7 +89,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   Python lines (below) keep plain lists.
 - **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
   Python directly; any other line that isn't calculator syntax falls back to Python. One line, with
-  `;` between statements. In Python lines `^` is XOR and nothing is implied.
+  `;` between statements. `^` is a power there too (`_CaretIsPower`; no XOR), but nothing is implied.
 - **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
   user's manual: keep it in step with the syntax, short and with examples.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),

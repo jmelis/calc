@@ -272,8 +272,25 @@ class Session:
         return result
 
 
+class _CaretIsPower(ast.NodeTransformer):
+    """^ is a power in Python lines too, as everywhere in the calculator (not XOR)."""
+
+    def visit_BinOp(self, node):
+        self.generic_visit(node)
+        if isinstance(node.op, ast.BitXor):
+            node.op = ast.Pow()
+        return node
+
+    def visit_AugAssign(self, node):
+        self.generic_visit(node)
+        if isinstance(node.op, ast.BitXor):
+            node.op = ast.Pow()
+        return node
+
+
 def _exec_python(tree, ns):
     """exec a module, returning the value of its last line if it's an expression."""
+    tree = _CaretIsPower().visit(tree)
     last = tree.body.pop() if tree.body and isinstance(tree.body[-1], ast.Expr) else None
     exec(compile(tree, "<calc>", "exec"), ns)
     if last is not None:
