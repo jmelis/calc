@@ -93,8 +93,9 @@
             <dt>def g(x): y = x + 1; return 2*y</dt><dd>A Python function</dd>
             <dt>for i in range(3): print(i)</dt><dd>Loops; printed output shows on the tape</dd>
             <dt>import math</dt><dd>Imports</dd>
+            <dt>def sq(n): return n^2</dt><dd><strong>^ is a power here too</strong> (sq(3) is 9), not Python's XOR</dd>
           </dl>
-          <p class="note">Python lines are plain Python, except that <code>^</code> is still a power: write <code>*</code> to multiply. Only names defined with <code>a = …</code> and <code>f(x) = …</code> are kept when you reload.</p>
+          <p class="note">Otherwise Python lines are plain Python: nothing is implied, so write <code>2*x</code>, not <code>2x</code>. Only names defined with <code>a = …</code> and <code>f(x) = …</code> are kept when you reload.</p>
         </section>
         <section>
           <h2>Keys</h2>
