@@ -156,6 +156,7 @@ IDENT = r"[A-Za-z_]\w*"
 IDENTS = rf"{IDENT}(?:\s*,\s*{IDENT})*"
 ASSIGN_RE = re.compile(rf"^\s*({IDENTS})\s*$")
 DEFINE_RE = re.compile(rf"^\s*({IDENT})\s*\(\s*({IDENTS})\s*\)\s*$")
+SETITEM_RE = re.compile(rf"^\s*({IDENT})\s*(?:\[[^\[\]]+\]\s*)+$")  # M[0, 1], v[0], M[0][1]
 REF_RE = re.compile(r"\$(\d+)")
 # Comprehension variables: for i in, for i, j in
 FOR_RE = re.compile(rf"\bfor\s+\(?\s*({IDENTS})\s*\)?\s+in\b")
@@ -277,6 +278,7 @@ def classify(src):
         ("expr", src)
         ("assign", (names, rhs))
         ("define", (name, args, body))
+        ("setitem", (name, target, rhs))    M[0, 1] = 5: change part of a value
         ("equation", (lhs, rhs))
     """
     parts = split_top_level_equals(src)
@@ -287,6 +289,8 @@ def classify(src):
         return "define", (m[1], split_names(m[2]), rhs)
     if m := ASSIGN_RE.match(lhs):
         return "assign", (split_names(m[1]), rhs)
+    if m := SETITEM_RE.match(lhs):
+        return "setitem", (m[1], lhs, rhs)
     return "equation", (lhs, rhs)
 
 

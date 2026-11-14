@@ -315,6 +315,9 @@ def preview(src, variables=(), functions=()):
     if kind == "assign":
         names, rhs = data
         return rf"{', '.join(_symbol(n) for n in names)} = {_render(rhs, ns)}"
+    if kind == "setitem":
+        _, target, rhs = data
+        return f"{_render(target, ns)} = {_render(rhs, ns)}"
     name, args, body = data
     ns.update({a: Symbol(a) for a in args})
     head = _Renderer()._function(name, [ast.Name(a) for a in args])[0]

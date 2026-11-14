@@ -179,6 +179,7 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `sin(30°)` | Degrees |
 | `e`, `I`, `pi`, `oo` | Constants (`e` is `E`) |
 | `[1, 2]`, `[[1, 2], [3, 4]]`, `2[1, 2]`, `M*v`, `M[0, 1]` | Lists that are vectors and matrices in math (see `vectors.py`) |
+| `M[0, 1] = 5`, `M[1] = [7, 8]`, `v[0] = 9` | Change part of a defined value (shows the whole value; earlier `$n` keep theirs) |
 | `[k^2 for k in range(5)]` | Comprehensions are calculator syntax too (`^` is power) |
 | `:help`, `:vars`, `:clear`, `:reset` | Help panel; Memory panel; empty the tape; also forget all variables |
 | `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |

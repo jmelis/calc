@@ -93,3 +93,27 @@ def test_vector_pickles():
 
     v = vector([[1, 2], [3, 4]])
     assert pickle.loads(pickle.dumps(v)) == v
+
+
+def test_changing_part_of_a_matrix():
+    s = Session()
+    text(s, f"M = {M}")
+    assert text(s, "M[0, 1] = 5") == "[[1, 5], [3, 4]]"
+    assert s.run("M[1] = [7, 8]", 3)["result"]["label"] == "M"
+    assert text(s, "M") == "[[1, 5], [7, 8]]"
+    text(s, "v = [1, 2]")
+    assert text(s, "v[0] = x") == "[x, 2]"
+    assert text(Session(s.state()), "M[1, 1]") == "8"  # kept across a restart
+
+
+def test_earlier_results_dont_change_with_the_variable():
+    s = Session()
+    s.run(f"M = {M}", 1)
+    s.run("M[0, 0] = 9", 2)
+    assert s.run("$1", 3)["result"]["text"] == M.replace(" ", "").replace(",", ", ")
+
+
+def test_setting_a_column_is_explained():
+    s = Session()
+    text(s, f"M = {M}")
+    assert "M[i] = [" in s.run("M[:, 0] = [1, 1]", 2)["error"]

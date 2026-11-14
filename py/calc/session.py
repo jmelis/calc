@@ -24,7 +24,7 @@ from sympy.printing.latex import LatexPrinter
 
 from . import stats
 from .catalog import catalog_entries
-from .parser import _GLOBALS, REFS_NAME, classify, is_statement, parse
+from .parser import _GLOBALS, REFS_NAME, classify, is_statement, parse, to_python
 from .preview import _symbol, preview
 from .vectors import as_vector, is_matrix
 
@@ -225,6 +225,14 @@ class Session:
             for name, v in zip(names, values):
                 self._assign(name, as_vector(v))
             return Outcome(value, label=", ".join(latex(Symbol(n)) for n in names))
+        if kind == "setitem":
+            name, target, rhs = data
+            if name not in ns:
+                raise NameError(f"name '{name}' is not defined")
+            value = as_vector(parse(rhs, ns))
+            exec(f"{to_python(target, ns)} = _calc_value", _GLOBALS, {**ns, "_calc_value": value})
+            # the whole value, changed; a copy, so changing it again doesn't change this entry's $n
+            return Outcome(as_vector(ns[name]), label=latex(Symbol(name)))
         name, args, body = data
         arg_syms = [Symbol(a) for a in args]
         fn = Lambda(tuple(arg_syms), parse(body, {**ns, **dict(zip(args, arg_syms))}))

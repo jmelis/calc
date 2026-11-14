@@ -59,6 +59,16 @@ class Vector(list):
             return self._matrix()[key]  # M[0, 1], M[:, 0]
         return super().__getitem__(key)
 
+    def __setitem__(self, key, value):
+        if not isinstance(key, tuple):
+            return super().__setitem__(key, value)  # v[0] = 9, M[1] = [7, 8]
+        if len(key) != 2 or any(isinstance(k, slice) for k in key):
+            raise TypeError("set one element, M[i, j] = …, or a row, M[i] = […]")
+        row = super().__getitem__(key[0])
+        if not isinstance(row, list):
+            raise TypeError("M[i, j] = … needs a matrix (a list of rows)")
+        row[key[1]] = value
+
     def _math(self, other, op, plain=None):
         if not _numeric(self) or not _numeric(other):
             if plain is None:
