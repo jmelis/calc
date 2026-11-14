@@ -28,7 +28,8 @@ const state = {
   entries: [], // {id, input, outputs, result, error, pending, view: "exact" | "float"}
   catalog: [],
   names: { variables: [], functions: [], defined: [] },
-  selected: null, // {id, part: "input" | "result"}
+  selected: null, // {id, part: "input" | "graph" | "result"}: where ↑ ↓ are, and what ⏎ f d act on
+  anchor: null, // where a Shift+↑/↓ range started; c copies and ⌫ deletes the whole range
   ready: false, // Python loaded
   status: null, // what's loading or failing, shown in the hint line (startup has a bar)
   flash: null,
@@ -192,15 +193,9 @@ function replaceEntryNode(entry) {
 function renderSelection() {
   tapeEl.querySelectorAll(".item.selected").forEach((n) => n.classList.remove("selected"));
   promptEl.classList.toggle("browsing", !!state.selected);
-  if (state.selected) {
-    const node = tapeEl.querySelector(
-      `.item[data-id="${state.selected.id}"][data-part="${state.selected.part}"]`
-    );
-    if (node) {
-      node.classList.add("selected");
-      node.scrollIntoView({ block: "nearest" });
-    }
-  }
+  const itemNode = (item) => tapeEl.querySelector(`.item[data-id="${item.id}"][data-part="${item.part}"]`);
+  for (const item of selectedRange()) itemNode(item)?.classList.add("selected");
+  if (state.selected) itemNode(state.selected)?.scrollIntoView({ block: "nearest" });
   renderHints();
 }
 
@@ -236,16 +231,17 @@ function renderHints() {
   else if (busy()) parts.push('<span class="status">computing…</span> <kbd>⌃C</kbd> interrupt');
 
   if (state.flash) parts.push(`<span class="flash">${state.flash}</span>`);
-  else if (state.selected?.part === "graph") {
-    parts.push("<kbd>←</kbd><kbd>→</kbd> pan", "<kbd>+</kbd><kbd>−</kbd> zoom", "<kbd>0</kbd> reset", "<kbd>⏎</kbd> insert", "<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
+  else if (state.selected && selectedEntries().length > 1) {
+    const n = selectedEntries().length;
+    parts.push(`<kbd>c</kbd> copy ${n} cells`, `<kbd>⌫</kbd> delete ${n}`, "<kbd>⇧</kbd><kbd>↑</kbd><kbd>↓</kbd> more or fewer", "<kbd>Esc</kbd> back");
+  } else if (state.selected?.part === "graph") {
+    parts.push("<kbd>←</kbd><kbd>→</kbd> pan", "<kbd>+</kbd><kbd>−</kbd> zoom", "<kbd>0</kbd> reset", "<kbd>⏎</kbd> insert", "<kbd>c</kbd> copy", "<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
   } else if (state.selected) {
     const entry = entryById(state.selected.id);
     parts.push("<kbd>⏎</kbd> insert");
     if (state.selected.part === "result" && entry?.result?.float) parts.push("<kbd>f</kbd> exact/float");
     if (state.selected.part === "result" && entry?.result?.degrees) parts.push("<kbd>d</kbd> degrees");
-    parts.push(state.selected.part === "result" && entry?.result?.latex !== undefined
-      ? "<kbd>c</kbd> copy LaTeX" : "<kbd>c</kbd> copy");
-    parts.push("<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
+    parts.push("<kbd>c</kbd> copy", "<kbd>⇧C</kbd> LaTeX", "<kbd>⇧</kbd><kbd>↑</kbd> more", "<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
   } else if (state.mode === "math") {
     parts.push("<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>→</kbd> leave a box", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> text input");
   } else {
@@ -331,6 +327,34 @@ function selectedIndex(items) {
 
 function select(item) {
   state.selected = item;
+  state.anchor = null;
+  renderSelection();
+}
+
+// The items from the anchor to the selection (just the selection without a range)
+function selectedRange() {
+  if (!state.selected) return [];
+  const items = selectableItems();
+  const at = selectedIndex(items);
+  const from = state.anchor ? items.findIndex((i) => i.id === state.anchor.id && i.part === state.anchor.part) : -1;
+  if (at === -1 || from === -1) return [state.selected];
+  return items.slice(Math.min(from, at), Math.max(from, at) + 1);
+}
+
+// The entries the selection touches, in tape order
+function selectedEntries() {
+  const ids = [...new Set(selectedRange().map((item) => item.id))];
+  return ids.map(entryById).filter(Boolean);
+}
+
+// Shift+↑/↓: grow or shrink a range from where it started
+function extendSelection(delta) {
+  const items = selectableItems();
+  const at = selectedIndex(items);
+  if (at === -1) return;
+  const anchor = state.anchor ?? state.selected;
+  state.selected = items[Math.min(items.length - 1, Math.max(0, at + delta))];
+  state.anchor = anchor;
   renderSelection();
 }
 
@@ -385,19 +409,20 @@ function insertSelected() {
   select(null);
 }
 
-// Removes the selected entry (input and result) from the tape. Its value stays
-// reachable as $n; the selection moves to the item that takes its place.
+// Removes the selected entries (input and result) from the tape, all of a range at once
+// (one ⌃Z brings them back). Their values stay reachable as $n; the selection moves to
+// the item that takes their place.
 function deleteSelected() {
-  const id = state.selected.id;
+  const ids = selectedEntries().map((e) => e.id);
   const items = selectableItems();
-  const before = items.findIndex((item) => item.id === id);
-  state.entries = state.entries.filter((e) => e.id !== id);
-  tapeEl.querySelector(`.entry[data-id="${id}"]`)?.remove();
+  const before = items.findIndex((item) => ids.includes(item.id));
+  state.entries = state.entries.filter((e) => !ids.includes(e.id));
+  for (const id of ids) tapeEl.querySelector(`.entry[data-id="${id}"]`)?.remove();
   emptyEl.hidden = state.entries.length > 0;
-  send({ type: "delete", id });
+  send({ type: "delete", ids });
   const remaining = selectableItems();
   select(remaining.length ? remaining[Math.min(before, remaining.length - 1)] : null);
-  flash(`Deleted entry ${id} · <kbd>⌃Z</kbd> undo`);
+  flash(`Deleted ${ids.length > 1 ? `${ids.length} entries` : `entry ${ids[0]}`} · <kbd>⌃Z</kbd> undo`);
 }
 
 function toggleView(view) {
@@ -407,19 +432,46 @@ function toggleView(view) {
   replaceEntryNode(entry);
 }
 
-async function copySelected() {
-  const entry = entryById(state.selected.id);
-  let text, what;
-  if (state.selected.part === "input" || state.selected.part === "graph") [text, what] = [entry.input, "input"];
-  else if (entry.result.latex !== undefined) {
-    [text, what] = [viewLatex(entry), "LaTeX"];
-  } else [text, what] = [textFor(state.selected), "result"];
+// A tape cell as plain text: the input, any printed output, and "= result" (≈ for the
+// float view) unless that only repeats what was typed (a = 3/7, f(x) = x^2, x^2 = 4)
+function cellText(entry) {
+  const lines = [entry.input];
+  for (const out of entry.outputs ?? []) if (out.kind === "text") lines.push(out.text.replace(/\n$/, ""));
+  const r = entry.result;
+  if (entry.error) lines.push(entry.error);
+  else if (r) {
+    const view = entry.view === "float" ? r.float : entry.view === "degrees" ? r.degrees : null;
+    const text = view?.text ?? (r.latex === undefined ? r.plain ?? r.text : r.text);
+    const squash = (s) => s.replace(/\s+/g, "").replaceAll("**", "^");
+    const assigned = r.label ? entry.input.replace(/^[^=]*?:?=(?!=)/, "") : entry.input;
+    const defined = r.label && /^\s*\w+\s*\(/.test(entry.input) && /^\w+$/.test(r.text) && !view;
+    const equation = !r.label && !view && r.text.startsWith("Eq(") && /[^=<>!:]=[^=]/.test(entry.input);
+    if (!defined && !equation && squash(text) !== squash(assigned)) lines.push(`${entry.view === "float" ? "≈" : "="} ${text}`);
+  }
+  return lines.join("\n");
+}
+
+async function writeClipboard(text, what) {
   try {
     await navigator.clipboard.writeText(text);
     flash(`Copied ${what}`);
   } catch {
     flash("Couldn't copy to the clipboard");
   }
+}
+
+// c: the selected cells (a whole range), as plain text
+function copySelected() {
+  const entries = selectedEntries();
+  writeClipboard(entries.map(cellText).join("\n\n"), entries.length > 1 ? `${entries.length} cells` : "the cell");
+}
+
+// Shift+C: the selected item's LaTeX, for papers and notes with math
+function copyLatex() {
+  const entry = entryById(state.selected.id);
+  const latex = state.selected.part === "result" && entry.result.latex !== undefined ? viewLatex(entry) : entry.input_latex;
+  if (latex) writeClipboard(latex, "LaTeX");
+  else flash("This one has no LaTeX: c copies it as text");
 }
 
 // --- input -------------------------------------------------------------------
@@ -715,13 +767,14 @@ function browseKey(e) {
     return;
   }
   const handled = {
-    ArrowUp: () => moveSelection(-1),
-    ArrowDown: () => moveSelection(1),
+    ArrowUp: () => (e.shiftKey ? extendSelection(-1) : moveSelection(-1)),
+    ArrowDown: () => (e.shiftKey ? extendSelection(1) : moveSelection(1)),
     Enter: insertSelected,
     Escape: () => select(null),
     f: () => toggleView("float"),
     d: () => toggleView("degrees"),
     c: copySelected,
+    C: copyLatex,
     Backspace: deleteSelected,
     Delete: deleteSelected,
   }[e.key];
@@ -1095,7 +1148,15 @@ helpEl.addEventListener("mousedown", (e) => {
 
 tapeEl.addEventListener("click", (e) => {
   const item = e.target.closest(".item[data-part]");
-  if (item && !item.closest(".pending")) select({ id: Number(item.dataset.id), part: item.dataset.part });
+  if (item && !item.closest(".pending")) {
+    const clicked = { id: Number(item.dataset.id), part: item.dataset.part };
+    if (e.shiftKey && state.selected) {
+      // Shift+click: a range from where the selection was, as Shift+↑/↓ makes
+      state.anchor ??= state.selected;
+      state.selected = clicked;
+      renderSelection();
+    } else select(clicked);
+  }
   if (!window.getSelection().toString()) focusEditor();
 });
 tapeEl.addEventListener("dblclick", (e) => {
@@ -1222,7 +1283,7 @@ function onMathKey(e) {
   if (state.selected) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const graphKeys = state.selected.part === "graph" ? ["ArrowLeft", "ArrowRight", "+", "=", "-", "0"] : [];
-    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c", "Backspace", "Delete", ...graphKeys].includes(e.key)) {
+    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c", "C", "Backspace", "Delete", ...graphKeys].includes(e.key)) {
       stop(e);
       browseKey(e);
     } else select(null); // and the key reaches the math field

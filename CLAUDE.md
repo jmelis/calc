@@ -197,6 +197,7 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |
 
 Keys: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>↑</kbd>/<kbd>↓</kbd>
-select tape items, <kbd>⏎</kbd> insert the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd>
-degrees, <kbd>c</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entry, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>
+select tape items (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> or Shift+click: a range), <kbd>⏎</kbd> insert
+the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy the cells as text
+(`cellText`), <kbd>Shift</kbd>+<kbd>C</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entries (one undo), <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>
 complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+<kbd>C</kbd> interrupt, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.

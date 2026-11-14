@@ -61,7 +61,7 @@ class Backend {
     this.queued = []; // messages that arrived before there was a worker to send them to
     this.running = 0; // evaluations in the worker; previews wait for them
     this.deferredPreviews = new Map(); // target -> latest preview request while busy
-    // what Ctrl+Z can take back: {kind: "delete", entry} | {kind: "clear", entries} |
+    // what Ctrl+Z can take back: {kind: "delete" | "clear", entries} |
     // {kind: "forget", name, saved}. In memory only; :reset empties it
     this.undoStack = [];
   }
@@ -171,10 +171,11 @@ class Backend {
         this.save();
         this.emit({ type: "tape", entries: [] });
         break;
-      case "delete": { // the page has already removed it from view
-        const entry = this.tape.entries.find((e) => e.id === msg.id);
-        if (entry) this.undoStack.push({ kind: "delete", entry });
-        this.tape.entries = this.tape.entries.filter((e) => e.id !== msg.id);
+      case "delete": { // msg.ids; the page has already removed them from view
+        const ids = new Set(msg.ids);
+        const entries = this.tape.entries.filter((e) => ids.has(e.id));
+        if (entries.length) this.undoStack.push({ kind: "delete", entries });
+        this.tape.entries = this.tape.entries.filter((e) => !ids.has(e.id));
         this.save();
         break;
       }
@@ -297,11 +298,14 @@ class Backend {
       return;
     }
     // back in their places, among whatever was evaluated since
-    const restored = last.kind === "clear" ? last.entries : [last.entry];
-    this.tape.entries = [...restored, ...this.tape.entries].sort((a, b) => a.id - b.id);
+    this.tape.entries = [...last.entries, ...this.tape.entries].sort((a, b) => a.id - b.id);
     this.save();
     this.emit({ type: "tape", entries: this.tape.entries });
-    const text = last.kind === "clear" ? "Restored the tape" : `Restored entry ${last.entry.id}`;
+    const [first] = last.entries;
+    const text =
+      last.kind === "clear" ? "Restored the tape"
+      : last.entries.length > 1 ? `Restored ${last.entries.length} entries`
+      : `Restored entry ${first.id}`;
     this.emit({ type: "undone", text });
   }
 
