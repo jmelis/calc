@@ -63,9 +63,9 @@ function el(tag, className, text) {
   return node;
 }
 
-function renderOutputs(outputs) {
+function renderOutputs(entry) {
   const wrap = el("div", "outputs");
-  for (const out of outputs) {
+  for (const out of entry.outputs) {
     if (out.kind === "text") wrap.append(el("pre", "", out.text.replace(/\n$/, "")));
     else if (out.kind === "latex") {
       const d = el("div", "latex");
@@ -80,6 +80,8 @@ function renderOutputs(outputs) {
       const d = el("div", "html");
       d.innerHTML = out.html; // output of this tab's own Python
       wrap.append(d);
+    } else if (out.kind === "graph") {
+      wrap.append(renderGraph(entry.id, out, send)); // graph.js
     }
   }
   return wrap;
@@ -162,13 +164,14 @@ function renderEntry(entry) {
     node.append(out);
     return node;
   }
-  if (entry.outputs?.length) node.append(renderOutputs(entry.outputs));
+  if (entry.outputs?.length) node.append(renderOutputs(entry));
   if (entry.error) node.append(el("div", "err", entry.error));
   else if (entry.result) node.append(renderResult(entry));
   return node;
 }
 
 function renderTape() {
+  destroyGraphs();
   tapeEl.querySelectorAll(".entry").forEach((n) => n.remove());
   for (const entry of state.entries) tapeEl.append(renderEntry(entry));
   emptyEl.hidden = state.entries.length > 0;
@@ -213,12 +216,14 @@ tapeEl.addEventListener("scroll", () => {
 });
 new ResizeObserver(() => tapeAtEnd && scrollToBottom()).observe(tapeEl);
 
-// images (plots) get their height only once loaded, after we've already scrolled
+// images (plots) and graphs get their height only once loaded or drawn, after we've
+// already scrolled
 function scrollToBottomAfterImages(node) {
   scrollToBottom();
   node.querySelectorAll("img").forEach((img) => {
     if (!img.complete) img.addEventListener("load", scrollToBottom, { once: true });
   });
+  node.querySelectorAll(".graph").forEach((graph) => graph.addEventListener("drawn", scrollToBottom, { once: true }));
 }
 
 function busy() {
@@ -231,7 +236,9 @@ function renderHints() {
   else if (busy()) parts.push('<span class="status">computing…</span> <kbd>⌃C</kbd> interrupt');
 
   if (state.flash) parts.push(`<span class="flash">${state.flash}</span>`);
-  else if (state.selected) {
+  else if (state.selected?.part === "graph") {
+    parts.push("<kbd>←</kbd><kbd>→</kbd> pan", "<kbd>+</kbd><kbd>−</kbd> zoom", "<kbd>0</kbd> reset", "<kbd>⏎</kbd> insert", "<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
+  } else if (state.selected) {
     const entry = entryById(state.selected.id);
     parts.push("<kbd>⏎</kbd> insert");
     if (state.selected.part === "result" && entry?.result?.float) parts.push("<kbd>f</kbd> exact/float");
@@ -311,6 +318,7 @@ function selectableItems() {
   for (const e of state.entries) {
     if (e.pending) continue;
     items.push({ id: e.id, part: "input" });
+    if (e.outputs?.some((out) => out.kind === "graph")) items.push({ id: e.id, part: "graph" });
     if (e.result) items.push({ id: e.id, part: "result" });
   }
   return items;
@@ -337,7 +345,7 @@ function moveSelection(delta) {
 
 function textFor(item) {
   const entry = entryById(item.id);
-  if (item.part === "input") return entry.input;
+  if (item.part === "input" || item.part === "graph") return entry.input;
   const r = entry.result;
   if (entry.view === "float" && r.float) return r.float.text;
   if (entry.view === "degrees" && r.degrees) return r.degrees.text;
@@ -354,7 +362,7 @@ function viewLatex(entry) {
 
 function latexFor(item) {
   const entry = entryById(item.id);
-  if (item.part === "input") return entry.input_latex;
+  if (item.part === "input" || item.part === "graph") return entry.input_latex;
   const r = entry.result;
   if (r.latex === undefined) return `\\boxed{${entry.id}}`;
   return entry.view === "exact" || !entry.view ? (r.text.length > LONG_TEXT ? `\\boxed{${entry.id}}` : r.latex) : viewLatex(entry);
@@ -402,7 +410,7 @@ function toggleView(view) {
 async function copySelected() {
   const entry = entryById(state.selected.id);
   let text, what;
-  if (state.selected.part === "input") [text, what] = [entry.input, "input"];
+  if (state.selected.part === "input" || state.selected.part === "graph") [text, what] = [entry.input, "input"];
   else if (entry.result.latex !== undefined) {
     [text, what] = [viewLatex(entry), "LaTeX"];
   } else [text, what] = [textFor(state.selected), "result"];
@@ -702,6 +710,10 @@ input.addEventListener("keydown", (e) => {
 
 function browseKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (state.selected.part === "graph" && graphKey(state.selected.id, e.key)) { // graph.js
+    e.preventDefault();
+    return;
+  }
   const handled = {
     ArrowUp: () => moveSelection(-1),
     ArrowDown: () => moveSelection(1),
@@ -1209,7 +1221,8 @@ function onMathKey(e) {
   }
   if (state.selected) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c", "Backspace", "Delete"].includes(e.key)) {
+    const graphKeys = state.selected.part === "graph" ? ["ArrowLeft", "ArrowRight", "+", "=", "-", "0"] : [];
+    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c", "Backspace", "Delete", ...graphKeys].includes(e.key)) {
       stop(e);
       browseKey(e);
     } else select(null); // and the key reaches the math field
@@ -1405,6 +1418,8 @@ function onMessage(msg) {
     onVariables(msg);
   } else if (msg.type === "undone") {
     flash(msg.text);
+  } else if (msg.type === "samples") {
+    graphSamples(msg); // graph.js
   }
 }
 

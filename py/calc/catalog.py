@@ -116,6 +116,7 @@ SYMPY = {
         ("pstdev", "(values)", "Population standard deviation (n)", "pstdev([2, 4, 4, 5])"),
     ],
     "Plotting": [
+        ("iplot", "(expr, (x, a, b))", "An interactive graph: drag or pinch to zoom; select it (↑) and ← → + − 0", "iplot(sin(x)/x, (x, -20, 20))"),
         ("plot", "(expr, (x, a, b))", "Plot a function of x; several: plot(f, g, (x, a, b))", "plot(sin(x), (x, -5, 5))"),
         ("plot_parametric", "((x(t), y(t)), (t, a, b))", "Plot a parametric curve", "plot_parametric((cos(t), sin(t)), (t, 0, 2pi))"),
         ("plot_implicit", "(Eq(lhs, rhs), (x, a, b), (y, c, d))", "Plot an implicit curve", "plot_implicit(Eq(x^2 + y^2, 4))"),

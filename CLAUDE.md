@@ -38,24 +38,26 @@ latex.js: math input's LaTeX → calculator text (page side)
 | --- | --- |
 | `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette, catalog, Memory panel, hover tips, keyboard handling |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
+| `graph.js` | `iplot` graphs on the tape: draws Python's samples with uPlot (fetched on the first graph), asks for new samples when zoomed or panned, keys for a selected graph |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
 | `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages. Also `plot-bytecode.zip`: the same for matplotlib and its dependencies, as `__pycache__/*.pyc` unpacked over the installed packages (their extension modules can't load from a zip) |
 | `py/calc/parser.py` | Calculator syntax → SymPy: `2x`, `sin x`, `^`, `5!`, `=` handling (assign / define / equation, also inside calls), `°`/`º`, `$n` |
 | `py/calc/preview.py` | Input → LaTeX by walking the AST of the transformed source. Never evaluates, so it's cheap and safe on every keystroke, and shows what was typed (`integrate(…)` renders as ∫) |
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs |
+| `py/calc/graphs.py` | `iplot`: samples expressions with numpy (mpmath for what numpy lacks), gaps at poles, a y range that ignores spikes; `sample_text` resamples for the page |
 | `py/calc/matrices.py` | `M[…]` and `V[…]`: matrices and column vectors, and how they print back as text |
 | `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev` |
 
 ### Messages
 
 Page → backend: `eval`, `preview` (`target`: `input`, `catalog`, `convert`), `interrupt`, `clear`,
-`delete`, `reset`, `vars`, `forget`, `undo`. Backend → page: `init` (saved tape, before Python is
+`delete`, `reset`, `vars`, `forget`, `undo`, `sample`. Backend → page: `init` (saved tape, before Python is
 up), `ready` (catalog, names), `pending`, `entry`, `tape`, `preview`, `names`, `vars`, `undone`
-(text to flash), `status` (text, and a `fraction` while starting up). The backend `structuredClone`s what it emits: the page mutates what
+(text to flash), `samples`, `status` (text, and a `fraction` while starting up). The backend `structuredClone`s what it emits: the page mutates what
 it receives, and that must not reach the saved tape.
 
-Worker requests are `{id, op, ...}` (`init`, `run`, `preview`, `vars`, `forget`, `unforget`), answered in
+Worker requests are `{id, op, ...}` (`init`, `run`, `preview`, `vars`, `forget`, `unforget`, `sample`), answered in
 arrival order, so requests sent before `init` finishes simply wait. Python returns JSON strings
 (see `GLUE` in `worker.js`), which keeps Pyodide proxies out of the page.
 
@@ -69,8 +71,13 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   Importing SymPy from source took ~2 s of a ~3 s warm reload, compiling it every time, hence the
   precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
   xz, which would need a decompressor in the browser and time on every load).
-- **Plotting**: matplotlib (~13 MB) is fetched once something plots, or as soon as `plot` appears in
-  the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
+- **Graphs** (`iplot`): the output carries the expressions (`srepr`), so after zooming or panning
+  `graph.js` asks the worker to `sample` the new range (debounced, `seq` drops stale replies); it
+  works after a restart or reload with nothing kept in Python. x is sent as `[from, to, n]`. Only
+  numpy is loaded (~0.5 s the first time), and only numpy's part of `plot-bytecode.zip` is unpacked.
+  A plain wheel scrolls the tape; Ctrl+wheel (a trackpad pinch) zooms.
+- **Plotting** (`plot`, a matplotlib PNG): matplotlib (~13 MB) is fetched once something plots, or as
+  soon as `plot` appears in the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
   `plot-bytecode.zip`, and `warm_up_plotting` draws a throwaway plot so the first real one costs
   what any other does (~0.1 s, against ~2 s of compiling and first-time setup before).
 - **Preview** (above the palette): takes no room while the input is empty; its room opens with
@@ -117,7 +124,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 
 - No build step, no framework, no npm dependencies: plain scripts loaded by `index.html`.
   Third-party code comes from jsDelivr with exact versions: Pyodide in `worker.js`, KaTeX in
-  `index.html`, MathLive in `app.js`.
+  `index.html`, MathLive in `app.js`, uPlot in `graph.js`.
 - **Keyboard first.** Every feature must work without the mouse; mouse controls (palette, buttons)
   never take focus from the input (`mousedown` → `preventDefault`). Keep the number of shortcuts
   small: in the tape, single letters act on the selection (`f`, `d`, `c`); everything else types.

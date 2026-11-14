@@ -2,9 +2,9 @@
 // variables in IndexedDB, and runs the Python worker (worker.js).
 //
 // The page sends it messages ({type: "eval" | "preview" | "interrupt" | "clear" |
-// "delete" | "reset" | "vars" | "forget" | "undo", ...}) and gets back the same kinds of
-// messages a server would push ({type: "init" | "pending" | "entry" | "tape" | "preview" |
-// "names" | "vars" | "status" | "ready" | "undone", ...}). Like a server's, they're copies: the page
+// "delete" | "reset" | "vars" | "forget" | "undo" | "sample", ...}) and gets back the same
+// kinds of messages a server would push ({type: "init" | "pending" | "entry" | "tape" |
+// "preview" | "names" | "vars" | "status" | "ready" | "undone" | "samples", ...}). Like a server's, they're copies: the page
 // changes what it receives (adds entries, sets views), and that mustn't reach the tape.
 
 class Interrupted extends Error {}
@@ -181,6 +181,9 @@ class Backend {
       case "undo":
         this.undo();
         break;
+      case "sample":
+        this.sample(msg);
+        break;
       case "reset":
         this.reset();
         break;
@@ -269,6 +272,16 @@ class Backend {
     if (!this.running) return;
     this.stopWorker();
     this.startWorker();
+  }
+
+  // an iplot graph was zoomed or panned: Python samples the new range
+  async sample({ key, seq, exprs, variable, xmin, xmax }) {
+    try {
+      const data = await this.request("sample", { exprs, variable, xmin, xmax });
+      this.emit({ type: "samples", key, seq, data });
+    } catch (e) {
+      this.emit({ type: "samples", key, seq, error: e.message });
+    }
   }
 
   // Ctrl+Z: takes back the last delete, :clear or forget (not evaluations, not :reset)

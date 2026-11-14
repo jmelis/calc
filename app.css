@@ -178,6 +178,12 @@ kbd {
 .outputs .latex .katex-display > .katex { text-align: left; }
 .outputs img { max-width: 100%; background: white; border-radius: 6px; margin: 4px 0; }
 .outputs .html { overflow-x: auto; font-size: 14px; }
+/* iplot graphs (graph.js): uPlot inside a selectable tape item */
+.outputs .graph { min-height: 240px; margin: 4px 0; padding: 6px 4px; }
+.outputs .graph .uplot { font-family: var(--sans); width: 100%; }
+.outputs .graph .u-legend { font-size: 13px; color: var(--text); }
+.outputs .graph .u-legend .u-label .katex { font-size: 1.05em; }
+.outputs .graph .u-select { background: var(--accent-soft); opacity: 0.6; }
 
 .err {
   font-family: var(--mono);

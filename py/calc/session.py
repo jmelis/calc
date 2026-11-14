@@ -25,6 +25,7 @@ from sympy.printing.latex import LatexPrinter
 
 from . import stats
 from .catalog import catalog_entries
+from .graphs import Graph, iplot, sample_text
 from .matrices import MAKERS, matrix_text
 from .parser import _GLOBALS, REFS_NAME, classify, is_statement, parse, to_python
 from .preview import _symbol, preview
@@ -76,6 +77,7 @@ class Session:
         self.ns[REFS_NAME] = self.out
         self.ns["ans"] = Integer(0)
         self.ns.update(stats.FUNCTIONS)
+        self.ns["iplot"] = iplot
         self.ns.update(MAKERS)  # M[1, 2], V[1, 2]; here, not only in _GLOBALS, or the parser makes M a Symbol
         for name in PLOT_FUNCTIONS:
             if name in self.ns:
@@ -100,7 +102,10 @@ class Session:
         payload["outputs"] = ([{"kind": "text", "text": stdout.getvalue()}] if stdout.getvalue() else []) + _figures()
 
         if outcome is not None:
-            if _is_plot(outcome.value):
+            if isinstance(outcome.value, Graph):
+                payload["outputs"].append(outcome.value.output(latex))
+                outcome.value = None  # the graph is the output
+            elif _is_plot(outcome.value):
                 outcome.value = None  # the figure is in outputs; the plot object's repr is noise
             if outcome.value is not None:
                 self.out[entry_id] = outcome.value
@@ -117,6 +122,10 @@ class Session:
             return preview(src, names["variables"], names["functions"])
         except Exception:
             return None
+
+    def sample(self, exprs, var, xmin, xmax):
+        """New samples for an iplot graph's x range, as the page zooms and pans."""
+        return sample_text(exprs, var, xmin, xmax)
 
     def names(self):
         """Names defined beyond plain sympy: kept whole (ab isn't a*b) and offered for completion."""

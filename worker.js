@@ -9,7 +9,7 @@
 
 const PYODIDE_VERSION = "314.0.7"; // ships sympy 1.14.0; keep pyproject.toml's dev pin in step
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catalog.py", "stats.py", "matrices.py"];
+const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catalog.py", "stats.py", "matrices.py", "graphs.py"];
 
 // SymPy and mpmath precompiled to bytecode by tools/build_bundle.py at deploy time:
 // imports ~5x faster than Pyodide's source packages. Without it (a checkout where it
@@ -43,6 +43,7 @@ const GLUE = `
 import base64, json, sys
 sys.path.insert(0, "/home/pyodide")
 from calc.session import Session, configure_matplotlib, warm_up_plotting
+from calc.graphs import warm_up_iplot
 
 def _start(state_b64):
     global session
@@ -55,11 +56,13 @@ def _call(method, args_json):
 def _state():
     return base64.b64encode(session.state()).decode()
 
-def _unpack_bytecode(path):
-    # __pycache__/*.pyc next to the installed sources, which Python then uses
+def _unpack_bytecode(path, prefixes):
+    # __pycache__/*.pyc next to the installed sources, which Python then uses; only the
+    # packages just installed (prefixes, all if empty), or the rest would be stray folders
     import os, sysconfig, zipfile
     with zipfile.ZipFile(path) as bundle:
-        bundle.extractall(sysconfig.get_path("purelib"))
+        names = [n for n in bundle.namelist() if n.startswith(tuple(prefixes) or "")]
+        bundle.extractall(sysconfig.get_path("purelib"), names)
     os.remove(path)
 `;
 
@@ -67,7 +70,7 @@ let pyodide = null;
 let pyCall = null; // GLUE's functions, fetched once: each globals.get makes a proxy
 let pyState = null;
 let usingBundle = false;
-let plotting = null; // a promise, once matplotlib has started loading
+const loading = {}; // extra name -> promise, once its packages have started loading
 
 const progress = (text, fraction) => self.postMessage({ progress: text, fraction });
 const mb = (bytes) => (bytes / 1e6).toFixed(1);
@@ -194,9 +197,15 @@ const OPS = {
   },
 
   preview({ src, target }) {
-    // typing a plot: start loading matplotlib now, so it's ready (or nearly) by ⏎
-    if (target === "input" && /plot/.test(src)) loadPlotting().catch(() => {}); // run reports failures
+    // typing a plot: start loading what it needs now, so it's ready (or nearly) by ⏎
+    if (target === "input") for (const name of extrasFor(src)) loadExtra(name).catch(() => {}); // run reports failures
     return call("preview", src);
+  },
+
+  // an iplot graph zoomed or panned on the page: samples of the new range
+  async sample({ exprs, variable, xmin, xmax }) {
+    await loadExtra("iplot");
+    return call("sample", exprs, variable, xmin, xmax);
   },
   vars: () => ({ items: call("variables"), names: call("names") }),
   forget: ({ name }) => {
@@ -206,36 +215,46 @@ const OPS = {
   unforget: ({ name, saved }) => ({ items: call("unforget", name, saved), names: call("names"), state: pyState() }),
 };
 
-// matplotlib is big, so it's only fetched when something plots (or is being typed).
-// Its precompiled bytecode comes with it, and a throwaway plot does the first plot's
-// one-time work (importing pyplot, lambdify's numpy printer), so the first real one is
-// as fast as any other. Without the bundle, matplotlib compiles from source as usual.
-function loadPlotting() {
-  plotting ??= (async () => {
-    progress("Loading matplotlib (first plot only)…");
-    const [, bytecode] = await Promise.all([
-      pyodide.loadPackage("matplotlib"),
+// Big packages are only fetched when something needs them (or is being typed):
+// matplotlib for plot() and friends, numpy alone for iplot(). Their precompiled bytecode
+// (the plot bundle) comes with them, and a warm-up does the first use's one-time work
+// (imports, lambdify's numpy printer), so the first real one is as fast as any other.
+// Without the bundle they compile from source as usual.
+const EXTRAS = {
+  plot: { what: "matplotlib (first plot only)", packages: ["matplotlib"], bytecode: [], warmUp: "configure_matplotlib(); warm_up_plotting()" },
+  iplot: { what: "numpy (first iplot only)", packages: ["numpy"], bytecode: ["numpy/"], warmUp: "warm_up_iplot()" },
+};
+
+// \bplot: plot, plot_parametric, plot3d…, but not iplot
+const extrasFor = (src) => [/\bplot/.test(src) && "plot", /\biplot\b/.test(src) && "iplot"].filter(Boolean);
+
+function loadExtra(name) {
+  const { what, packages, bytecode, warmUp } = EXTRAS[name];
+  loading[name] ??= (async () => {
+    progress(`Loading ${what}…`);
+    const [, bundle] = await Promise.all([
+      pyodide.loadPackage(packages),
       fetch(bundleURL(PLOT_BUNDLE))
         .then((response) => (response.ok ? response.arrayBuffer() : null))
         .catch(() => null),
     ]);
-    if (bytecode) {
-      pyodide.FS.writeFile(PLOT_BUNDLE_PATH, new Uint8Array(bytecode));
-      pyodide.runPython(`_unpack_bytecode("${PLOT_BUNDLE_PATH}")`);
+    if (bundle) {
+      pyodide.FS.writeFile(PLOT_BUNDLE_PATH, new Uint8Array(bundle));
+      pyodide.runPython(`_unpack_bytecode("${PLOT_BUNDLE_PATH}", ${JSON.stringify(bytecode)})`);
     }
-    pyodide.runPython("configure_matplotlib(); warm_up_plotting()");
+    pyodide.runPython(warmUp);
   })()
     .catch((e) => {
-      plotting = null; // try again next time
+      delete loading[name]; // try again next time
       throw e;
     })
     .finally(() => progress(null));
-  return plotting;
+  return loading[name];
 }
 
 // imports in Python lines (import numpy) are fetched the same way
 async function loadPackagesFor(src) {
-  if (/plot/.test(src)) await loadPlotting();
+  for (const name of extrasFor(src)) await loadExtra(name);
   if (/\bimport\b/.test(src)) {
     const findImports = pyodide.pyimport("pyodide.code").find_imports;
     // sympy and mpmath already come from the bundle; don't fetch their source packages too

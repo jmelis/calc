@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="app.css">
   <script defer src="latex.js"></script>
   <script defer src="backend.js"></script>
+  <script defer src="graph.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -97,6 +98,15 @@
             <dt>A[0, 1] = 5 &nbsp; A[1, :] = M[7, 8]</dt><dd>Change an element or a row; earlier results keep their values</dd>
           </dl>
           <p class="note"><code>[1, 2, 3]</code> is a Python list: <code>2*[1, 2]</code> is <code>[1, 2, 1, 2]</code>. <code>M</code> and <code>V</code> are names like any other: <code>M = 3</code> replaces them until you forget it in <code>:vars</code>.</p>
+        </section>
+        <section>
+          <h2>Graphs</h2>
+          <dl>
+            <dt>iplot(sin(x)/x)</dt><dd>An interactive graph (of several functions: <code>iplot(f, g, (x, 0, 2pi))</code>)</dd>
+            <dt>drag &nbsp; pinch &nbsp; double-click</dt><dd>Zoom into a range; zoom; back to the start</dd>
+            <dt><kbd>↑</kbd> then <kbd>←</kbd> <kbd>→</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>With the graph selected: pan, zoom, back to the start</dd>
+            <dt>plot(sin(x), (x, -5, 5))</dt><dd>A picture (matplotlib), with all of its options; also <code>plot_parametric</code>, <code>plot_implicit</code></dd>
+          </dl>
         </section>
         <section>
           <h2>All of SymPy</h2>
