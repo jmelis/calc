@@ -24,7 +24,7 @@ jobs:
       - run: uv sync
       - run: uv run python tools/build_bundle.py
       # test_latex.py runs latex.js with the runner's preinstalled node; test_bundle.py
-      # checks the bundle built above
+      # checks the bundles built above
       - run: uv run pytest
 
   deploy:
@@ -41,7 +41,7 @@ jobs:
           mkdir -p _site/py/calc
           cp index.html app.css app.js latex.js backend.js worker.js _site/
           cp py/calc/*.py _site/py/calc/
-          uv run --no-project python tools/build_bundle.py _site/sympy-bytecode.zip
+          uv run --no-project python tools/build_bundle.py _site
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

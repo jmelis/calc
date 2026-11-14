@@ -2,3 +2,4 @@
 __pycache__/
 .pytest_cache/
 sympy-bytecode.zip
+plot-bytecode.zip

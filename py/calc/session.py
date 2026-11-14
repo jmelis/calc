@@ -285,6 +285,15 @@ def configure_matplotlib():
     matplotlib.rcParams.update({"font.size": 13, "axes.labelsize": 14, "figure.figsize": (7, 4.5)})
 
 
+def warm_up_plotting():
+    """Draw a throwaway plot, so the first real one doesn't pay for the imports and setup."""
+    import matplotlib.pyplot as plt
+    from sympy import plot
+
+    plot(Symbol("t"), show=False).save(io.BytesIO())
+    plt.close("all")
+
+
 def _figures():
     """Open matplotlib figures as PNG outputs (2x for sharp screens), then closed."""
     if "matplotlib.pyplot" not in sys.modules:

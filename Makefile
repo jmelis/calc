@@ -4,9 +4,10 @@
 serve: sympy-bytecode.zip
 	@python3 -m http.server 8000 --bind 127.0.0.1
 
-# SymPy precompiled for the browser (optional: without it the page uses Pyodide's source packages)
+# SymPy and matplotlib precompiled for the browser (optional: without them the page
+# uses Pyodide's source packages)
 bundle: sympy-bytecode.zip
-sympy-bytecode.zip: worker.js tools/build_bundle.py
+sympy-bytecode.zip: worker.js tools/build_bundle.py  # writes plot-bytecode.zip too
 	@uv run python tools/build_bundle.py
 
 test:

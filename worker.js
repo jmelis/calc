@@ -16,6 +16,9 @@ const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catal
 // hasn't been built), the source packages are used instead and everything still works.
 const BUNDLE = "sympy-bytecode.zip";
 const BUNDLE_PATH = `/home/pyodide/${BUNDLE}`;
+// The same for matplotlib and its dependencies, fetched with them on the first plot
+const PLOT_BUNDLE = "plot-bytecode.zip";
+const PLOT_BUNDLE_PATH = `/home/pyodide/${PLOT_BUNDLE}`;
 
 // Download sizes as the browser sees them (decompressed), for the progress bar.
 // Pyodide doesn't report download progress, so these are fetched first, counting
@@ -32,7 +35,7 @@ const STALL_MS = 15000;
 const GLUE = `
 import base64, json, sys
 sys.path.insert(0, "/home/pyodide")
-from calc.session import Session, configure_matplotlib
+from calc.session import Session, configure_matplotlib, warm_up_plotting
 
 def _start(state_b64):
     global session
@@ -44,13 +47,20 @@ def _call(method, args_json):
 
 def _state():
     return base64.b64encode(session.state()).decode()
+
+def _unpack_bytecode(path):
+    # __pycache__/*.pyc next to the installed sources, which Python then uses
+    import os, sysconfig, zipfile
+    with zipfile.ZipFile(path) as bundle:
+        bundle.extractall(sysconfig.get_path("purelib"))
+    os.remove(path)
 `;
 
 let pyodide = null;
 let pyCall = null; // GLUE's functions, fetched once: each globals.get makes a proxy
 let pyState = null;
 let usingBundle = false;
-let matplotlibLoaded = false;
+let plotting = null; // a promise, once matplotlib has started loading
 
 const progress = (text, fraction) => self.postMessage({ progress: text, fraction });
 const mb = (bytes) => (bytes / 1e6).toFixed(1);
@@ -176,21 +186,45 @@ const OPS = {
     return payload;
   },
 
-  preview: ({ src }) => call("preview", src),
+  preview({ src, target }) {
+    // typing a plot: start loading matplotlib now, so it's ready (or nearly) by ⏎
+    if (target === "input" && /plot/.test(src)) loadPlotting().catch(() => {}); // run reports failures
+    return call("preview", src);
+  },
   vars: () => ({ items: call("variables"), names: call("names") }),
   forget: ({ name }) => ({ items: call("forget", name), names: call("names"), state: pyState() }),
 };
 
-// matplotlib is big, so it's only fetched when something plots; imports in Python
-// lines (import numpy) are fetched the same way
-async function loadPackagesFor(src) {
-  if (!matplotlibLoaded && /plot/.test(src)) {
+// matplotlib is big, so it's only fetched when something plots (or is being typed).
+// Its precompiled bytecode comes with it, and a throwaway plot does the first plot's
+// one-time work (importing pyplot, lambdify's numpy printer), so the first real one is
+// as fast as any other. Without the bundle, matplotlib compiles from source as usual.
+function loadPlotting() {
+  plotting ??= (async () => {
     progress("Loading matplotlib (first plot only)…");
-    await pyodide.loadPackage("matplotlib");
-    pyodide.runPython("configure_matplotlib()");
-    matplotlibLoaded = true;
-    progress(null);
-  }
+    const [, bytecode] = await Promise.all([
+      pyodide.loadPackage("matplotlib"),
+      fetch(new URL(PLOT_BUNDLE, self.location))
+        .then((response) => (response.ok ? response.arrayBuffer() : null))
+        .catch(() => null),
+    ]);
+    if (bytecode) {
+      pyodide.FS.writeFile(PLOT_BUNDLE_PATH, new Uint8Array(bytecode));
+      pyodide.runPython(`_unpack_bytecode("${PLOT_BUNDLE_PATH}")`);
+    }
+    pyodide.runPython("configure_matplotlib(); warm_up_plotting()");
+  })()
+    .catch((e) => {
+      plotting = null; // try again next time
+      throw e;
+    })
+    .finally(() => progress(null));
+  return plotting;
+}
+
+// imports in Python lines (import numpy) are fetched the same way
+async function loadPackagesFor(src) {
+  if (/plot/.test(src)) await loadPlotting();
   if (/\bimport\b/.test(src)) {
     const findImports = pyodide.pyimport("pyodide.code").find_imports;
     // sympy and mpmath already come from the bundle; don't fetch their source packages too

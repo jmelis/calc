@@ -1,6 +1,6 @@
 from sympy import beta
 
-from calc.session import Session, configure_matplotlib
+from calc.session import Session, configure_matplotlib, warm_up_plotting
 
 
 def run(session, src, entry_id=1):
@@ -92,3 +92,11 @@ def test_plot_is_an_image_without_axis_labels():
     assert "result" not in payload  # not the plot object's repr
     [image] = payload["outputs"]
     assert image["kind"] == "image" and image["width"] == 700 and image["png"]
+
+
+def test_warming_up_plotting_leaves_no_figure_behind():
+    configure_matplotlib()
+    warm_up_plotting()
+    session = Session()
+    assert run(session, "1 + 1")["outputs"] == []
+    assert len(run(session, "plot(x^2)")["outputs"]) == 1

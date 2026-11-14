@@ -220,7 +220,7 @@ class Backend {
     }
     let latex = null;
     try {
-      latex = await this.request("preview", { src: msg.src });
+      latex = await this.request("preview", { src: msg.src, target: msg.target });
     } catch {
       // interrupted or failed: no preview
     }

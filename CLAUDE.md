@@ -9,14 +9,14 @@ MathLive. A static site with no build step and no server, published at https://j
 ```bash
 make serve        # builds the bundle if needed, then serves http://127.0.0.1:8000 (file:// doesn't work)
 make test         # uv run pytest; tests/test_latex.py also needs node, test_bundle.py the bundle
-make bundle       # sympy-bytecode.zip: SymPy precompiled for the browser (tools/build_bundle.py)
+make bundle       # sympy-bytecode.zip, plot-bytecode.zip: precompiled for the browser (tools/build_bundle.py)
 uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pytest
 ```
 
-Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundle and runs the
+Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundles and runs the
 tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
-`py/calc/*.py`, `sympy-bytecode.zip`). A new top-level file the page needs must be added to that
-workflow's copy step.
+`py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`). A new top-level file the page needs
+must be added to that workflow's copy step.
 
 ## Architecture
 
@@ -32,8 +32,8 @@ latex.js: math input's LaTeX → calculator text (page side)
 | `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette, catalog, Memory panel, hover tips, keyboard handling |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing |
-| `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on first `plot` |
-| `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages |
+| `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
+| `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages. Also `plot-bytecode.zip`: the same for matplotlib and its dependencies, as `__pycache__/*.pyc` unpacked over the installed packages (their extension modules can't load from a zip) |
 | `py/calc/parser.py` | Calculator syntax → SymPy: `2x`, `sin x`, `^`, `5!`, `=` handling (assign / define / equation, also inside calls), `°`/`º`, `$n` |
 | `py/calc/preview.py` | Input → LaTeX by walking the AST of the transformed source. Never evaluates, so it's cheap and safe on every keystroke, and shows what was typed (`integrate(…)` renders as ∫) |
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs |
@@ -61,6 +61,10 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   Importing SymPy from source took ~2 s of a ~3 s warm reload, compiling it every time, hence the
   precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
   xz, which would need a decompressor in the browser and time on every load).
+- **Plotting**: matplotlib (~13 MB) is fetched once something plots, or as soon as `plot` appears in
+  the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
+  `plot-bytecode.zip`, and `warm_up_plotting` draws a throwaway plot so the first real one costs
+  what any other does (~0.1 s, against ~2 s of compiling and first-time setup before).
 - **"computing"** only appears after 300 ms (a CSS animation delay), so fast results don't flash it.
 - **Names** are whole words (sympy's `split_symbols` is deliberately not used): splitting made
   `xy` mean x·y until something named `xy` was defined, and hid `e` = 2.718… inside words. Results

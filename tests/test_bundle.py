@@ -1,16 +1,21 @@
 """
-sympy-bytecode.zip (tools/build_bundle.py): SymPy and mpmath load from it, docstrings
-stripped and all, and the calculator works on top. Skipped until it's built
-(make bundle); CI builds it before the tests.
+The bundles tools/build_bundle.py builds. sympy-bytecode.zip: SymPy and mpmath load
+from it, docstrings stripped and all, and the calculator works on top.
+plot-bytecode.zip: bytecode where Python looks for it next to installed sources.
+Skipped until they're built (make bundle); CI builds them before the tests.
 """
+import importlib.util
+import marshal
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "sympy-bytecode.zip"
+PLOT_BUNDLE = ROOT / "plot-bytecode.zip"
 pytestmark = pytest.mark.skipif(not BUNDLE.exists(), reason="sympy-bytecode.zip isn't built (make bundle)")
 
 CHECK = f"""
@@ -35,3 +40,16 @@ for src, expected in [
 def test_sympy_runs_from_the_bundle():
     result = subprocess.run([sys.executable, "-I", "-W", "ignore", "-c", CHECK], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_plot_bundle_is_pycache_for_site_packages():
+    with zipfile.ZipFile(PLOT_BUNDLE) as bundle:
+        names = bundle.namelist()
+        tag = sys.implementation.cache_tag
+        for name in ["matplotlib/__pycache__/pyplot", "numpy/__pycache__/__init__", "__pycache__/six"]:
+            assert f"{name}.{tag}.pyc" in names
+        assert all("/__pycache__/" in f"/{name}" and name.endswith(f".{tag}.pyc") for name in names)
+        data = bundle.read(f"matplotlib/__pycache__/pyplot.{tag}.pyc")
+    # loads without checking the source: this Python's magic, unchecked-hash flags
+    assert data[:4] == importlib.util.MAGIC_NUMBER and int.from_bytes(data[4:8], "little") == 0b01
+    assert hasattr(marshal.loads(data[16:]), "co_code")
