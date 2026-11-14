@@ -14,6 +14,13 @@ const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catal
 // SymPy and mpmath precompiled to bytecode by tools/build_bundle.py at deploy time:
 // imports ~5x faster than Pyodide's source packages. Without it (a checkout where it
 // hasn't been built), the source packages are used instead and everything still works.
+// Files from this site carry the deploy's stamp, as this worker's own URL does (see
+// backend.js). Not the bundles: they're big and only change with Pyodide, so they're
+// stamped with its version instead and stay cached across deploys.
+const VERSION = self.location.search;
+const local = (path) => new URL(`${path}${VERSION}`, self.location);
+const bundleURL = (name) => new URL(`${name}?pyodide=${PYODIDE_VERSION}`, self.location);
+
 const BUNDLE = "sympy-bytecode.zip";
 const BUNDLE_PATH = `/home/pyodide/${BUNDLE}`;
 // The same for matplotlib and its dependencies, fetched with them on the first plot
@@ -120,7 +127,7 @@ async function download() {
   };
 
   const bundle = async () => {
-    const response = await fetch(new URL(BUNDLE, self.location)).catch(() => null);
+    const response = await fetch(bundleURL(BUNDLE)).catch(() => null);
     if (!response?.ok) {
       // no bundle here: Pyodide's source packages instead
       delete sizes[BUNDLE];
@@ -164,7 +171,7 @@ const OPS = {
     pyodide.FS.mkdirTree("/home/pyodide/calc");
     await Promise.all(
       PY_FILES.map(async (file) => {
-        const response = await fetch(new URL(`py/calc/${file}`, self.location));
+        const response = await fetch(local(`py/calc/${file}`));
         if (!response.ok) throw new Error(`couldn't fetch py/calc/${file}`);
         pyodide.FS.writeFile(`/home/pyodide/calc/${file}`, await response.text());
       }),
@@ -208,7 +215,7 @@ function loadPlotting() {
     progress("Loading matplotlib (first plot only)…");
     const [, bytecode] = await Promise.all([
       pyodide.loadPackage("matplotlib"),
-      fetch(new URL(PLOT_BUNDLE, self.location))
+      fetch(bundleURL(PLOT_BUNDLE))
         .then((response) => (response.ok ? response.arrayBuffer() : null))
         .catch(() => null),
     ]);

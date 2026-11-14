@@ -18,6 +18,12 @@ tests, then publishes only the files the browser loads (`index.html`, `*.css`, `
 `py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`). A new top-level file the page needs
 must be added to that workflow's copy step.
 
+GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `src`/`href` with
+the commit (`app.js?v=<sha>`); `backend.js` passes its own `?v=` on to `worker.js`, and the worker
+to `py/calc/*.py`. The bundles are stamped with `PYODIDE_VERSION` instead, so they stay cached
+across deploys. A new local script or stylesheet in `index.html` is stamped automatically if it's
+named `name.js` or `app.css`.
+
 ## Architecture
 
 ```

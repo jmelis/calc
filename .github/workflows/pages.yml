@@ -40,6 +40,10 @@ jobs:
         run: |
           mkdir -p _site/py/calc
           cp index.html app.css app.js latex.js backend.js worker.js _site/
+          # stamp this site's files with the commit, so a deploy reaches the next reload
+          # instead of waiting out the browser cache (backend.js passes it on to the rest)
+          sed -i -E 's/(src|href)="(app\.css|[a-z]+\.js)"/\1="\2?v=${{ github.sha }}"/' _site/index.html
+          grep -q 'backend.js?v=' _site/index.html
           cp py/calc/*.py _site/py/calc/
           uv run --no-project python tools/build_bundle.py _site
       - uses: actions/configure-pages@v6

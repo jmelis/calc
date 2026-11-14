@@ -9,6 +9,10 @@
 
 class Interrupted extends Error {}
 
+// The deploy stamps index.html's script URLs with the commit (backend.js?v=…), so a new
+// deploy reaches the next reload instead of waiting out the browser's cache; pass it on
+const VERSION = new URL(document.currentScript.src).search;
+
 const store = {
   // a minimal key-value store on IndexedDB: the tape (with plot images) outgrows localStorage
   db: null,
@@ -83,7 +87,7 @@ class Backend {
   async startWorker() {
     this.ready = false;
     try {
-      this.worker = new Worker("worker.js", { type: "module" });
+      this.worker = new Worker(`worker.js${VERSION}`, { type: "module" });
     } catch (e) {
       this.status(`Couldn't start Python: ${e.message}`);
       return;
