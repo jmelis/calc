@@ -2,8 +2,9 @@
 // zooming or panning asks Python, through the backend, for samples of the new range.
 // uPlot is only fetched when the first graph is drawn.
 //
-// Mouse: drag to zoom into a range, pinch (or Ctrl+wheel) to zoom, double-click to
-// reset. Keyboard, with the graph selected on the tape: ← → pan, + − zoom, 0 reset.
+// Mouse: drag (or swipe sideways) to pan, pinch (or Ctrl+wheel) to zoom, Shift+drag to
+// zoom into a range, double-click to reset. Keyboard, with the graph selected on the
+// tape: ← → pan, + − zoom, 0 reset.
 
 const UPLOT_URL = "https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/";
 const GRAPH_COLORS = ["--accent", "#2563eb", "#16a34a", "#9333ea", "#ca8a04", "#0891b2"];
@@ -86,6 +87,10 @@ class Graph {
       if (this.out.labels?.[i]) tex(label, this.out.labels[i], false);
     });
     this.plot.over.addEventListener("wheel", (e) => this.wheel(e), { passive: false });
+    // uPlot's drag selects a range to zoom into: only with Shift; a plain drag pans. It reads
+    // drag.x as the mouse moves, so this capturing listener decides it at each press
+    this.node.addEventListener("mousedown", (e) => (this.plot.cursor.drag.x = e.shiftKey), true);
+    this.plot.over.addEventListener("mousedown", (e) => this.dragToPan(e));
     this.node.dispatchEvent(new Event("drawn")); // its height is known now (the tape scrolls to it)
     new ResizeObserver(() => {
       const w = this.width();
@@ -143,12 +148,45 @@ class Graph {
     this.plot.setData(graphData(this.out.data));
   }
 
-  // pinch on a trackpad arrives as Ctrl+wheel; a plain wheel scrolls the tape as usual
+  // x per CSS pixel at the current zoom
+  perPixel() {
+    const [min, max] = this.view();
+    return (max - min) / this.plot.over.clientWidth;
+  }
+
+  dragToPan(e) {
+    if (e.button !== 0 || e.shiftKey) return;
+    e.preventDefault(); // no text selection while dragging
+    const [min, max] = this.view();
+    const perPixel = this.perPixel();
+    const startX = e.clientX;
+    this.node.classList.add("panning");
+    const move = (ev) => {
+      const shift = (ev.clientX - startX) * perPixel;
+      this.setView(min - shift, max - shift);
+    };
+    const up = () => {
+      this.node.classList.remove("panning");
+      document.removeEventListener("mousemove", move);
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up, { once: true });
+  }
+
+  // A pinch on a trackpad arrives as Ctrl+wheel, and zooms; a sideways swipe (or
+  // Shift+wheel) pans; a plain wheel scrolls the tape as usual
   wheel(e) {
-    if (!e.ctrlKey) return;
+    if (e.ctrlKey) {
+      e.preventDefault();
+      this.zoom(Math.exp(e.deltaY * 0.01), this.plot.posToVal(e.offsetX, "x"));
+      return;
+    }
+    const sideways = e.shiftKey ? e.deltaX || e.deltaY : Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : 0;
+    if (!sideways) return;
     e.preventDefault();
-    const at = this.plot.posToVal(e.offsetX, "x");
-    this.zoom(Math.exp(e.deltaY * 0.01), at);
+    const [min, max] = this.view();
+    const shift = sideways * this.perPixel();
+    this.setView(min + shift, max + shift);
   }
 
   // --- samples for the new view ---

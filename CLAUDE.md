@@ -75,7 +75,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `graph.js` asks the worker to `sample` the new range (debounced, `seq` drops stale replies); it
   works after a restart or reload with nothing kept in Python. x is sent as `[from, to, n]`. Only
   numpy is loaded (~0.5 s the first time), and only numpy's part of `plot-bytecode.zip` is unpacked.
-  A plain wheel scrolls the tape; Ctrl+wheel (a trackpad pinch) zooms.
+  Drag pans (Shift+drag is uPlot's zoom-to-range, `cursor.drag.x` set per press); a plain wheel
+  scrolls the tape, a sideways swipe or Shift+wheel pans, Ctrl+wheel (a trackpad pinch) zooms.
 - **Plotting** (`plot`, a matplotlib PNG): matplotlib (~13 MB) is fetched once something plots, or as
   soon as `plot` appears in the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
   `plot-bytecode.zip`, and `warm_up_plotting` draws a throwaway plot so the first real one costs
