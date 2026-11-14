@@ -22,7 +22,8 @@ GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `s
 the commit (`app.js?v=<sha>`); `backend.js` passes its own `?v=` on to `worker.js`, and the worker
 to `py/calc/*.py`. The bundles are stamped with `PYODIDE_VERSION` instead, so they stay cached
 across deploys. A new local script or stylesheet in `index.html` is stamped automatically if it's
-named `name.js` or `app.css`.
+named `name.js` or `app.css`. The footer shows the stamp's commit, linked to it on GitHub
+(`renderAbout`; "local" without a stamp), next to a link to the source.
 
 ## Architecture
 

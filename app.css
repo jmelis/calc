@@ -355,7 +355,12 @@ body:not(.math-mode) #mathinput { display: none; }
 }
 #hints { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 #hints .status { color: var(--accent); }
+#footer-right { display: flex; align-items: center; gap: 10px; flex: none; }
 #commands { display: flex; gap: 4px; flex: none; }
+#about { font-size: 11px; white-space: nowrap; }
+#about a { color: inherit; text-decoration: none; }
+#about a[href]:hover { color: var(--accent); }
+#revision { font-family: var(--mono); }
 #commands button {
   font-family: var(--mono);
   font-size: 11px;
@@ -595,6 +600,7 @@ body:not(.math-mode) #mathinput { display: none; }
 }
 
 @media (max-width: 640px) {
+  #about { display: none; }
   #help dl { grid-template-columns: 1fr; gap: 0; }
   #help dd { margin-bottom: 6px; }
   #catalog .body { grid-template-columns: 1fr; }

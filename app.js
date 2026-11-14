@@ -577,6 +577,21 @@ function renderCommands() {
   for (const name of Object.keys(COMMANDS)) commands.append(commandButton(name));
 }
 
+// The revision this page was deployed from (the deploy's ?v= stamp, see backend.js),
+// linking to that commit; running locally there's no stamp and it says "local"
+function renderAbout() {
+  const sha = new URLSearchParams(VERSION).get("v");
+  const revision = document.getElementById("revision");
+  if (sha) {
+    revision.textContent = sha.slice(0, 7);
+    revision.href = `https://github.com/jmelis/calc/commit/${sha}`;
+    setTip(revision, "The version you're running: what changed in it, on GitHub");
+  }
+  const links = document.querySelectorAll("#about a");
+  links.forEach((a) => a.addEventListener("mousedown", (e) => e.preventDefault())); // keep the input focused
+  setTip(links[1], "This calculator's code, on GitHub");
+}
+
 function wordBeforeCursor() {
   const before = input.value.slice(0, input.selectionStart);
   const m = before.match(/[A-Za-z_]\w*$/);
@@ -1395,6 +1410,7 @@ function onMessage(msg) {
 
 renderPalette();
 renderCommands();
+renderAbout();
 renderHints();
 renderModeButton();
 backend.start();
