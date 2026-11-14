@@ -51,12 +51,14 @@
     <div class="panel" role="dialog" aria-label="Help">
       <div class="title">Help</div>
       <div class="body" tabindex="-1">
+        <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <kbd>?</kbd> lists the common functions.</p>
         <section>
           <h2>Typing math</h2>
           <dl>
             <dt>2x &nbsp; sin x &nbsp; x^2 &nbsp; 5!</dt><dd>Multiplication and function calls can be implied; <code>^</code> is a power</dd>
             <dt>xy &nbsp; velocity</dt><dd>One name each. <code>x y</code> or <code>x*y</code> multiplies</dd>
             <dt>e &nbsp; pi &nbsp; I &nbsp; oo</dt><dd>Constants: 2.718…, π, √−1, ∞</dd>
+            <dt>x &nbsp; velocity</dt><dd>A name that isn't defined is a symbol; <code>k m n</code> are integers, <code>f g h</code> functions</dd>
             <dt>sin(30°)</dt><dd>Degrees</dd>
             <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. Typing <code>+ - * / ^</code> first continues from <code>ans</code> (<code>--</code> for a negative number)</dd>
           </dl>
@@ -89,6 +91,17 @@
             <dt>A[0, 1] = 5 &nbsp; A[1, :] = M[7, 8]</dt><dd>Change an element or a row; earlier results keep their values</dd>
           </dl>
           <p class="note"><code>[1, 2, 3]</code> is a Python list: <code>2*[1, 2]</code> is <code>[1, 2, 1, 2]</code>. <code>M</code> and <code>V</code> are names like any other: <code>M = 3</code> replaces them until you forget it in <code>:vars</code>.</p>
+        </section>
+        <section>
+          <h2>All of SymPy</h2>
+          <dl>
+            <dt>Sum(1/n^2, (n, 1, oo))</dt><dd>Some objects stay unevaluated…</dd>
+            <dt>ans.doit() &nbsp; ans.evalf()</dt><dd>…until you ask: exactly (π²/6) or as a number</dd>
+            <dt>pi.evalf(50)</dt><dd>Any number of digits</dd>
+            <dt>(x^2 + 1).subs(x, 3)</dt><dd>Methods work as in SymPy</dd>
+            <dt>a = symbols("a", positive=True)</dt><dd>Symbols with assumptions: then <code>sqrt(a^2)</code> is <code>a</code></dd>
+            <dt>series(sin x, x, 0, 6) &nbsp; isprime(97)</dt><dd>And every other SymPy function</dd>
+          </dl>
         </section>
         <section>
           <h2>Python</h2>
