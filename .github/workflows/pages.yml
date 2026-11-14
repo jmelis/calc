@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.3.3 # no floating major tag
       - run: uv sync
       # test_latex.py runs latex.js with the runner's preinstalled node
       - run: uv run pytest
