@@ -22,7 +22,8 @@ from calc.preview import preview
         ("binomial(5, 2)", r"\binom{5}{2}"),
         ("Matrix([[1,2],[3,4]])", r"\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}"),
         ("theta_1 + alpha", r"\theta_{1} + \alpha"),
-        ("3/7+sqrt2", r"\frac{3}{7} + s q r t \cdot 2"),  # how it will evaluate: sqrt2 is one name
+        ("3/7+sqrt2", r"\frac{3}{7} + \mathrm{sqrt2}"),  # how it will evaluate: sqrt2 is one name
+        ("x y + xy", r"x y + \mathrm{xy}"),
     ],
 )
 def test_preview(src, expected):

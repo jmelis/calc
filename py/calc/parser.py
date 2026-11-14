@@ -5,6 +5,7 @@ Used for both the live preview (see preview.py) and evaluation (see session.py).
 
 Rules:
     2x, sin x, x^2, 5!      implicit multiplication/application, ^ is power, factorial
+    xy, x2, velocity        names are whole words; x y or x*y multiplies
     a = expr                assign a variable (a := expr works too)
     a, b = expr             assign several (expr must be iterable)
     f(x, y) = expr          define a function (a Lambda)
@@ -14,8 +15,8 @@ Rules:
     30°                     degrees: sin(30°) is 1/2 (º, the look-alike on Option+0, works too)
 """
 import builtins
+import difflib
 import re
-import types
 
 from sympy import Symbol
 from sympy.parsing.sympy_parser import (
@@ -32,10 +33,31 @@ from sympy.parsing.sympy_parser import (
     eval_expr,
     function_exponentiation,
     implicit_multiplication,
-    split_symbols,
     standard_transformations,
     stringify_expr,
 )
+
+
+class UnknownFunctionError(NameError):
+    pass
+
+
+def reject_unknown_calls(tokens, local_dict, global_dict):
+    """
+    A multi-letter name nobody defined, called like a function, is an error rather than
+    an undefined symbolic function: slove(x) is almost certainly a typo for solve.
+    auto_symbol has already turned such a call into Function('slove')(...). A single
+    letter, p(x), stays a product p*x, as on a calculator.
+    """
+    for i, tok in enumerate(tokens):
+        if tok == (NAME, "Function") and i + 2 < len(tokens) and tokens[i + 1] == (OP, "("):
+            name = tokens[i + 2][1].strip("'\"")
+            if len(name) > 1:
+                known = [n for n, v in {**global_dict, **local_dict}.items() if callable(v) and not n.startswith("_")]
+                close = difflib.get_close_matches(name, known, n=1, cutoff=0.75)
+                hint = f" (did you mean {close[0]}?)" if close else ""
+                raise UnknownFunctionError(f"unknown function '{name}'{hint}")
+    return tokens
 
 
 def _implicit_application(tokens, local_dict, global_dict):
@@ -89,9 +111,12 @@ def implicit_application(tokens, local_dict, global_dict):
     return _flatten(res3)
 
 
+# Names are whole words, defined or not: xy is the name xy, never x*y (write x y or
+# x*y), so a name's meaning doesn't change when something gets defined. sympy's
+# split_symbols is deliberately left out.
 TRANSFORMATIONS = standard_transformations + (
     convert_xor,
-    split_symbols,
+    reject_unknown_calls,
     implicit_multiplication,
     implicit_application,
     function_exponentiation,
@@ -107,8 +132,12 @@ REFS_NAME = "_calc_out"
 # What parse_expr uses by default: sympy plus builtin functions, so abs(x) isn't split into a*b*s
 _GLOBALS = {}
 exec("from sympy import *", _GLOBALS)
-_GLOBALS.update({k: v for k, v in vars(builtins).items() if isinstance(v, types.BuiltinFunctionType)})
-_GLOBALS.update({t.__name__: t for t in (int, float, complex, bool, str, list, tuple, dict, set, range, enumerate, zip, map, filter)})
+# Python's builtins too (type, len, sorted, …), without overriding sympy's names and
+# without the ones that make no sense in a calculator
+NOT_BUILTINS = {"exit", "quit", "copyright", "credits", "license", "input", "breakpoint"}
+for _name, _value in vars(builtins).items():
+    if not _name.startswith("_") and callable(_value) and _name not in NOT_BUILTINS:
+        _GLOBALS.setdefault(_name, _value)
 _GLOBALS.update(max=_GLOBALS["Max"], min=_GLOBALS["Min"])
 # 30° becomes 30*_deg; a name of its own so the preview can show it as a degree sign
 DEG_NAME = "_deg"

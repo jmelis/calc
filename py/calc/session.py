@@ -18,13 +18,14 @@ import warnings
 from numbers import Number
 from tokenize import TokenError
 
-from sympy import Basic, Eq, Float, Function, Integer, Lambda, NumberSymbol, Rational, Symbol, latex, pi, sstr
+from sympy import Basic, Eq, Float, Function, Integer, Lambda, NumberSymbol, Rational, Symbol, pi, sstr
 from sympy.matrices import MatrixBase
+from sympy.printing.latex import LatexPrinter
 
 from . import stats
 from .catalog import catalog_entries
 from .parser import _GLOBALS, REFS_NAME, classify, parse
-from .preview import preview
+from .preview import _symbol, preview
 
 FLOAT_DIGITS = 15
 PLOT_FUNCTIONS = ("plot", "plot_parametric", "plot_implicit", "plot3d")
@@ -40,6 +41,19 @@ k, m, n = symbols('k m n', integer=True)
 f, g, h = symbols('f g h', cls=Function)
 e = E
 """
+
+
+class _LatexPrinter(LatexPrinter):
+    """sympy's LaTeX, but names print like the preview prints them: velocity and x2 upright
+    as one word (sympy writes them as italic letters, which reads as a product, and x2 as
+    x with subscript 2, which reads back as x_2)."""
+
+    def _print_Symbol(self, expr, style="plain"):
+        return _symbol(expr.name)
+
+
+def latex(expr, **settings):
+    return _LatexPrinter(settings).doprint(expr)
 
 
 class Outcome:
@@ -212,17 +226,26 @@ class Session:
         if _is_symbolic(value):
             result["latex"] = latex(value)
             result["text"] = outcome.text or _text(value)
+            if items := _items(value):
+                result["items"] = items
             if _worth_approximating(value):
                 try:
                     approx = _evalf(value)
                     result["float"] = {"latex": latex(approx, full_prec=False), "text": _text(approx, full_prec=False)}
+                    if items := _items(approx, full_prec=False):
+                        result["float"]["items"] = items
                 except Exception:
                     pass
             if degrees := _degrees(value):
                 result["degrees"] = degrees
             return result
-        repr_latex = getattr(value, "_repr_latex_", None)
-        if callable(repr_latex) and (rendered := repr_latex()):
+        rendered = None
+        if not isinstance(value, type):  # a class's _repr_latex_ is unbound: type(100) is Integer
+            try:
+                rendered = getattr(value, "_repr_latex_", lambda: None)()
+            except Exception:
+                pass
+        if rendered:
             result["latex"] = strip_math_delimiters(rendered)
         else:
             result["plain"] = repr(value)
@@ -320,6 +343,22 @@ def _worth_approximating(value):
         or bool(value.atoms(NumberSymbol))
         or any(f.is_number for f in value.atoms(Function))
     )
+
+
+BRACKETS = {list: ("[", "]"), tuple: ("(", ")"), set: (r"\{", r"\}"), frozenset: (r"\{", r"\}"), dict: (r"\{", r"\}")}
+
+
+def _items(value, **settings):
+    """A collection's elements as separate LaTeX pieces, so the page can wrap a long list
+    like text (as one LaTeX expression it can only overflow): {open, close, items}."""
+    brackets = BRACKETS.get(type(value))
+    if brackets is None or len(value) < 2:
+        return None
+    if isinstance(value, dict):
+        items = [f"{latex(k, **settings)} : {latex(v, **settings)}" for k, v in value.items()]
+    else:
+        items = [latex(v, **settings) for v in value]
+    return {"open": brackets[0], "close": brackets[1], "items": items}
 
 
 def _degrees(value):

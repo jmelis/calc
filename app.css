@@ -88,6 +88,8 @@ kbd {
   border-bottom: 1px solid var(--faint);
   padding: 6px 0;
 }
+/* the input area's own border separates the last entry */
+.entry:last-child { border-bottom: 0; }
 
 .item {
   position: relative;
@@ -120,8 +122,8 @@ kbd {
 }
 /* inputs are typeset; the raw text (what ⏎ inserts in text mode) shows when selected */
 /* long math scrolls sideways, but KaTeX's 1px overhangs shouldn't show a scrollbar */
-.in .math, .out .math, #preview { scrollbar-width: none; }
-.in .math::-webkit-scrollbar, .out .math::-webkit-scrollbar, #preview::-webkit-scrollbar { display: none; }
+.in .math, #preview { scrollbar-width: none; }
+.in .math::-webkit-scrollbar, #preview::-webkit-scrollbar { display: none; }
 .in .math {
   font-family: var(--sans);
   font-size: 15px;
@@ -141,14 +143,26 @@ kbd {
   font-size: 15px; /* KaTeX scales this by 1.21, so results sit just above the 14px input */
   min-height: 2.2em;
 }
+/* results wrap (see texWrapping); what can't (a wide matrix) scrolls, starting from its
+   left edge: right-aligned overflow would push the start out of reach */
 .out .math {
   overflow-x: auto;
   overflow-y: hidden;
   max-width: 100%;
-  padding: 2px 0;
+  padding: 0.3em 0;
+  line-height: 1.6;
+  text-align: right;
+  scrollbar-width: thin;
 }
-.out .math .katex-display { margin: 0.25em 0; text-align: right; }
-.out pre, .out .html { font-size: 14px; margin: 0; }
+.out .math::-webkit-scrollbar { display: initial; height: 6px; }
+.out .math.items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 0.4em;
+}
+.out .math.items .piece { white-space: nowrap; }
+.out pre, .out .html { font-size: 14px; margin: 0; white-space: pre-wrap; word-break: break-word; text-align: left; }
 .out img { max-width: 100%; }
 
 .outputs { padding: 0 12px 0 calc(12px + 2.2em + 10px); }

@@ -1,7 +1,9 @@
 import pytest
-from sympy import Eq, Integer, Lambda, Mul, Rational, pi, sin, sqrt, symbols
+from sympy import Eq, Integer, Lambda, Rational, Symbol, pi, sin, sqrt, symbols
 
-from calc.parser import _GLOBALS, classify, parse, rewrite_degrees, rewrite_inner_equations
+from calc.parser import _GLOBALS, UnknownFunctionError, classify, parse, rewrite_degrees, rewrite_inner_equations
+
+from sympy import E as sympy_E
 
 x, y = symbols("x y")
 
@@ -87,5 +89,34 @@ def test_degree_needs_a_value():
         rewrite_degrees("° + 1")
 
 
-def test_undefined_names_split_into_letters(ns):
-    assert parse("velocity", ns) == Mul(*symbols("v e l o c i t y"))
+@pytest.mark.parametrize(
+    "src, expected",
+    [
+        ("xy", Symbol("xy")),  # one name, whether or not x and y are defined
+        ("x y", x * y),
+        ("x*y", x * y),
+        ("2xy", 2 * Symbol("xy")),
+        ("velocity", Symbol("velocity")),  # not v*e*l*o*c*i*t*y with e = 2.718…
+        ("x2", Symbol("x2")),
+    ],
+)
+def test_names_are_whole_words(ns, src, expected):
+    ns.update(e=sympy_E)
+    assert parse(src, ns) == expected
+
+
+def test_a_defined_name_keeps_its_meaning(ns):
+    ns.update(x=Integer(10), y=Integer(20))
+    assert parse("xy", ns) == Symbol("xy")
+    ns["xy"] = Integer(30)
+    assert parse("xy", ns) == 30
+
+
+def test_unknown_functions_are_errors_with_a_suggestion(ns):
+    with pytest.raises(UnknownFunctionError, match="did you mean solve"):
+        parse("slove(x^2 - 4, x)", ns)
+
+
+def test_python_builtins(ns):
+    assert parse("sorted([3, 1, 2])", ns) == [1, 2, 3]
+    assert parse("type(100)", ns) is Integer

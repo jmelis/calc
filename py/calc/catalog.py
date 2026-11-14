@@ -9,6 +9,7 @@ noise. The page adds "Your definitions" (names defined in the session) on top.
 SYMPY = {
     "Calculator": [
         ("ans", "", "The last result", "ans^2"),
+        ("x y", "", "A space or * multiplies; xy is a single name, like velocity or x2", "x y"),
         ("$n", "", "The result of tape entry n (insert one by picking it with ↑)", "$3 + 1"),
         ("a = …", "", "Assign a variable", "a = 3/7"),
         ("f(x) = …", "", "Define a function", "f(x) = x^2 + 1"),

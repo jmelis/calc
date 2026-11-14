@@ -85,13 +85,46 @@ function renderOutputs(outputs) {
   return wrap;
 }
 
+// Results are typeset inline (with \displaystyle, so they look the same) rather than
+// in display mode: inline math can wrap at + and =, display math only overflows.
+// Long digit runs (100!) get break points too.
+function texWrapping(node, latex) {
+  const breakable = latex.replace(/\d{30,}/g, (digits) => digits.match(/.{1,10}/g).join("\\allowbreak "));
+  tex(node, `\\displaystyle ${breakable}`, false);
+}
+
+// Lists, tuples, sets and dicts come with their elements as separate pieces: one
+// expression can't wrap at commas, but a row of pieces wraps like text
+function renderItems(node, prefix, { open, close, items }) {
+  node.classList.add("items");
+  const last = items.length - 1;
+  items.forEach((item, i) => {
+    const piece = el("span", "piece");
+    const head = i === 0 ? `${prefix ? `${prefix} ` : ""}${open}` : "";
+    texWrapping(piece, `${head}${item}${i === last ? close : ","}`);
+    node.append(piece);
+  });
+}
+
+function renderResultMath(node, entry) {
+  const r = entry.result;
+  const isFloat = entry.view === "float" && r.float;
+  const items = entry.view === "degrees" ? null : isFloat ? r.float.items : r.items;
+  if (!items) {
+    texWrapping(node, resultLatex(entry));
+    return;
+  }
+  const relation = isFloat ? "\\approx" : "=";
+  renderItems(node, r.label ? `${r.label} ${relation}` : isFloat ? relation : "", items);
+}
+
 function renderResult(entry) {
   const r = entry.result;
   const row = el("div", "item out");
   row.dataset.id = entry.id;
   row.dataset.part = "result";
   const math = el("div", "math");
-  if (r.latex !== undefined) tex(math, resultLatex(entry));
+  if (r.latex !== undefined) renderResultMath(math, entry);
   else if (r.png) {
     const img = el("img");
     img.src = `data:image/png;base64,${r.png}`;

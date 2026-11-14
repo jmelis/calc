@@ -62,6 +62,14 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
   xz, which would need a decompressor in the browser and time on every load).
 - **"computing"** only appears after 300 ms (a CSS animation delay), so fast results don't flash it.
+- **Names** are whole words (sympy's `split_symbols` is deliberately not used): splitting made
+  `xy` mean x·y until something named `xy` was defined, and hid `e` = 2.718… inside words. Results
+  print multi-letter names upright (`session._LatexPrinter`, same rule as the preview's `_symbol`),
+  so `velocity` doesn't read as a product and `x2` reads back as `x2`, not `x_2`.
+- **Wrapping**: results are typeset inline with `\displaystyle` (inline math can break at `+`
+  and `=`; display math can only overflow), collections arrive as separate `items` and render as a
+  wrapping row, and long digit runs get `\allowbreak`. What still can't wrap (a wide matrix)
+  scrolls from its left edge.
 - **Deleting** (⌫ on a selected tape item) removes the entry from the tape only: its value stays
   reachable as `$n`.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
@@ -133,6 +141,7 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | Input | Meaning |
 | --- | --- |
 | `2x`, `sin x`, `x^2`, `5!` | Implicit multiplication/application, `^` is power |
+| `xy`, `x2`, `velocity` | Names are whole words, defined or not; `x y` or `x*y` multiplies. An unknown multi-letter name called like a function is an error with a "did you mean" |
 | `a = 3/7`, `a := 3/7` | Assign |
 | `f(x) = x^2 + 1` | Define a function (a `Lambda`) |
 | `x^2 = 4`, `solve(x^2 = 2, x)` | Other `=` is an equation, also inside calls (keyword arguments excepted) |

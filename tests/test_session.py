@@ -48,6 +48,16 @@ def test_errors_are_reported():
     assert payload["error"].startswith("SyntaxError")
 
 
+def test_names_print_upright_and_read_back():
+    s = Session()
+    result = run(s, "velocity^2 + x2")["result"]
+    assert result["latex"] == r"\mathrm{velocity}^{2} + \mathrm{x2}"
+
+
+def test_class_results():
+    assert run(Session(), "type(100)")["result"]["plain"] == "<class 'sympy.core.numbers.Integer'>"
+
+
 def test_statistics():
     s = Session()
     assert run(s, "mean([2, 4, 4, 5])")["result"]["text"] == "15/4"
