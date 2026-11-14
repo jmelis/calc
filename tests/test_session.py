@@ -123,8 +123,8 @@ def test_forgetting_can_be_undone():
     assert s.pickled("undefined") is None
 
 
-def test_caret_is_a_power_in_python_lines_too():
+def test_python_lines_are_plain_python():
     s = Session()
-    run(s, "def sq(n): return n^2")
-    assert run(s, "sq(3)")["result"]["text"] == "9"
-    assert run(s, "for i in range(3): print(i^2)")["outputs"][0]["text"] == "0\n1\n4\n"
+    run(s, "def xor3(n): return n^3")  # ^ is XOR in Python, as documented in Help
+    assert run(s, "xor3(5)")["result"]["text"] == "6"
+    assert run(s, "[k^2 for k in range(3)]")["result"]["text"] == "[0, 1, 4]"  # calculator syntax: a power

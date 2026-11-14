@@ -8,6 +8,7 @@ Python with no browser dependencies, so it also runs (and is tested) natively.
 import ast
 import base64
 import contextlib
+import copy
 import functools
 import io
 import os
@@ -18,15 +19,15 @@ import warnings
 from numbers import Number
 from tokenize import TokenError
 
-from sympy import Basic, Eq, Float, Function, ImmutableMatrix, Integer, Lambda, NumberSymbol, Rational, Symbol, pi, sstr
+from sympy import Basic, Eq, Float, Function, Integer, Lambda, NumberSymbol, Rational, Symbol, pi, sstr
 from sympy.matrices import MatrixBase
 from sympy.printing.latex import LatexPrinter
 
 from . import stats
 from .catalog import catalog_entries
+from .matrices import MAKERS, matrix_text
 from .parser import _GLOBALS, REFS_NAME, classify, is_statement, parse, to_python
 from .preview import _symbol, preview
-from .vectors import as_vector, is_matrix
 
 FLOAT_DIGITS = 15
 PLOT_FUNCTIONS = ("plot", "plot_parametric", "plot_implicit", "plot3d")
@@ -52,10 +53,6 @@ class _LatexPrinter(LatexPrinter):
     def _print_Symbol(self, expr, style="plain"):
         return _symbol(expr.name)
 
-    def _print_Vector(self, expr):
-        # [[1, 2], [3, 4]] is a matrix, so it looks like one; a flat list stays a list
-        return self._print(ImmutableMatrix(expr)) if is_matrix(expr) else self._print_list(expr)
-
 
 def latex(expr, **settings):
     return _LatexPrinter(settings).doprint(expr)
@@ -79,6 +76,7 @@ class Session:
         self.ns[REFS_NAME] = self.out
         self.ns["ans"] = Integer(0)
         self.ns.update(stats.FUNCTIONS)
+        self.ns.update(MAKERS)  # M[1, 2], V[1, 2]; here, not only in _GLOBALS, or the parser makes M a Symbol
         for name in PLOT_FUNCTIONS:
             if name in self.ns:
                 self.ns[name] = _unlabeled(self.ns[name])
@@ -212,27 +210,30 @@ class Session:
         ns = self.ns
         kind, data = classify(src)
         if kind == "expr":
-            return Outcome(as_vector(parse(data, ns)))
+            return Outcome(parse(data, ns))
         if kind == "equation":
             lhs, rhs = data
             return Outcome(Eq(parse(lhs, ns), parse(rhs, ns)))
         if kind == "assign":
             names, rhs = data
-            value = as_vector(parse(rhs, ns))
+            value = parse(rhs, ns)
             values = [value] if len(names) == 1 else list(value)
             if len(values) != len(names):
                 raise ValueError(f"expected {len(names)} values, got {len(values)}")
             for name, v in zip(names, values):
-                self._assign(name, as_vector(v))
+                self._assign(name, v)
             return Outcome(value, label=", ".join(latex(Symbol(n)) for n in names))
         if kind == "setitem":
             name, target, rhs = data
             if name not in ns:
                 raise NameError(f"name '{name}' is not defined")
-            value = as_vector(parse(rhs, ns))
-            exec(f"{to_python(target, ns)} = _calc_value", _GLOBALS, {**ns, "_calc_value": value})
-            # the whole value, changed; a copy, so changing it again doesn't change this entry's $n
-            return Outcome(as_vector(ns[name]), label=latex(Symbol(name)))
+            value = parse(rhs, ns)
+            # change a copy and make that the variable: whatever else holds the old value
+            # (an earlier entry's $n) keeps it, as on a calculator
+            changed = copy.deepcopy(ns[name])
+            exec(f"{to_python(target, ns)} = _calc_value", _GLOBALS, {**ns, name: changed, "_calc_value": value})
+            self._assign(name, changed)
+            return Outcome(changed, label=latex(Symbol(name)))
         name, args, body = data
         arg_syms = [Symbol(a) for a in args]
         fn = Lambda(tuple(arg_syms), parse(body, {**ns, **dict(zip(args, arg_syms))}))
@@ -284,25 +285,8 @@ class Session:
         return result
 
 
-class _CaretIsPower(ast.NodeTransformer):
-    """^ is a power in Python lines too, as everywhere in the calculator (not XOR)."""
-
-    def visit_BinOp(self, node):
-        self.generic_visit(node)
-        if isinstance(node.op, ast.BitXor):
-            node.op = ast.Pow()
-        return node
-
-    def visit_AugAssign(self, node):
-        self.generic_visit(node)
-        if isinstance(node.op, ast.BitXor):
-            node.op = ast.Pow()
-        return node
-
-
 def _exec_python(tree, ns):
     """exec a module, returning the value of its last line if it's an expression."""
-    tree = _CaretIsPower().visit(tree)
     last = tree.body.pop() if tree.body and isinstance(tree.body[-1], ast.Expr) else None
     exec(compile(tree, "<calc>", "exec"), ns)
     if last is not None:
@@ -407,8 +391,8 @@ BRACKETS = {list: ("[", "]"), tuple: ("(", ")"), set: (r"\{", r"\}"), frozenset:
 def _items(value, **settings):
     """A collection's elements as separate LaTeX pieces, so the page can wrap a long list
     like text (as one LaTeX expression it can only overflow): {open, close, items}."""
-    brackets = next((b for kind, b in BRACKETS.items() if isinstance(value, kind)), None)
-    if brackets is None or len(value) < 2 or is_matrix(value):  # a matrix is one piece
+    brackets = BRACKETS.get(type(value))
+    if brackets is None or len(value) < 2:
         return None
     if isinstance(value, dict):
         items = [f"{latex(k, **settings)} : {latex(v, **settings)}" for k, v in value.items()]
@@ -431,7 +415,7 @@ def _degrees(value):
 def _text(value, **settings):
     """Single-line source for a value, so picking it can paste it back into the input."""
     if isinstance(value, MatrixBase):
-        return _text(value.tolist(), **settings)  # [[1, 2], [3, 4]] is a matrix too
+        return matrix_text(value, lambda v: _text(v, **settings))
     if isinstance(value, list):
         return "[" + ", ".join(_text(v, **settings) for v in value) + "]"
     if isinstance(value, tuple):

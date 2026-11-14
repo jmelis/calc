@@ -9,7 +9,7 @@
 
 const PYODIDE_VERSION = "314.0.7"; // ships sympy 1.14.0; keep pyproject.toml's dev pin in step
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catalog.py", "stats.py", "vectors.py"];
+const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catalog.py", "stats.py", "matrices.py"];
 
 // SymPy and mpmath precompiled to bytecode by tools/build_bundle.py at deploy time:
 // imports ~5x faster than Pyodide's source packages. Without it (a checkout where it

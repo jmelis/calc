@@ -70,22 +70,18 @@
           </dl>
         </section>
         <section>
-          <h2>Lists, vectors and matrices</h2>
-          <p>A list is a list, until you do math with it: then <code>[1, 2, 3]</code> is a vector. A list of equal-length rows, <code>[[1, 2], [3, 4]]</code>, is a matrix, and shows as one.</p>
+          <h2>Matrices and vectors</h2>
           <dl>
-            <dt>2[1, 2, 3]</dt><dd>[2, 4, 6]</dd>
-            <dt>[1, 2] + [3, 4]</dt><dd>[4, 6]</dd>
-            <dt>M = [[1, 2], [3, 4]]</dt><dd>A matrix to use below</dd>
-            <dt>M^-1 &nbsp; M*M &nbsp; M.T</dt><dd>Inverse, product, transpose</dd>
-            <dt>M*[1, 1]</dt><dd>Matrix times vector: [3, 7]</dd>
-            <dt>det(M) &nbsp; M.eigenvals()</dt><dd>Any SymPy matrix function or method</dd>
-            <dt>v.dot(w) &nbsp; v.cross(w)</dt><dd>Products of two vectors; <code>v*w</code> is an error</dd>
-            <dt>M[0, 1] &nbsp; M[1] &nbsp; v[0]</dt><dd>An element (2); a row ([3, 4]); an entry</dd>
-            <dt>M[0, 1] = 5 &nbsp; M[1] = [7, 8]</dt><dd>Change an element or a row (<code>v[0] = 9</code> for a vector)</dd>
-            <dt>[k^2 for k in range(5)]</dt><dd>[0, 1, 4, 9, 16]: comprehensions make lists too</dd>
-            <dt>len(v) &nbsp; sum(v) &nbsp; max(v)</dt><dd>List functions still work</dd>
+            <dt>M[1, 2, 3]</dt><dd>A matrix with one row</dd>
+            <dt>A = M[[1, 2], [3, 4]]</dt><dd>A matrix from its rows</dd>
+            <dt>v = V[1, 2]</dt><dd>A column vector</dd>
+            <dt>A^-1 &nbsp; A*A &nbsp; A*v &nbsp; 2v</dt><dd>Inverse, products, scaling</dd>
+            <dt>det(A) &nbsp; A.T &nbsp; A.eigenvals()</dt><dd>Any SymPy matrix function or method</dd>
+            <dt>v.dot(w) &nbsp; v.cross(w)</dt><dd>Products of two vectors</dd>
+            <dt>A[0, 1] &nbsp; A[1, :] &nbsp; A[:, 0]</dt><dd>An element, a row, a column (counting from 0)</dd>
+            <dt>A[0, 1] = 5 &nbsp; A[1, :] = M[7, 8]</dt><dd>Change an element or a row; earlier results keep their values</dd>
           </dl>
-          <p class="note"><code>[0]*3</code> is <code>[0]</code> (math), not Python's <code>[0, 0, 0]</code>; write <code>[0 for _ in range(3)]</code>.</p>
+          <p class="note"><code>[1, 2, 3]</code> is a Python list: <code>2*[1, 2]</code> is <code>[1, 2, 1, 2]</code>. <code>M</code> and <code>V</code> are names like any other: <code>M = 3</code> replaces them until you forget it in <code>:vars</code>.</p>
         </section>
         <section>
           <h2>Python</h2>
@@ -94,9 +90,9 @@
             <dt>def g(x): y = x + 1; return 2*y</dt><dd>A Python function</dd>
             <dt>for i in range(3): print(i)</dt><dd>Loops; printed output shows on the tape</dd>
             <dt>import math</dt><dd>Imports</dd>
-            <dt>def sq(n): return n^2</dt><dd><strong>^ is a power here too</strong> (sq(3) is 9), not Python's XOR</dd>
+            <dt>def sq(n): return n**2</dt><dd><strong>Python lines are plain Python:</strong> <code>**</code> is a power and <code>^</code> is XOR, and nothing is implied (<code>2*x</code>, not <code>2x</code>)</dd>
           </dl>
-          <p class="note">Otherwise Python lines are plain Python: nothing is implied, so write <code>2*x</code>, not <code>2x</code>. Only names defined with <code>a = …</code> and <code>f(x) = …</code> are kept when you reload.</p>
+          <p class="note">Only names defined with <code>a = …</code> and <code>f(x) = …</code> are kept when you reload.</p>
         </section>
         <section>
           <h2>Keys</h2>

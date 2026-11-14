@@ -13,9 +13,9 @@ Rules:
     solve(x^2 = 2, x)       so is '=' inside brackets, unless it's a keyword argument
     $4                      the result of tape entry 4
     30°                     degrees: sin(30°) is 1/2 (º, the look-alike on Option+0, works too)
-    [1, 2], [[1, 2], [3, 4]] lists that are also vectors and matrices (see vectors.py)
+    M[1, 2], V[1, 2]        a matrix (here one row), a column vector (see matrices.py)
+    M[0, 1] = 5             change part of a variable
 """
-import ast
 import builtins
 import difflib
 import keyword
@@ -27,7 +27,6 @@ from sympy.parsing.sympy_parser import (
     ENDMARKER,
     NAME,
     NEWLINE,
-    NUMBER,
     OP,
     AppliedFunction,
     _apply_functions,
@@ -42,7 +41,7 @@ from sympy.parsing.sympy_parser import (
     stringify_expr,
 )
 
-from .vectors import vector
+from .matrices import MAKERS
 
 
 class UnknownFunctionError(NameError):
@@ -110,17 +109,6 @@ def _implicit_application(tokens, local_dict, global_dict):
     return result
 
 
-def number_times_bracket(tokens, local_dict, global_dict):
-    """2[1, 2] multiplies (a number can't be indexed); before auto_number makes the 2 a
-    call, whose ) before [ must stay indexing, as in solve(...)[0]."""
-    result = []
-    for tok, next_tok in zip(tokens, tokens[1:] + [(ENDMARKER, "")]):
-        result.append(tok)
-        if tok[0] == NUMBER and next_tok == (OP, "["):
-            result.append((OP, "*"))
-    return result
-
-
 # Python keywords (for, in, if, not, …) are hidden from implicit multiplication and
 # application as operators, so [k^2 for k in range(5)] isn't k^2*for*k*in*range(5)
 def hide_keywords(tokens, local_dict, global_dict):
@@ -142,7 +130,7 @@ def implicit_application(tokens, local_dict, global_dict):
 # Names are whole words, defined or not: xy is the name xy, never x*y (write x y or
 # x*y), so a name's meaning doesn't change when something gets defined. sympy's
 # split_symbols is deliberately left out.
-TRANSFORMATIONS = (number_times_bracket,) + standard_transformations + (
+TRANSFORMATIONS = standard_transformations + (
     convert_xor,
     reject_unknown_calls,
     hide_keywords,
@@ -190,9 +178,8 @@ _GLOBALS.update(max=_of_list(Max), min=_of_list(Min))
 # 30° becomes 30*_deg; a name of its own so the preview can show it as a degree sign
 DEG_NAME = "_deg"
 _GLOBALS[DEG_NAME] = _GLOBALS["pi"] / 180
-# [ ] and list comprehensions become vector(...): lists that also do vector math
-VECTOR_NAME = "_vector"
-_GLOBALS[VECTOR_NAME] = vector
+# M[1, 2] and V[1, 2] make matrices and vectors
+_GLOBALS.update(MAKERS)
 
 
 def split_names(s):
@@ -348,19 +335,6 @@ def to_python(src, namespace):
     return stringify_expr(src, shadow, _GLOBALS, TRANSFORMATIONS)
 
 
-class _Vectors(ast.NodeTransformer):
-    def visit_List(self, node):
-        return self._wrap(node)
-
-    def visit_ListComp(self, node):
-        return self._wrap(node)
-
-    def _wrap(self, node):
-        self.generic_visit(node)
-        return ast.Call(ast.Name(VECTOR_NAME, ast.Load()), [node], [])
-
-
 def parse(src, namespace):
     """Parse and evaluate calculator syntax, resolving names from `namespace`."""
-    tree = ast.fix_missing_locations(_Vectors().visit(ast.parse(to_python(src, namespace), mode="eval")))
-    return eval_expr(compile(tree, "<calc>", "eval"), namespace, _GLOBALS)
+    return eval_expr(to_python(src, namespace), namespace, _GLOBALS)

@@ -43,7 +43,7 @@ latex.js: math input's LaTeX → calculator text (page side)
 | `py/calc/parser.py` | Calculator syntax → SymPy: `2x`, `sin x`, `^`, `5!`, `=` handling (assign / define / equation, also inside calls), `°`/`º`, `$n` |
 | `py/calc/preview.py` | Input → LaTeX by walking the AST of the transformed source. Never evaluates, so it's cheap and safe on every keystroke, and shows what was typed (`integrate(…)` renders as ∫) |
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs |
-| `py/calc/vectors.py` | `Vector`: the list `[ ]` makes in calculator syntax, which also does vector/matrix math |
+| `py/calc/matrices.py` | `M[…]` and `V[…]`: matrices and column vectors, and how they print back as text |
 | `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev` |
 
 ### Messages
@@ -90,16 +90,19 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   own undo) takes back the last delete, `:clear` or forgotten variable. The backend keeps the stack
   in memory (a reload empties it); a forgotten value comes back from a pickle `forget` returned.
   Evaluations aren't undoable and `:reset` empties the stack.
-- **Lists are vectors** (`vectors.py`): in calculator syntax `[ ]` and list comprehensions make a
-  `Vector`, a list whose arithmetic and matrix methods work on `Matrix(self)`: flat is a column
-  vector, a list of rows a matrix. Results are kept with `as_vector`: one-column matrices come back
-  as flat lists, so vectors stay lists. Equal-length rows print as a matrix (`is_matrix`; in the
-  preview too), but stay a list underneath. A vector before a matrix is a row (`[1, 1] M`); `*` between
-  two vectors is an error pointing to `dot`/`cross`; `[0]*3` is math (`[0]`), not repetition.
-  Python lines (below) keep plain lists.
+- **Matrices** (`matrices.py`): `M` and `V` are plain objects in the namespace whose indexing builds
+  a SymPy `Matrix` (`M[1, 2]` a row, `M[[1, 2], [3, 4]]` rows, `V[1, 2]` a column), so the parser
+  knows nothing about them; the preview draws them (`_Renderer.makers`, only while `M`/`V` are the
+  makers). Results print back as `M[…]`/`V[…]` (`matrix_text`). They live in the session's
+  namespace, not only `_GLOBALS`: sympy's `auto_symbol` turns a global that isn't callable or
+  `Basic` into a `Symbol`. Lists are plain Python lists (an earlier attempt made `[…]` do vector
+  math; it was more magic than it was worth).
+- **Setting parts** (`A[0, 1] = 5`, `A[1, :] = M[7, 8]`, `v[0] = 9`): an indexed left side of `=`
+  is an assignment (`setitem` in `classify`), done on a deep copy that then replaces the variable,
+  so earlier `$n` keep their values.
 - **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
   Python directly; any other line that isn't calculator syntax falls back to Python. One line, with
-  `;` between statements. `^` is a power there too (`_CaretIsPower`; no XOR), but nothing is implied.
+  `;` between statements. They're plain Python: `^` is XOR and nothing is implied (Help says so).
 - **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
   user's manual: keep it in step with the syntax, short and with examples.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
@@ -178,8 +181,8 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `ans`, `$3` | Last result; result of entry 3. A leading `+ * / ^ -` continues from `ans` (`--5` types `-5`) |
 | `sin(30°)` | Degrees |
 | `e`, `I`, `pi`, `oo` | Constants (`e` is `E`) |
-| `[1, 2]`, `[[1, 2], [3, 4]]`, `2[1, 2]`, `M*v`, `M[0, 1]` | Lists that are vectors and matrices in math (see `vectors.py`) |
-| `M[0, 1] = 5`, `M[1] = [7, 8]`, `v[0] = 9` | Change part of a defined value (shows the whole value; earlier `$n` keep theirs) |
+| `M[1, 2]`, `M[[1, 2], [3, 4]]`, `V[1, 2]` | A matrix row, a matrix from rows, a column vector (`matrices.py`) |
+| `A[0, 1] = 5`, `A[1, :] = M[7, 8]`, `v[0] = 9` | Change part of a defined value (shows the whole value; earlier `$n` keep theirs) |
 | `[k^2 for k in range(5)]` | Comprehensions are calculator syntax too (`^` is power) |
 | `:help`, `:vars`, `:clear`, `:reset` | Help panel; Memory panel; empty the tape; also forget all variables |
 | `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |

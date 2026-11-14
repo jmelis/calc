@@ -11,6 +11,7 @@ import ast
 from sympy import Symbol, latex
 from sympy.printing.latex import greek_letters_set
 
+from .matrices import MatrixMaker
 from .parser import _GLOBALS, DEG_NAME, REFS_NAME, _callable, classify, to_python
 
 PREC_ADD, PREC_MUL, PREC_NEG, PREC_POW, PREC_ATOM = 1, 2, 3, 4, 5
@@ -37,6 +38,9 @@ def _symbol(name):
 
 
 class _Renderer:
+    def __init__(self, makers=None):
+        self.makers = makers or {}  # name -> MatrixMaker, for M[1, 2] and V[1, 2]
+
     def render(self, node):
         """Return (latex, precedence)."""
         method = getattr(self, f"_{type(node).__name__}", None)
@@ -73,11 +77,6 @@ class _Renderer:
         return str(v), PREC_ATOM
 
     def _List(self, node):
-        # rows of equal length are a matrix (see vectors.py), and look like one
-        rows = node.elts
-        if rows and all(isinstance(r, ast.List) and len(r.elts) == len(rows[0].elts) > 0 for r in rows):
-            if not any(isinstance(e, (ast.List, ast.ListComp)) for r in rows for e in r.elts):
-                return self._call_matrix([node])
         return rf"\left[{self._items(node.elts)}\right]", PREC_ATOM
 
     def _Tuple(self, node):
@@ -91,6 +90,8 @@ class _Renderer:
         return rf"\left\{{{', '.join(pairs)}\right\}}", PREC_ATOM
 
     def _Subscript(self, node):
+        if isinstance(node.value, ast.Name) and node.value.id in self.makers:
+            return self._matrix_maker(self.makers[node.value.id], node.slice)
         if isinstance(node.value, ast.Name) and node.value.id == REFS_NAME:
             return rf"\boxed{{{self.tex(node.slice)}}}", PREC_ATOM
         return f"{self.tex(node.value, PREC_ATOM)}_{{{self.tex(node.slice)}}}", PREC_ATOM
@@ -99,6 +100,20 @@ class _Renderer:
         if node.attr == "T":
             return f"{self.tex(node.value, PREC_ATOM)}^{{T}}", PREC_POW
         return rf"{self.tex(node.value, PREC_ATOM)}.\mathrm{{{node.attr}}}", PREC_ATOM
+
+    def _matrix_maker(self, maker, key):
+        """M[1, 2] (a row), M[[1, 2], [3, 4]] (rows), V[1, 2] (a column), as matrices.py reads them."""
+        items = key.elts if isinstance(key, ast.Tuple) else [key]
+        if all(isinstance(item, ast.List) for item in items):
+            rows = [item.elts for item in items]
+        elif not any(isinstance(item, ast.List) for item in items):
+            rows = [items]
+        else:
+            raise ValueError("matrix")
+        if maker.column:
+            rows = [list(column) for column in zip(*rows)]
+        body = r" \\ ".join(" & ".join(self.tex(e) for e in row) for row in rows)
+        return rf"\begin{{bmatrix}}{body}\end{{bmatrix}}", PREC_ATOM
 
     def _items(self, nodes):
         return ", ".join(self.tex(n) for n in nodes)
@@ -290,7 +305,8 @@ class _Renderer:
 
 def _render(src, ns):
     tree = ast.parse(to_python(src, ns), mode="eval")
-    return _Renderer().tex(tree)
+    makers = {name: value for name, value in ns.items() if isinstance(value, MatrixMaker)}
+    return _Renderer(makers).tex(tree)
 
 
 def preview(src, variables=(), functions=()):
