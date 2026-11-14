@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>calc</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <link rel="stylesheet" href="app.css">
+  <script defer src="latex.js"></script>
+  <script defer src="backend.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main>
+    <div id="tape" role="log" aria-live="polite">
+      <div id="empty">
+        <p>Type an expression and press <kbd>⏎</kbd>.</p>
+        <p class="examples"><code>integrate(sin(x)^2, x)</code> <code>a = 3/7 + 1/5</code> <code>f(x) = x^2 + 1</code> <code>solve(x^2 = 2, x)</code></p>
+        <p>Press <kbd>?</kbd> for the function catalog.</p>
+        <p class="note">SymPy runs in your browser. The first visit downloads it (about 10 MB); after that it's cached.</p>
+      </div>
+    </div>
+    <div id="composer">
+      <div id="preview" aria-hidden="true"></div>
+      <div id="loading" hidden>
+        <div class="bar" role="progressbar" aria-label="Loading Python" aria-valuemin="0" aria-valuemax="100"><div class="fill"></div></div>
+        <div class="label"></div>
+      </div>
+      <div id="palette" role="toolbar" aria-label="Symbols"></div>
+      <div id="prompt">
+        <span class="caret">›</span>
+        <input id="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus aria-label="Expression">
+        <button id="mode-toggle" type="button" tabindex="-1"></button>
+      </div>
+      <div id="hints"><span id="hint-text"></span><span id="commands"></span></div>
+    </div>
+  </main>
+
+  <div id="memory" hidden>
+    <div class="panel" role="dialog" aria-label="Memory" tabindex="-1">
+      <div class="title">Memory</div>
+      <ul id="memory-list" role="listbox"></ul>
+      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>⏎</kbd> insert · <kbd>⌫</kbd> forget · <kbd>Esc</kbd> close</div>
+    </div>
+  </div>
+
+  <div id="catalog" hidden>
+    <div class="panel" role="dialog" aria-label="Function catalog">
+      <input id="catalog-search" autocomplete="off" spellcheck="false" placeholder="Search functions…" aria-label="Search functions">
+      <div class="body">
+        <ul id="catalog-list" role="listbox"></ul>
+        <div id="catalog-detail"></div>
+      </div>
+      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>⏎</kbd> insert · <kbd>Esc</kbd> close</div>
+    </div>
+  </div>
+</body>
+</html>

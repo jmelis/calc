@@ -1,0 +1,18 @@
+[project]
+name = "calc"
+version = "0.1.0"
+description = "A keyboard-driven calculator in the browser: SymPy in Pyodide, typeset with KaTeX"
+requires-python = ">=3.14"
+dependencies = []
+
+# Only for running the tests natively. The browser gets its packages from Pyodide,
+# so sympy is pinned to the version Pyodide ships (see PYODIDE_VERSION in worker.js).
+[dependency-groups]
+dev = ["sympy==1.14.0", "matplotlib", "pytest"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["py"]
+testpaths = ["tests"]
