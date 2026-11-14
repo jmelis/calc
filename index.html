@@ -19,7 +19,7 @@
       <div id="empty" hidden>
         <p>Type an expression and press <kbd>⏎</kbd>.</p>
         <p class="examples"><code>integrate(sin(x)^2, x)</code> <code>a = 3/7 + 1/5</code> <code>f(x) = x^2 + 1</code> <code>solve(x^2 = 2, x)</code></p>
-        <p>Press <kbd>?</kbd> for the function catalog.</p>
+        <p>Press <kbd>?</kbd> for the function catalog; type <code>:help</code> for how to type things.</p>
         <p class="note">SymPy runs in your browser. The first visit downloads it (about 10 MB); after that it's cached.</p>
       </div>
     </div>
@@ -43,7 +43,81 @@
     <div class="panel" role="dialog" aria-label="Memory" tabindex="-1">
       <div class="title">Memory</div>
       <ul id="memory-list" role="listbox"></ul>
-      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>⏎</kbd> insert · <kbd>⌫</kbd> forget · <kbd>Esc</kbd> close</div>
+      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>⏎</kbd> insert · <kbd>⌫</kbd> forget · <kbd>⌃Z</kbd> undo · <kbd>Esc</kbd> close</div>
+    </div>
+  </div>
+
+  <div id="help" hidden>
+    <div class="panel" role="dialog" aria-label="Help">
+      <div class="title">Help</div>
+      <div class="body" tabindex="-1">
+        <section>
+          <h2>Typing math</h2>
+          <dl>
+            <dt>2x &nbsp; sin x &nbsp; x^2 &nbsp; 5!</dt><dd>Multiplication and function calls can be implied; <code>^</code> is a power</dd>
+            <dt>xy &nbsp; velocity</dt><dd>One name each. <code>x y</code> or <code>x*y</code> multiplies</dd>
+            <dt>e &nbsp; pi &nbsp; I &nbsp; oo</dt><dd>Constants: 2.718…, π, √−1, ∞</dd>
+            <dt>sin(30°)</dt><dd>Degrees</dd>
+          </dl>
+        </section>
+        <section>
+          <h2>Names and equations</h2>
+          <dl>
+            <dt>a = 3/7</dt><dd>A variable</dd>
+            <dt>f(x) = x^2 + 1</dt><dd>A function</dd>
+            <dt>x^2 = 4</dt><dd>Any other <code>=</code> is an equation: <code>solve(x^2 = 4, x)</code></dd>
+            <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. A line starting with <code>+ - * / ^</code> continues from <code>ans</code></dd>
+          </dl>
+        </section>
+        <section>
+          <h2>Lists, vectors and matrices</h2>
+          <p>A list is a list, until you do math with it: then <code>[1, 2, 3]</code> is a vector and a list of rows, <code>[[1, 2], [3, 4]]</code>, is a matrix.</p>
+          <dl>
+            <dt>2[1, 2, 3]</dt><dd>[2, 4, 6]</dd>
+            <dt>[1, 2] + [3, 4]</dt><dd>[4, 6]</dd>
+            <dt>M = [[1, 2], [3, 4]]</dt><dd>A matrix to use below</dd>
+            <dt>M^-1 &nbsp; M*M &nbsp; M.T</dt><dd>Inverse, product, transpose</dd>
+            <dt>M*[1, 1]</dt><dd>Matrix times vector: [3, 7]</dd>
+            <dt>det(M) &nbsp; M.eigenvals()</dt><dd>Any SymPy matrix function or method</dd>
+            <dt>v.dot(w) &nbsp; v.cross(w)</dt><dd>Products of two vectors; <code>v*w</code> is an error</dd>
+            <dt>M[0, 1] &nbsp; M[1] &nbsp; v[0]</dt><dd>An element (2); a row ([3, 4]); an entry</dd>
+            <dt>[k^2 for k in range(5)]</dt><dd>[0, 1, 4, 9, 16]: comprehensions make lists too</dd>
+            <dt>len(v) &nbsp; sum(v) &nbsp; max(v)</dt><dd>List functions still work</dd>
+          </dl>
+          <p class="note"><code>[0]*3</code> is <code>[0]</code> (math), not Python's <code>[0, 0, 0]</code>; write <code>[0 for _ in range(3)]</code>.</p>
+        </section>
+        <section>
+          <h2>Python</h2>
+          <p>Underneath, this is Python with SymPy, running in your browser. A line that isn't calculator syntax runs as Python, one line at a time; separate statements with <code>;</code>.</p>
+          <dl>
+            <dt>def g(x): y = x + 1; return 2*y</dt><dd>A Python function</dd>
+            <dt>for i in range(3): print(i)</dt><dd>Loops; printed output shows on the tape</dd>
+            <dt>import math</dt><dd>Imports</dd>
+          </dl>
+          <p class="note">Python lines are plain Python: write <code>*</code> and <code>**</code> (<code>^</code> is XOR there). Only names defined with <code>a = …</code> and <code>f(x) = …</code> are kept when you reload.</p>
+        </section>
+        <section>
+          <h2>Keys</h2>
+          <dl class="keys">
+            <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
+            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select tape items, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy, <kbd>⌫</kbd> delete</dd>
+            <dt><kbd>⌃Z</kbd></dt><dd>Undo deleting an entry, forgetting a variable, or <code>:clear</code> (not <code>:reset</code>)</dd>
+            <dt><kbd>Tab</kbd></dt><dd>Complete a name</dd>
+            <dt><kbd>?</kbd></dt><dd>Function catalog</dd>
+            <dt><kbd>⌃M</kbd></dt><dd>Math input</dd>
+            <dt><kbd>⌃C</kbd></dt><dd>Stop a long computation</dd>
+          </dl>
+        </section>
+        <section>
+          <h2>Commands</h2>
+          <dl>
+            <dt>:vars</dt><dd>What you've defined; <kbd>⌫</kbd> forgets one</dd>
+            <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
+            <dt>:reset</dt><dd>Empty the tape and forget everything</dd>
+          </dl>
+        </section>
+      </div>
+      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> scroll · <kbd>Esc</kbd> close</div>
     </div>
   </div>
 

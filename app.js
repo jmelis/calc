@@ -205,6 +205,14 @@ function scrollToBottom() {
   tapeEl.scrollTop = tapeEl.scrollHeight;
 }
 
+// The tape shrinks when the preview below it appears (it takes no room while empty);
+// if the tape was showing its end, keep it there, so the last result isn't covered
+let tapeAtEnd = true;
+tapeEl.addEventListener("scroll", () => {
+  tapeAtEnd = tapeEl.scrollHeight - tapeEl.scrollTop - tapeEl.clientHeight < 4;
+});
+new ResizeObserver(() => tapeAtEnd && scrollToBottom()).observe(tapeEl);
+
 // images (plots) get their height only once loaded, after we've already scrolled
 function scrollToBottomAfterImages(node) {
   scrollToBottom();
@@ -381,6 +389,7 @@ function deleteSelected() {
   send({ type: "delete", id });
   const remaining = selectableItems();
   select(remaining.length ? remaining[Math.min(before, remaining.length - 1)] : null);
+  flash(`Deleted entry ${id} · <kbd>⌃Z</kbd> undo`);
 }
 
 function toggleView(view) {
@@ -493,10 +502,30 @@ function insertTemplate(template, mathTemplate) {
 // --- commands (:vars, :clear, :reset) -----------------------------------------
 
 const COMMANDS = {
+  help: { help: "how to type things: syntax, vectors and matrices, Python, keys", run: () => openHelp() },
   vars: { help: "show everything you've defined, with its value", run: () => openMemory() },
-  clear: { help: "empty the tape; variables are kept", run: () => send({ type: "clear" }) },
+  clear: { help: "empty the tape; variables are kept (⌃Z brings it back)", run: clearTape },
   reset: { help: "empty the tape and forget all variables", run: () => send({ type: "reset" }) },
 };
+
+function clearTape() {
+  const had = state.entries.length > 0;
+  if (!send({ type: "clear" })) return false;
+  if (had) flash(`Cleared the tape · <kbd>⌃Z</kbd> undo`);
+  return true;
+}
+
+// Ctrl+Z takes back the last delete, forget or :clear (the backend keeps them)
+function undo() {
+  select(null);
+  send({ type: "undo" });
+}
+
+// Ctrl+Z is ours where it can't be the editor's own undo: with nothing typed (or a tape
+// item selected); with text, it undoes typing (Windows, Linux; on a Mac that's ⌘Z)
+function isUndoKey(e, empty) {
+  return e.key === "z" && e.ctrlKey && !e.metaKey && !e.altKey && (empty || state.selected);
+}
 
 // Reset from a button asks for a second click; typing :reset is deliberate enough
 let resetArmedUntil = 0;
@@ -621,6 +650,11 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "m" && e.ctrlKey) {
     e.preventDefault();
     toggleMode();
+    return;
+  }
+  if (isUndoKey(e, input.value === "")) {
+    e.preventDefault();
+    undo();
     return;
   }
   if (state.selected) return browseKey(e);
@@ -969,8 +1003,9 @@ memoryPanel.addEventListener("keydown", (e) => {
   else if (e.key === "Escape") return void (e.preventDefault(), closeMemory());
   else if ((e.key === "Backspace" || e.key === "Delete") && item && item.name !== "ans") {
     send({ type: "forget", name: item.name });
-    flash(`Forgot ${item.name}`);
-  } else return;
+    flash(`Forgot ${item.name} · <kbd>⌃Z</kbd> undo`);
+  } else if (e.key === "z" && e.ctrlKey) send({ type: "undo" }); // the list refreshes when it's back
+  else return;
   e.preventDefault();
   renderMemory();
 });
@@ -978,6 +1013,38 @@ memoryEl.addEventListener("mousedown", (e) => {
   if (e.target === memoryEl) {
     e.preventDefault();
     closeMemory();
+  }
+});
+
+// --- help (:help) ----------------------------------------------------------------
+
+const helpEl = document.getElementById("help");
+const helpPanel = helpEl.querySelector(".panel");
+const helpBody = helpEl.querySelector(".body");
+
+function openHelp() {
+  helpEl.hidden = false;
+  helpBody.scrollTop = 0;
+  helpBody.focus(); // the focused scroller is what ↑ ↓ PageUp PageDown scroll
+  return true;
+}
+
+function closeHelp() {
+  helpBody.blur(); // see hideCatalog
+  helpEl.hidden = true;
+  requestAnimationFrame(focusEditor);
+}
+
+helpPanel.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeHelp();
+  }
+});
+helpEl.addEventListener("mousedown", (e) => {
+  if (e.target === helpEl) {
+    e.preventDefault();
+    closeHelp();
   }
 });
 
@@ -1008,7 +1075,7 @@ document.addEventListener("copy", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   // typing anywhere lands in the input
-  if (catalogEl.hidden && memoryEl.hidden && document.activeElement !== editorElement() && !e.metaKey && !e.ctrlKey) {
+  if (catalogEl.hidden && memoryEl.hidden && helpEl.hidden && document.activeElement !== editorElement() && !e.metaKey && !e.ctrlKey) {
     focusEditor();
   }
 });
@@ -1102,6 +1169,11 @@ function onMathKey(e) {
   if (e.key === "m" && e.ctrlKey) {
     stop(e);
     toggleMode();
+    return;
+  }
+  if (isUndoKey(e, !mathField.value)) {
+    stop(e);
+    undo();
     return;
   }
   if (state.selected) {
@@ -1300,6 +1372,8 @@ function onMessage(msg) {
     state.names = msg.names;
   } else if (msg.type === "vars") {
     onVariables(msg);
+  } else if (msg.type === "undone") {
+    flash(msg.text);
   }
 }
 

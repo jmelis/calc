@@ -207,8 +207,8 @@ kbd {
   background: var(--bg);
 }
 
+/* takes room only while there's something to show (app.js keeps the tape's end in view) */
 #preview {
-  min-height: 2.6em;
   font-size: 15px;
   color: var(--muted);
   text-align: right;
@@ -537,7 +537,62 @@ body:not(.math-mode) #mathinput { display: none; }
   color: var(--muted);
 }
 
+/* --- help (:help) ---------------------------------------------------------------- */
+
+#help {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 16px;
+}
+#help[hidden] { display: none; }
+#help .panel {
+  width: min(720px, 100%);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+#help .title {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--faint);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+#help .body { overflow-y: auto; padding: 4px 18px 16px; outline: 0; font-size: 14px; line-height: 1.45; }
+#help h2 { font-size: 15px; font-weight: 600; margin: 16px 0 6px; }
+#help p { margin: 6px 0; }
+#help .note { color: var(--muted); font-size: 13px; }
+#help code { font-family: var(--mono); font-size: 0.92em; }
+#help dl {
+  display: grid;
+  grid-template-columns: minmax(0, 15em) 1fr;
+  gap: 4px 16px;
+  margin: 6px 0;
+}
+#help dt { font-family: var(--mono); font-size: 13px; color: var(--accent); white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+#help dl.keys { grid-template-columns: 5em 1fr; }
+#help dl.keys dt { font-family: var(--sans); }
+#help dd { margin: 0; }
+#help .footer {
+  border-top: 1px solid var(--faint);
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 @media (max-width: 640px) {
+  #help dl { grid-template-columns: 1fr; gap: 0; }
+  #help dd { margin-bottom: 6px; }
   #catalog .body { grid-template-columns: 1fr; }
   #catalog-detail { display: none; }
   .outputs, .err { padding-left: 12px; }

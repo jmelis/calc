@@ -31,23 +31,24 @@ latex.js: math input's LaTeX → calculator text (page side)
 | --- | --- |
 | `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette, catalog, Memory panel, hover tips, keyboard handling |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
-| `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing |
+| `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
 | `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages. Also `plot-bytecode.zip`: the same for matplotlib and its dependencies, as `__pycache__/*.pyc` unpacked over the installed packages (their extension modules can't load from a zip) |
 | `py/calc/parser.py` | Calculator syntax → SymPy: `2x`, `sin x`, `^`, `5!`, `=` handling (assign / define / equation, also inside calls), `°`/`º`, `$n` |
 | `py/calc/preview.py` | Input → LaTeX by walking the AST of the transformed source. Never evaluates, so it's cheap and safe on every keystroke, and shows what was typed (`integrate(…)` renders as ∫) |
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs |
+| `py/calc/vectors.py` | `Vector`: the list `[ ]` makes in calculator syntax, which also does vector/matrix math |
 | `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev` |
 
 ### Messages
 
 Page → backend: `eval`, `preview` (`target`: `input`, `catalog`, `convert`), `interrupt`, `clear`,
-`reset`, `vars`, `forget`. Backend → page: `init` (saved tape, before Python is up), `ready`
-(catalog, names), `pending`, `entry`, `tape`, `preview`, `names`, `vars`, `status` (text, and a
-`fraction` while starting up). The backend `structuredClone`s what it emits: the page mutates what
+`delete`, `reset`, `vars`, `forget`, `undo`. Backend → page: `init` (saved tape, before Python is
+up), `ready` (catalog, names), `pending`, `entry`, `tape`, `preview`, `names`, `vars`, `undone`
+(text to flash), `status` (text, and a `fraction` while starting up). The backend `structuredClone`s what it emits: the page mutates what
 it receives, and that must not reach the saved tape.
 
-Worker requests are `{id, op, ...}` (`init`, `run`, `preview`, `vars`, `forget`), answered in
+Worker requests are `{id, op, ...}` (`init`, `run`, `preview`, `vars`, `forget`, `unforget`), answered in
 arrival order, so requests sent before `init` finishes simply wait. Python returns JSON strings
 (see `GLUE` in `worker.js`), which keeps Pyodide proxies out of the page.
 
@@ -76,6 +77,21 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   scrolls from its left edge.
 - **Deleting** (⌫ on a selected tape item) removes the entry from the tape only: its value stays
   reachable as `$n`.
+- **Undo** (Ctrl+Z, when the input is empty or a tape item is selected; with text it's the input's
+  own undo) takes back the last delete, `:clear` or forgotten variable. The backend keeps the stack
+  in memory (a reload empties it); a forgotten value comes back from a pickle `forget` returned.
+  Evaluations aren't undoable and `:reset` empties the stack.
+- **Lists are vectors** (`vectors.py`): in calculator syntax `[ ]` and list comprehensions make a
+  `Vector`, a list whose arithmetic and matrix methods work on `Matrix(self)`: flat is a column
+  vector, a list of rows a matrix. Results are kept with `as_vector`: one-column matrices come back
+  as flat lists, so vectors stay lists. A vector before a matrix is a row (`[1, 1] M`); `*` between
+  two vectors is an error pointing to `dot`/`cross`; `[0]*3` is math (`[0]`), not repetition.
+  Python lines (below) keep plain lists.
+- **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
+  Python directly; any other line that isn't calculator syntax falls back to Python. One line, with
+  `;` between statements. In Python lines `^` is XOR and nothing is implied.
+- **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
+  user's manual: keep it in step with the syntax, short and with examples.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
   optional `float` and `degrees` views, and a `label` for assignments. Objects that can't round-trip
   as text are inserted as `$n`.
@@ -98,7 +114,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - `py/calc/` stays plain Python with no browser dependencies; test it natively. Anything Pyodide-
   specific belongs in `worker.js`.
 - Every user-visible feature gets a line in the catalog (`catalog.py`) or the hint line, so it can
-  be discovered.
+  be discovered, and syntax goes in the Help panel (`#help` in `index.html`).
 
 ## Versions
 
@@ -152,10 +168,12 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `ans`, `$3` | Last result; result of entry 3. A leading `+ * / ^ -` continues from `ans` (`--5` types `-5`) |
 | `sin(30°)` | Degrees |
 | `e`, `I`, `pi`, `oo` | Constants (`e` is `E`) |
-| `:vars`, `:clear`, `:reset` | Memory panel; empty the tape; also forget all variables |
-| anything else | Run as plain Python (imports, loops) |
+| `[1, 2]`, `[[1, 2], [3, 4]]`, `2[1, 2]`, `M*v`, `M[0, 1]` | Lists that are vectors and matrices in math (see `vectors.py`) |
+| `[k^2 for k in range(5)]` | Comprehensions are calculator syntax too (`^` is power) |
+| `:help`, `:vars`, `:clear`, `:reset` | Help panel; Memory panel; empty the tape; also forget all variables |
+| `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |
 
 Keys: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>↑</kbd>/<kbd>↓</kbd>
 select tape items, <kbd>⏎</kbd> insert the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd>
-degrees, <kbd>c</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entry, <kbd>Tab</kbd> complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+
-<kbd>C</kbd> interrupt, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.
+degrees, <kbd>c</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entry, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>
+complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+<kbd>C</kbd> interrupt, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.

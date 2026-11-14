@@ -2,9 +2,9 @@
 // variables in IndexedDB, and runs the Python worker (worker.js).
 //
 // The page sends it messages ({type: "eval" | "preview" | "interrupt" | "clear" |
-// "delete" | "reset" | "vars" | "forget", ...}) and gets back the same kinds of messages a
-// server would push ({type: "init" | "pending" | "entry" | "tape" | "preview" |
-// "names" | "vars" | "status" | "ready", ...}). Like a server's, they're copies: the page
+// "delete" | "reset" | "vars" | "forget" | "undo", ...}) and gets back the same kinds of
+// messages a server would push ({type: "init" | "pending" | "entry" | "tape" | "preview" |
+// "names" | "vars" | "status" | "ready" | "undone", ...}). Like a server's, they're copies: the page
 // changes what it receives (adds entries, sets views), and that mustn't reach the tape.
 
 class Interrupted extends Error {}
@@ -57,6 +57,9 @@ class Backend {
     this.queued = []; // messages that arrived before there was a worker to send them to
     this.running = 0; // evaluations in the worker; previews wait for them
     this.deferredPreviews = new Map(); // target -> latest preview request while busy
+    // what Ctrl+Z can take back: {kind: "delete", entry} | {kind: "clear", entries} |
+    // {kind: "forget", name, saved}. In memory only; :reset empties it
+    this.undoStack = [];
   }
 
   async start() {
@@ -144,7 +147,7 @@ class Backend {
   // --- messages from the page ---------------------------------------------------
 
   handle(msg) {
-    if (!this.worker && !["interrupt", "clear", "delete"].includes(msg.type)) {
+    if (!this.worker && !["interrupt", "clear", "delete", "undo"].includes(msg.type)) {
       this.queued.push(msg); // still reading the saved tape; sent once the worker exists
       return true;
     }
@@ -159,13 +162,20 @@ class Backend {
         this.interrupt();
         break;
       case "clear":
+        if (this.tape.entries.length) this.undoStack.push({ kind: "clear", entries: this.tape.entries });
         this.tape.entries = [];
         this.save();
         this.emit({ type: "tape", entries: [] });
         break;
-      case "delete": // the page has already removed it from view
+      case "delete": { // the page has already removed it from view
+        const entry = this.tape.entries.find((e) => e.id === msg.id);
+        if (entry) this.undoStack.push({ kind: "delete", entry });
         this.tape.entries = this.tape.entries.filter((e) => e.id !== msg.id);
         this.save();
+        break;
+      }
+      case "undo":
+        this.undo();
         break;
       case "reset":
         this.reset();
@@ -235,7 +245,8 @@ class Backend {
 
   async variables(op, args = {}) {
     try {
-      const { items, names, state } = await this.request(op, args);
+      const { items, names, state, saved } = await this.request(op, args);
+      if (op === "forget" && saved) this.undoStack.push({ kind: "forget", name: args.name, saved });
       this.names = names;
       if (state) {
         this.state = state;
@@ -256,7 +267,29 @@ class Backend {
     this.startWorker();
   }
 
+  // Ctrl+Z: takes back the last delete, :clear or forget (not evaluations, not :reset)
+  undo() {
+    const last = this.undoStack.pop();
+    if (!last) {
+      this.emit({ type: "undone", text: "Nothing to undo" });
+      return;
+    }
+    if (last.kind === "forget") {
+      this.variables("unforget", { name: last.name, saved: last.saved });
+      this.emit({ type: "undone", text: `Restored ${last.name}` });
+      return;
+    }
+    // back in their places, among whatever was evaluated since
+    const restored = last.kind === "clear" ? last.entries : [last.entry];
+    this.tape.entries = [...restored, ...this.tape.entries].sort((a, b) => a.id - b.id);
+    this.save();
+    this.emit({ type: "tape", entries: this.tape.entries });
+    const text = last.kind === "clear" ? "Restored the tape" : `Restored entry ${last.entry.id}`;
+    this.emit({ type: "undone", text });
+  }
+
   reset() {
+    this.undoStack = [];
     this.stopWorker();
     this.tape = { next_id: 1, entries: [] };
     this.state = null;

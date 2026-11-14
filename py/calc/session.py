@@ -24,8 +24,9 @@ from sympy.printing.latex import LatexPrinter
 
 from . import stats
 from .catalog import catalog_entries
-from .parser import _GLOBALS, REFS_NAME, classify, parse
+from .parser import _GLOBALS, REFS_NAME, classify, is_statement, parse
 from .preview import _symbol, preview
+from .vectors import as_vector
 
 FLOAT_DIGITS = 15
 PLOT_FUNCTIONS = ("plot", "plot_parametric", "plot_implicit", "plot3d")
@@ -153,6 +154,21 @@ class Session:
                 self.ns[name] = self.base[name]
         return self.variables()
 
+    def pickled(self, name):
+        """A defined name's value, pickled (base64), so forgetting it can be undone; None
+        if it isn't defined or doesn't pickle."""
+        if name not in self.defined or name not in self.ns:
+            return None
+        try:
+            return base64.b64encode(pickle.dumps(self.ns[name])).decode()
+        except Exception:
+            return None
+
+    def unforget(self, name, data):
+        """Undo forget(): define `name` again with the value pickled() returned."""
+        self._assign(name, pickle.loads(base64.b64decode(data)))
+        return self.variables()
+
     def state(self):
         """Variables, ans and $n values, pickled (what doesn't pickle is dropped)."""
         state = {
@@ -176,6 +192,8 @@ class Session:
     # --- evaluation ------------------------------------------------------------
 
     def _evaluate(self, src):
+        if is_statement(src):  # def f(x): y = x + 1; return y
+            return Outcome(_exec_python(ast.parse(src), self.ns))
         try:
             return self._evaluate_calc(src)
         except (SyntaxError, TokenError) as calc_error:
@@ -190,18 +208,18 @@ class Session:
         ns = self.ns
         kind, data = classify(src)
         if kind == "expr":
-            return Outcome(parse(data, ns))
+            return Outcome(as_vector(parse(data, ns)))
         if kind == "equation":
             lhs, rhs = data
             return Outcome(Eq(parse(lhs, ns), parse(rhs, ns)))
         if kind == "assign":
             names, rhs = data
-            value = parse(rhs, ns)
+            value = as_vector(parse(rhs, ns))
             values = [value] if len(names) == 1 else list(value)
             if len(values) != len(names):
                 raise ValueError(f"expected {len(names)} values, got {len(values)}")
             for name, v in zip(names, values):
-                self._assign(name, v)
+                self._assign(name, as_vector(v))
             return Outcome(value, label=", ".join(latex(Symbol(n)) for n in names))
         name, args, body = data
         arg_syms = [Symbol(a) for a in args]
@@ -360,7 +378,7 @@ BRACKETS = {list: ("[", "]"), tuple: ("(", ")"), set: (r"\{", r"\}"), frozenset:
 def _items(value, **settings):
     """A collection's elements as separate LaTeX pieces, so the page can wrap a long list
     like text (as one LaTeX expression it can only overflow): {open, close, items}."""
-    brackets = BRACKETS.get(type(value))
+    brackets = next((b for kind, b in BRACKETS.items() if isinstance(value, kind)), None)
     if brackets is None or len(value) < 2:
         return None
     if isinstance(value, dict):
@@ -384,7 +402,7 @@ def _degrees(value):
 def _text(value, **settings):
     """Single-line source for a value, so picking it can paste it back into the input."""
     if isinstance(value, MatrixBase):
-        return f"Matrix({_text(value.tolist(), **settings)})"
+        return _text(value.tolist(), **settings)  # [[1, 2], [3, 4]] is a matrix too
     if isinstance(value, list):
         return "[" + ", ".join(_text(v, **settings) for v in value) + "]"
     if isinstance(value, tuple):

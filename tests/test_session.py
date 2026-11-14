@@ -100,3 +100,24 @@ def test_warming_up_plotting_leaves_no_figure_behind():
     session = Session()
     assert run(session, "1 + 1")["outputs"] == []
     assert len(run(session, "plot(x^2)")["outputs"]) == 1
+
+
+def test_python_statements_run_as_python():
+    s = Session()
+    run(s, "def double(x): y = 2*x; return y")
+    assert run(s, "double(21)")["result"]["text"] == "42"
+    assert run(s, "for i in range(2): print(i)")["outputs"][0]["text"] == "0\n1\n"
+
+
+def test_forgetting_can_be_undone():
+    s = Session()
+    run(s, "a = [1, 2]")
+    run(s, "f(x) = x^2")
+    saved = {name: s.pickled(name) for name in ("a", "f")}
+    for name in saved:
+        s.forget(name)
+    assert s.run("f(3)", 2)["result"]["text"] != "9"
+    for name, data in saved.items():
+        s.unforget(name, data)
+    assert run(s, "f(3) + a[0]")["result"]["text"] == "10"
+    assert s.pickled("undefined") is None

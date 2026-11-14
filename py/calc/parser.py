@@ -13,16 +13,21 @@ Rules:
     solve(x^2 = 2, x)       so is '=' inside brackets, unless it's a keyword argument
     $4                      the result of tape entry 4
     30°                     degrees: sin(30°) is 1/2 (º, the look-alike on Option+0, works too)
+    [1, 2], [[1, 2], [3, 4]] lists that are also vectors and matrices (see vectors.py)
 """
+import ast
 import builtins
 import difflib
+import keyword
 import re
 
-from sympy import Symbol
+from sympy import Max, Min, Symbol
+from sympy.utilities.iterables import iterable
 from sympy.parsing.sympy_parser import (
     ENDMARKER,
     NAME,
     NEWLINE,
+    NUMBER,
     OP,
     AppliedFunction,
     _apply_functions,
@@ -36,6 +41,8 @@ from sympy.parsing.sympy_parser import (
     standard_transformations,
     stringify_expr,
 )
+
+from .vectors import vector
 
 
 class UnknownFunctionError(NameError):
@@ -103,6 +110,27 @@ def _implicit_application(tokens, local_dict, global_dict):
     return result
 
 
+def number_times_bracket(tokens, local_dict, global_dict):
+    """2[1, 2] multiplies (a number can't be indexed); before auto_number makes the 2 a
+    call, whose ) before [ must stay indexing, as in solve(...)[0]."""
+    result = []
+    for tok, next_tok in zip(tokens, tokens[1:] + [(ENDMARKER, "")]):
+        result.append(tok)
+        if tok[0] == NUMBER and next_tok == (OP, "["):
+            result.append((OP, "*"))
+    return result
+
+
+# Python keywords (for, in, if, not, …) are hidden from implicit multiplication and
+# application as operators, so [k^2 for k in range(5)] isn't k^2*for*k*in*range(5)
+def hide_keywords(tokens, local_dict, global_dict):
+    return [(OP, tok[1]) if tok[0] == NAME and keyword.iskeyword(tok[1]) else tok for tok in tokens]
+
+
+def restore_keywords(tokens, local_dict, global_dict):
+    return [(NAME, tok[1]) if tok[0] == OP and keyword.iskeyword(tok[1]) else tok for tok in tokens]
+
+
 def implicit_application(tokens, local_dict, global_dict):
     """sympy's implicit_application, using the fixed _implicit_application above."""
     res1 = _group_parentheses(implicit_application)(tokens, local_dict, global_dict)
@@ -114,12 +142,14 @@ def implicit_application(tokens, local_dict, global_dict):
 # Names are whole words, defined or not: xy is the name xy, never x*y (write x y or
 # x*y), so a name's meaning doesn't change when something gets defined. sympy's
 # split_symbols is deliberately left out.
-TRANSFORMATIONS = standard_transformations + (
+TRANSFORMATIONS = (number_times_bracket,) + standard_transformations + (
     convert_xor,
     reject_unknown_calls,
+    hide_keywords,
     implicit_multiplication,
     implicit_application,
     function_exponentiation,
+    restore_keywords,
 )
 
 IDENT = r"[A-Za-z_]\w*"
@@ -127,6 +157,12 @@ IDENTS = rf"{IDENT}(?:\s*,\s*{IDENT})*"
 ASSIGN_RE = re.compile(rf"^\s*({IDENTS})\s*$")
 DEFINE_RE = re.compile(rf"^\s*({IDENT})\s*\(\s*({IDENTS})\s*\)\s*$")
 REF_RE = re.compile(r"\$(\d+)")
+# Comprehension variables: for i in, for i, j in
+FOR_RE = re.compile(rf"\bfor\s+\(?\s*({IDENTS})\s*\)?\s+in\b")
+# Lines that start with one of these are Python statements, run as Python
+STATEMENT_RE = re.compile(
+    r"^\s*(def|class|for|while|if|with|try|import|from|del|global|nonlocal|assert|raise|pass|async)\b"
+)
 REFS_NAME = "_calc_out"
 
 # What parse_expr uses by default: sympy plus builtin functions, so abs(x) isn't split into a*b*s
@@ -138,10 +174,24 @@ NOT_BUILTINS = {"exit", "quit", "copyright", "credits", "license", "input", "bre
 for _name, _value in vars(builtins).items():
     if not _name.startswith("_") and callable(_value) and _name not in NOT_BUILTINS:
         _GLOBALS.setdefault(_name, _value)
-_GLOBALS.update(max=_GLOBALS["Max"], min=_GLOBALS["Min"])
+
+
+def _of_list(fn):
+    """max and min as on a calculator, Max and Min, also of a list: max([1, 5, 3])"""
+    def wrapper(*args, **kwargs):
+        return fn(*args[0], **kwargs) if len(args) == 1 and iterable(args[0]) else fn(*args, **kwargs)
+
+    wrapper.__name__ = wrapper.__qualname__ = fn.__name__.lower()
+    return wrapper
+
+
+_GLOBALS.update(max=_of_list(Max), min=_of_list(Min))
 # 30° becomes 30*_deg; a name of its own so the preview can show it as a degree sign
 DEG_NAME = "_deg"
 _GLOBALS[DEG_NAME] = _GLOBALS["pi"] / 180
+# [ ] and list comprehensions become vector(...): lists that also do vector math
+VECTOR_NAME = "_vector"
+_GLOBALS[VECTOR_NAME] = vector
 
 
 def split_names(s):
@@ -216,6 +266,11 @@ def rewrite_inner_equations(src):
         return src  # leave it to the parser to report
 
 
+def is_statement(src):
+    """def f(x): …, for …, import …: Python statements rather than calculator syntax."""
+    return bool(STATEMENT_RE.match(src))
+
+
 def classify(src):
     """
     Return (kind, data):
@@ -284,9 +339,24 @@ def to_python(src, namespace):
     src = rewrite_degrees(src)
     src = rewrite_inner_equations(REF_RE.sub(rf" {REFS_NAME}[\1] ", src))
     shadow = {name: _shadow(value) for name, value in namespace.items()}
+    # loop variables stay plain names (auto_symbol would make `for i` `for Symbol('i')`)
+    shadow.update((name, Symbol(name)) for names in FOR_RE.findall(src) for name in split_names(names))
     return stringify_expr(src, shadow, _GLOBALS, TRANSFORMATIONS)
+
+
+class _Vectors(ast.NodeTransformer):
+    def visit_List(self, node):
+        return self._wrap(node)
+
+    def visit_ListComp(self, node):
+        return self._wrap(node)
+
+    def _wrap(self, node):
+        self.generic_visit(node)
+        return ast.Call(ast.Name(VECTOR_NAME, ast.Load()), [node], [])
 
 
 def parse(src, namespace):
     """Parse and evaluate calculator syntax, resolving names from `namespace`."""
-    return eval_expr(to_python(src, namespace), namespace, _GLOBALS)
+    tree = ast.fix_missing_locations(_Vectors().visit(ast.parse(to_python(src, namespace), mode="eval")))
+    return eval_expr(compile(tree, "<calc>", "eval"), namespace, _GLOBALS)
