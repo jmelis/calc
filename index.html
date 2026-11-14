@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>calc</title>
+  <title>SymPy Calc</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23c2410c'/><text x='32' y='46' text-anchor='middle' font-family='Georgia,serif' font-size='38' fill='white'>2π</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -58,16 +58,23 @@
             <dt>xy &nbsp; velocity</dt><dd>One name each. <code>x y</code> or <code>x*y</code> multiplies</dd>
             <dt>e &nbsp; pi &nbsp; I &nbsp; oo</dt><dd>Constants: 2.718…, π, √−1, ∞</dd>
             <dt>sin(30°)</dt><dd>Degrees</dd>
+            <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. Typing <code>+ - * / ^</code> first continues from <code>ans</code> (<code>--</code> for a negative number)</dd>
           </dl>
         </section>
         <section>
-          <h2>Names and equations</h2>
+          <h2>Assignment and equations</h2>
+          <p>What's left of <code>=</code> decides what it means:</p>
           <dl>
-            <dt>a = 3/7</dt><dd>A variable</dd>
-            <dt>f(x) = x^2 + 1</dt><dd>A function</dd>
-            <dt>x^2 = 4</dt><dd>Any other <code>=</code> is an equation: <code>solve(x^2 = 4, x)</code></dd>
-            <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. A line starting with <code>+ - * / ^</code> continues from <code>ans</code></dd>
+            <dt>a = 3/7</dt><dd>A name: assign a variable (<code>a := 3/7</code> too)</dd>
+            <dt>a, b = 1, 2</dt><dd>Several names: assign each</dd>
+            <dt>f(x) = x^2 + 1</dt><dd>A name with arguments: define a function</dd>
+            <dt>A[0, 1] = 5</dt><dd>A name with an index: change part of a variable; earlier results keep their values</dd>
+            <dt>x^2 = 4</dt><dd>Anything else: an equation</dd>
+            <dt>solve(x^2 = 4, x)</dt><dd>Inside brackets, <code>=</code> is an equation too…</dd>
+            <dt>solve(x^2 - 4, x, dict=True)</dt><dd>…except after a bare name, which is a keyword argument</dd>
+            <dt>x == 2</dt><dd>Asks whether both sides are the same expression: True or False</dd>
           </dl>
+          <p class="note">Variables and functions defined this way are kept when you reload; Python definitions (<code>def</code>) are not. <code>:vars</code> lists them.</p>
         </section>
         <section>
           <h2>Matrices and vectors</h2>
@@ -85,23 +92,22 @@
         </section>
         <section>
           <h2>Python</h2>
-          <p>Underneath, this is Python with SymPy, running in your browser. A line that isn't calculator syntax runs as Python, one line at a time; separate statements with <code>;</code>.</p>
+          <p>Underneath, this is Python with SymPy, running in your browser. A line that starts with <code>def</code>, <code>for</code>, <code>import</code>… or isn't calculator syntax runs as Python, where <code>=</code> is Python's assignment. One line at a time: separate statements with <code>;</code>.</p>
           <dl>
             <dt>def g(x): y = x + 1; return 2*y</dt><dd>A Python function</dd>
             <dt>for i in range(3): print(i)</dt><dd>Loops; printed output shows on the tape</dd>
             <dt>import math</dt><dd>Imports</dd>
             <dt>def sq(n): return n**2</dt><dd><strong>Python lines are plain Python:</strong> <code>**</code> is a power and <code>^</code> is XOR, and nothing is implied (<code>2*x</code>, not <code>2x</code>)</dd>
           </dl>
-          <p class="note">Only names defined with <code>a = …</code> and <code>f(x) = …</code> are kept when you reload.</p>
         </section>
         <section>
           <h2>Keys</h2>
           <dl class="keys">
             <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
             <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select tape items, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy, <kbd>⌫</kbd> delete</dd>
-            <dt><kbd>⌃Z</kbd></dt><dd>Undo deleting an entry, forgetting a variable, or <code>:clear</code> (not <code>:reset</code>)</dd>
+            <dt><kbd>⌃Z</kbd></dt><dd>On an empty line: undo deleting an entry, forgetting a variable, or <code>:clear</code> (not <code>:reset</code>)</dd>
             <dt><kbd>Tab</kbd></dt><dd>Complete a name</dd>
-            <dt><kbd>?</kbd></dt><dd>Function catalog</dd>
+            <dt><kbd>?</kbd></dt><dd>On an empty line: the function catalog</dd>
             <dt><kbd>⌃M</kbd></dt><dd>Math input</dd>
             <dt><kbd>⌃C</kbd></dt><dd>Stop a long computation</dd>
           </dl>
@@ -109,6 +115,7 @@
         <section>
           <h2>Commands</h2>
           <dl>
+            <dt>:help</dt><dd>This</dd>
             <dt>:vars</dt><dd>What you've defined; <kbd>⌫</kbd> forgets one</dd>
             <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
             <dt>:reset</dt><dd>Empty the tape and forget everything</dd>
