@@ -74,6 +74,12 @@ await key("clear");
 s = await now();
 check(s.view === null && s.names.includes("a"), "vars: forget, undo, clear", s);
 
+// alpha twice locks the letters, as 2nd alpha does; once more lets go
+await keys("alpha", "alpha");
+check((await now()).lock, "alpha twice: A-LOCK", await now());
+await key("alpha");
+check(!(await now()).lock, "alpha again: the letters go", await now());
+
 // the catalog: opens in A-LOCK, letters jump, enter inserts
 await keys("2nd", "0");
 s = await now();

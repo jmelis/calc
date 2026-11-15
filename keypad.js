@@ -64,7 +64,8 @@ function menuKey(name, letter) {
 }
 
 const SECOND = action("2nd", () => setMod(touch.mod === "2nd" ? null : "2nd"), "The function printed above a key: 2nd, then the key (or hold the key)", { kind: "second", modifier: true });
-const ALPHA = action("alpha", () => setMod(touch.mod ? null : "alpha"), "The letter printed on a key; 2nd alpha keeps them coming", {
+// alpha, alpha again (as 2nd alpha does) locks the letters, and once more lets go
+const ALPHA = action("alpha", () => setMod(touch.mod === "alpha" ? "lock" : touch.mod ? null : "alpha"), "The letter printed on a key; twice (or 2nd alpha) keeps them coming", {
   kind: "alpha",
   modifier: true,
   second: action("A-lock", () => setMod("lock"), "Letters until alpha again", { anywhere: true }),
@@ -184,17 +185,20 @@ function setMod(mod) {
 }
 
 // A key let go: its 2nd function after 2nd, its letter after alpha, else what it does
-function keyPressed(spec) {
-  const mod = touch.mod;
+// mod is 2nd, alpha or lock: the one that's on, or the one a mouse held (shift, option)
+function keyPressed(spec, mod = touch.mod) {
   if (mod === "2nd" && spec !== SECOND) {
-    setMod(null);
+    if (touch.mod) setMod(null);
     if (spec.second) return run(spec.second);
   } else if ((mod === "alpha" || mod === "lock") && spec.letter && !spec.modifier) {
-    if (mod === "alpha") setMod(null);
+    if (touch.mod === "alpha") setMod(null);
     return run({ letter: spec.letter });
-  } else if (mod === "alpha" && !spec.modifier) setMod(null);
+  } else if (touch.mod === "alpha" && !spec.modifier) setMod(null);
   run(spec);
 }
+
+// A mouse (the keypad on a computer): shift-click is 2nd, option-click is alpha
+const clickMod = (e) => (e.shiftKey ? "2nd" : e.altKey ? "alpha" : touch.mod);
 
 // alpha's letter, rather than a key that has one
 const isLetter = (spec) => spec.letter && !spec.action && spec.type === undefined && spec.template === undefined;
@@ -999,7 +1003,8 @@ function renderStrip() {
 //
 // Keys act when let go. Held, a key repeats (⌫, the arrows) or does its 2nd function;
 // one with neither says what it does on the status line. One key at a time. A sideways
-// drag on the soft keys turns the menu's page.
+// drag on the soft keys turns the menu's page. With a mouse, shift-click does the 2nd
+// function and option-click the letter, so 2nd and alpha aren't two clicks (`clickMod`).
 
 function onPointerDown(e) {
   const key = e.target.closest?.(".key");
@@ -1050,7 +1055,7 @@ function onPointerUp(e) {
   press.key.classList.remove("down");
   if (press.held) return;
   if (press.key.classList.contains("sk")) return pressSoft([...softEl.children].indexOf(press.key));
-  keyPressed(press.spec);
+  keyPressed(press.spec, clickMod(e));
 }
 
 function onPointerCancel(e) {

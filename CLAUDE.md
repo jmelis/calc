@@ -131,7 +131,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `math calc matrix vars ⌫`, `xⁿ sin cos tan ÷`, `x² , ( ) ×`, `log 7 8 9 −`, `ln 4 5 6 +`,
   `= 1 2 3 ‹›`, `abc 0 . (−) enter` (`abc` where the TI has ON). Each key prints its 2nd
   function (top left, `second`) and its alpha letter (top right, `letter`); 2nd and alpha
-  apply to the next key, 2nd alpha locks letters, and holding a key does its 2nd. The soft
+  apply to the next key, 2nd alpha (or alpha twice) locks letters, and holding a key does
+  its 2nd. With a mouse, which the layout also gets on a computer (`?layout=touch`),
+  shift-click is 2nd and option-click alpha (`clickMod`, the `mod` keyPressed takes). The soft
   keys show, first that applies: the view's own, the selected entry's actions
   (`selectionActions`), completions of the name being typed (2+ letters), or the menu last
   opened (keys.js's, or `test` from 2nd =), five at a time (`SOFT_KEYS`), with arrows and a
