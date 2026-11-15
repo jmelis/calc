@@ -6,13 +6,17 @@
   <script>
     // Touch-only devices (phones, tablets without a mouse) get the touch layout: keypad.js,
     // touch.css. ?layout=touch or ?layout=desktop chooses one and is remembered; ?layout=auto
-    // forgets. Decided here, before anything renders, so the other layout never flashes.
+    // forgets. Decided here, before anything renders, so the other layout never flashes; so
+    // is the touch layout's theme (calculator, or classic), chosen in its mode menu.
     (() => {
       let layout = new URLSearchParams(location.search).get("layout");
       try {
         if (layout === "touch" || layout === "desktop") localStorage.setItem("calc.layout", layout);
         else if (layout === "auto") localStorage.removeItem("calc.layout");
         else layout = localStorage.getItem("calc.layout");
+      } catch {}
+      try {
+        if (localStorage.getItem("calc.theme") === "calculator") document.documentElement.classList.add("theme-calc");
       } catch {}
       if (layout !== "touch" && (layout === "desktop" || !matchMedia("(hover: none) and (pointer: coarse)").matches)) return;
       document.documentElement.classList.add("touch");
@@ -42,7 +46,7 @@
         <p>Type an expression and press <kbd>⏎</kbd>.</p>
         <p class="examples"><code>integrate(sin(x)^2, x)</code> <code>a = 3/7 + 1/5</code> <code>f(x) = x^2 + 1</code> <code>solve(x^2 = 2, x)</code></p>
         <p class="desktop-only">Press <kbd>?</kbd> for the function catalog; type <code>:help</code> for how to type things.</p>
-        <p class="touch-only">Tap an example to try it. Hold a key to see what it does; <kbd>?</kbd> lists the functions and <kbd>⋯</kbd> has the help.</p>
+        <p class="touch-only">Tap an example to try it. <kbd>2nd</kbd> then a key (or holding it) gives what's printed above the key; <kbd>mode</kbd> has the settings and the help.</p>
         <p class="note">SymPy runs in your browser. The first visit downloads it (about 10 MB); after that it's cached.</p>
       </div>
     </div>
@@ -152,14 +156,17 @@
           </dl>
         </section>
         <section class="touch-only">
-          <h2>Touch</h2>
+          <h2>The keypad</h2>
           <dl class="keys">
-            <dt>the soft keys</dt><dd>The row under <kbd>x y</kbd> <kbd>f(x)</kbd> <kbd>∫</kbd> <kbd>[ ]</kbd> shows that menu's functions, six at a time: <kbd>▸</kbd> or a sideways swipe shows the next six</dd>
-            <dt>hold a key</dt><dd>What it does, and related keys (<code>x</code>: <code>y z t n k θ</code>; <code>=</code>: <code>&lt; ≤ ≠</code>; <code>(</code>: <code>[ {</code>): slide onto one, or let go and tap it</dd>
-            <dt><kbd>AC</kbd></dt><dd>Clear the line (so does holding <kbd>⌫</kbd>)</dd>
-            <dt>tap a result</dt><dd>Insert it, show it as a decimal or in degrees, copy it, delete it; tap it again to let go</dd>
-            <dt><kbd>abc</kbd></dt><dd>The system keyboard, for names and Python; <kbd>123</kbd> brings the keypad back</dd>
-            <dt>the strip</dt><dd>Above the keys: <code>ans</code> and what you've defined, or completions of the name you're typing</dd>
+            <dt>soft keys</dt><dd>The labels on the screen's bottom edge: tap one, or the <kbd>f1</kbd>–<kbd>f5</kbd> key under it. They show a menu (<kbd>math</kbd> <kbd>calc</kbd> <kbd>matrix</kbd> <kbd>stat</kbd> <kbd>vars</kbd>; press it again, or swipe the labels, for the next five), what you can do with a selected result, or completions of the name you're typing</dd>
+            <dt><kbd>2nd</kbd></dt><dd>Then a key: what's printed above it on the left (<code>sin⁻¹ √ π e ans</code>, <kbd>2nd</kbd> <kbd>0</kbd> the catalog, <kbd>2nd</kbd> <kbd>=</kbd> <code>&lt; ≤ ≠</code>, <kbd>2nd</kbd> <kbd>del</kbd> undo). Holding a key does the same</dd>
+            <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right; <kbd>2nd</kbd> <kbd>alpha</kbd> keeps typing letters until <kbd>alpha</kbd> again. <kbd>abc</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
+            <dt><kbd>x,t,θ</kbd></dt><dd><code>x</code>; press it again for <code>t</code>, <code>θ</code>, <code>n</code></dd>
+            <dt><kbd>‹›</kbd></dt><dd>The selected result, or the last one, as a decimal, in degrees, or exact</dd>
+            <dt><kbd>(−)</kbd></dt><dd>A minus sign; <kbd>−</kbd> subtracts, from the last result on an empty line</dd>
+            <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries; <kbd>enter</kbd> inserts one (or tap it; tap again to let go). <kbd>2nd</kbd> <kbd>enter</kbd> brings back the last line typed</dd>
+            <dt><kbd>clear</kbd> <kbd>del</kbd></dt><dd>Clear the line; delete before the cursor (or the selected entry)</dd>
+            <dt><kbd>mode</kbd></dt><dd>Math input, the theme (classic or calculator), variables, help, clearing the tape</dd>
             <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
           </dl>
         </section>

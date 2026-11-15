@@ -273,9 +273,10 @@ kbd {
 }
 #palette .tab:hover { color: var(--text); }
 #palette .tab.active { background: var(--accent-soft); color: var(--accent); }
+/* one row for a whole menu (up to 17 keys at full width), more on a narrow window */
 #palette .keys {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
   gap: 6px;
 }
 #palette .keys button {
@@ -294,7 +295,7 @@ kbd {
   justify-content: center;
   overflow: hidden;
 }
-#palette .keys button.word { font-family: var(--sans); font-size: 13px; }
+#palette .keys button.word { font-family: var(--sans); font-size: 12px; }
 #palette .keys button:hover { box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); }
 #palette .keys button .katex { font-size: 1em; }
 
@@ -650,7 +651,6 @@ body:not(.math-mode) #mathinput { display: none; }
 
 @media (max-width: 640px) {
   #about { display: none; }
-  #palette .keys { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   #help dl { grid-template-columns: 1fr; gap: 0; }
   #help dd { margin-bottom: 6px; }
   #catalog .body { grid-template-columns: 1fr; }

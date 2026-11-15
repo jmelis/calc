@@ -1,145 +1,207 @@
-// Touch layout: a calculator keypad under the input, for phones and tablets without a
-// mouse. A script in index.html's <head> marks <html class="touch"> before anything
-// renders (a touch-only device, or ?layout=touch); without it nothing here runs and the
-// page is the keyboard one. touch.css styles all of it, under html.touch.
+// Touch layout: a calculator for phones and tablets without a mouse, laid out like a
+// TI-84 with an HP 50g's soft keys. A script in index.html's <head> marks <html
+// class="touch"> before anything renders (a touch-only device, or ?layout=touch); without
+// it nothing here runs and the page is the keyboard one. touch.css styles all of it.
+//
+// The page becomes a screen and a keypad. The screen holds a status line (2nd/alpha,
+// messages, the soft keys' menu), the tape, the input and, on its bottom edge, the soft
+// keys' labels: five of a menu's functions (keys.js), or what can be done with the
+// selected result, or completions of the name being typed. Tap a label, or the f1–f5 key
+// under it, as on a calculator whose labels are drawn on the screen. Under them, the
+// keys of a TI-84: 2nd and alpha print their functions on each key (holding a key is its
+// 2nd), the arrows move the caret (◀ ▶) and walk the tape (▲ ▼), ‹› shows the last
+// result as a decimal or in degrees, and abc (where the TI has ON) brings up the system
+// keyboard.
 //
 // The keys drive the code the keyboard does. A character key first dispatches a keydown
 // on the editor, so app.js's rules apply unchanged (an operator on an empty line
-// continues from ans, ⏎ on a selected result inserts it, ⌫ deletes it, ← → pan a
+// continues from ans, ⏎ on a selected result inserts it, del deletes it, ← → pan a
 // selected graph), and types the character only if app.js left it alone. Function keys
-// go through insertTemplate, as the palette's buttons do, in text and math input alike.
-//
-// The input keeps its caret but asks for no system keyboard (inputmode="none"); abc
-// brings the system keyboard up, with a row of the symbols it hides, and 123 puts it
-// away. Hover tips become long presses: holding a key says what it does, and offers
-// related keys (slide onto one, or let go and tap it). The strip above the keys does
-// the hint line's job: what you can insert, what you can do with a selected result,
-// messages, and Undo.
+// go through insertKey, as the palette's buttons do, in text and math input alike.
 
 const TOUCH = document.documentElement.classList.contains("touch");
-const HOLD_MS = 450; // a long press
-const REPEAT_MS = [400, 70]; // ◀ ▶ held: the first repeat, then every
+const HOLD_MS = 450; // a long press: the key's 2nd function
+const REPEAT_MS = [400, 70]; // del and the arrows held: the first repeat, then every
+const SOFT_KEYS = 5; // a menu page, one label above each f-key
+const SWIPE_PX = 36; // a sideways drag this long on the soft keys turns the page
 
 const touch = {
-  page: savedMenu(), // the menu the soft keys show (keys.js), as last chosen
+  page: savedMenu("touch"), // the menu the soft keys show (keys.js, or vars, test)
   softPage: 0, // and which page of it
+  softFor: "", // what the soft keys showed, to start a new context on its first page
+  soft: [], // the five soft keys showing
+  mod: null, // "2nd", "alpha", "lock" (alpha until pressed again)
+  lastKey: null, // the key pressed last (x,t,θ cycles when pressed again)
+  varIndex: 0,
   typing: false, // the system keyboard is up (abc)
-  press: null, // the key being pressed: {key, spec, id, timer, held, cell}
-  popup: null, // a long press's popup
-  menu: null, // ⋯
+  press: null, // the key being pressed: {key, spec, id, timer, held, x, y}
+  menu: null, // mode's menu
   switching: false, // moving the focus on purpose: not the system keyboard going away
   resetArmed: 0,
   tappedFn: null, // the catalog item tapped once (on a wide screen the first tap shows it)
 };
 const keySpecs = new WeakMap(); // button -> its key
 let keypadEl = null;
-let stripEl = null;
+let screenEl = null;
+let statusEl = null;
+let softEl = null;
 
 // --- the keys ----------------------------------------------------------------------
 //
-// Keys are keys.js's (see there for what one is): the menus' functions come from MENUS,
-// shared with the desktop palette; the number block and the rows around it are here.
-
-const SOFT_KEYS = 6; // a menu page
-const SWIPE_PX = 36; // a sideways drag this long on the soft keys turns the page
-
+// A key is keys.js's (see there), plus: second (what 2nd, or holding the key, does,
+// with the legend printed on the key), letter (what alpha types), modifier, repeat.
 
 const op = (label, type, extra = {}) => typed(label, type, { kind: "op", ...extra });
+const digit = (d, letter) => typed(d, d, { kind: "digit", letter });
+const action = (word, run, tip, extra = {}) => ({ word, action: run, tip, ...extra });
 
-// The number block, 5 × 4 across the whole width: a Casio's (DEL AC, × ÷, + −, Ans =),
-// with π in the place of Exp (π is that key's shifted function there)
-const PAD = [
-  typed("7", "7"), typed("8", "8"), typed("9", "9"),
-  { label: "⌫", kind: "ctl", action: backspace, hold: clearLine, tip: "Hold to clear the line, as AC does" },
-  { label: "AC", word: "AC", kind: "ctl", action: clearLine, tip: "Clears the line" },
-  typed("4", "4"), typed("5", "5"), typed("6", "6"), op("×", "*"), op("÷", "/", { alts: [typed("%", "%", { tip: "Remainder: 7 % 3 = 1" })] }),
-  typed("1", "1"), typed("2", "2"), typed("3", "3"), op("+", "+"), op("−", "-"),
-  typed("0", "0"), typed(".", "."), fn("\\pi", "pi", "\\pi", "Exact π; tap a result for its decimal value", { kind: "fn" }),
-  typed("ans", "ans", { word: "ans", kind: "fn", math: "\\mathrm{ans}", tip: "The last result; an operator on an empty line continues from it", alts: [typed("$", "$", { tip: "$3 is entry 3's result" })] }),
-  { label: "⏎", kind: "enter", action: enter },
+function menuKey(name, letter) {
+  const menu = MENUS.find((m) => m.name === name);
+  return action(menu?.label ?? name, () => openMenu(name), menu?.tip ?? "Your variables and ans", { kind: "menu", letter });
+}
+
+const SECOND = action("2nd", () => setMod(touch.mod === "2nd" ? null : "2nd"), "The function printed above a key: 2nd, then the key (or hold the key)", { kind: "second", modifier: true });
+const ALPHA = action("alpha", () => setMod(touch.mod ? null : "alpha"), "The letter printed on a key; 2nd alpha keeps them coming", {
+  kind: "alpha",
+  modifier: true,
+  second: action("A-lock", () => setMod("lock"), "Letters until alpha again"),
+});
+const VARS = [["x"], ["t"], ["theta", "\\theta"], ["n"]];
+
+// Row by row, five keys each; the arrows take the top two rows' last two columns
+const KEYPAD = [
+  SECOND,
+  action("mode", toggleMenu, "Settings: math input, theme, variables, help, clear", { kind: "menu-key", second: action("help", () => COMMANDS.help.run()) }),
+  action("del", backspace, "Delete before the cursor, or the selected entry", { repeat: true, second: action("undo", () => undo(), "Takes back the last delete, clear or forget") }), // app.js
+
+  ALPHA,
+  { label: "x,t,\\theta", tex: true, action: cycleVar, cycle: true, tip: "x; press again for t, θ, n" },
+  menuKey("stat"),
+
+  menuKey("math", "a"), menuKey("calc", "b"), menuKey("mat", "c"), menuKey("vars"),
+  action("clear", clearKey, "Clears the line (or lets go of the selected entry)"),
+
+  typed("x^{n}", "^", { tex: true, letter: "d", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result", second: fn("\\sqrt[n]{x}", "root(|, 3)", "\\sqrt[#?]{#0}", "Root of any degree", { legend: "ⁿ√" }) }),
+  word("sin", "sin(|)", "\\sin\\left(#0\\right)", "Angle in radians; add ° (math menu) for degrees", { letter: "e", second: fn("\\sin^{-1}", "asin(|)", "\\arcsin\\left(#0\\right)", "", { legend: "sin⁻¹" }) }),
+  word("cos", "cos(|)", "\\cos\\left(#0\\right)", "Angle in radians", { letter: "f", second: fn("\\cos^{-1}", "acos(|)", "\\arccos\\left(#0\\right)", "", { legend: "cos⁻¹" }) }),
+  word("tan", "tan(|)", "\\tan\\left(#0\\right)", "Angle in radians", { letter: "g", second: fn("\\tan^{-1}", "atan(|)", "\\arctan\\left(#0\\right)", "", { legend: "tan⁻¹" }) }),
+  op("÷", "/", { letter: "h", second: fn("\\pi", "pi", "\\pi", "", { legend: "π" }) }),
+
+  fn("x^2", "^2", "^2", "Squares what's before the cursor (on an empty line, the last result)", { letter: "i", second: fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}", "", { legend: "√" }) }),
+  typed(",", ",", { letter: "j", second: fn("EE", "*10^(|)", "\\cdot 10^{#0}", "", { legend: "EE" }) }),
+  typed("(", "(", { letter: "k", second: typed("{", "{", { legend: "{" }) }),
+  typed(")", ")", { letter: "l", second: typed("}", "}", { legend: "}" }) }),
+  op("×", "*", { letter: "m", second: fn("e", "e", "e", "", { legend: "e" }) }),
+
+  word("log", "log(|, 10)", "\\log_{10}\\left(#0\\right)", "Logarithm base 10", { letter: "n", second: fn("10^x", "10^(|)", "10^{#0}", "", { legend: "10ˣ" }) }),
+  digit("7", "o"), digit("8", "p"), digit("9", "q"),
+  op("−", "-", { letter: "r", second: typed("[", "[", { legend: "[" }) }),
+
+  word("ln", "log(|)", "\\ln\\left(#0\\right)", "Logarithm base e", { letter: "s", second: fn("e^x", "exp(|)", "e^{#0}", "", { legend: "eˣ" }) }),
+  digit("4", "t"), digit("5", "u"), digit("6", "v"),
+  op("+", "+", { letter: "w", second: typed("]", "]", { legend: "]" }) }),
+
+  typed("=", "=", { letter: "x", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: action("test", () => openMenu("test"), "", { legend: "≤ ≠" }) }),
+  digit("1", "y"), digit("2", "z"), digit("3", "θ"),
+  action("‹›", cycleView, "The selected or last result as a decimal, in degrees, or exact", { kind: "op", letter: '"' }),
+
+  action("abc", () => setTyping(true), "The system keyboard, for names and Python"),
+  { ...digit("0", "␣"), second: action("catalog", () => openCatalog(""), "All the functions") },
+  { ...digit(".", ":"), second: fn("i", "I", "i", "", { legend: "i" }) },
+  action("(−)", negate, "A minus sign; − subtracts (on an empty line, from the last result)", {
+    kind: "digit",
+    letter: "?",
+    second: typed("ans", "ans", { math: "\\mathrm{ans}", legend: "ans" }),
+  }),
+  action("enter", enter, "Evaluate; on an empty line, the last one again", { kind: "enter", second: action("entry", recallEntry, "The last line typed, back in the input") }),
 ];
 
-// The row between the soft keys and the number block: the caret, and what every menu
-// needs (sin(x)^2 = …)
-const TOP = [
-  { label: "◀", kind: "ctl", repeat: true, action: () => moveCaret(-1) },
-  { label: "▶", kind: "ctl", repeat: true, action: () => moveCaret(1) },
-  letter("x", { kind: "fn", tip: "A symbol, as is any name that isn't defined", alts: ["y", "z", "t", "n", "k"].map((n) => letter(n)).concat(greek("theta")) }),
-  typed("(", "(", { kind: "fn", alts: [typed("[", "["), typed("{", "{")] }),
-  typed(")", ")", { kind: "fn", alts: [typed("]", "]"), typed("}", "}")] }),
-  typed("x^n", "^", { tex: true, kind: "fn", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result" }),
-  typed("=", "=", {
-    kind: "fn",
-    tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)",
-    alts: [typed("<", "<"), typed(">", ">"), typed("≤", "<=", { math: "\\le" }), typed("≥", ">=", { math: "\\ge" }), typed("≠", "!=", { math: "\\ne" }), typed("==", "==", { word: "==", tip: "Same expression? True or False" })],
-  }),
-  typed(",", ",", { kind: "fn", alts: [typed(":", ":"), typed(";", ";")] }),
+const ARROWS = [
+  { label: "▲", kind: "arrow to-up", repeat: true, action: () => walkTape(-1), tip: "Earlier entries" },
+  { label: "▼", kind: "arrow to-down", repeat: true, action: () => walkTape(1) },
+  { label: "◀", kind: "arrow to-left", repeat: true, action: () => moveCaret(-1) },
+  { label: "▶", kind: "arrow to-right", repeat: true, action: () => moveCaret(1) },
+];
+
+// 2nd = : comparisons, as the TI's TEST menu
+const TEST = [
+  typed("<", "<"), typed(">", ">"), typed("\\le", "<=", { tex: true, math: "\\le" }), typed("\\ge", ">=", { tex: true, math: "\\ge" }),
+  typed("\\ne", "!=", { tex: true, math: "\\ne" }), typed("==", "==", { word: "==", tip: "Same expression? True or False" }),
 ];
 
 // Over the system keyboard (abc): what it hides on its second and third pages
 const BAR = [
-  { label: "123", kind: "ctl", action: () => setTyping(false) },
-  typed("(", "(", { alts: [typed("[", "["), typed("{", "{")] }),
-  typed(")", ")", { alts: [typed("]", "]"), typed("}", "}")] }),
-  typed("^", "^"),
-  typed("*", "*"),
-  typed("=", "="),
-  typed(",", ","),
+  action("123", () => setTyping(false), "The keypad again", { kind: "menu" }),
+  typed("(", "("), typed(")", ")"), typed("^", "^"), typed("*", "*"), typed("=", "="), typed(",", ","),
 ];
 
+function label(node, spec) {
+  if (spec.word) node.textContent = spec.word;
+  else if (spec.tex) tex(node, spec.label, false);
+  else node.textContent = spec.label;
+}
+
 function keyButton(spec, extraClass = "") {
-  const b = el("button", ["key", spec.kind, spec.word && "word", spec.alts && "more", extraClass].filter(Boolean).join(" "));
+  const b = el("button", ["key", spec.kind, spec.word && "word", extraClass].filter(Boolean).join(" "));
   b.type = "button";
   b.tabIndex = -1;
-  if (spec.word) b.textContent = spec.word;
-  else if (spec.tex) tex(b, spec.label, false);
-  else b.textContent = spec.label;
+  if (spec.second) b.append(el("span", "l2", spec.second.legend ?? spec.second.word));
+  if (spec.letter) b.append(el("span", "la", spec.letter === " " ? "␣" : spec.letter));
+  const main = el("span", "main");
+  label(main, spec);
+  b.append(main);
   if (spec.tip) b.setAttribute("aria-label", spec.tip);
   keySpecs.set(b, spec);
   return b;
 }
 
 function renderKeys() {
-  const keys = keypadEl.querySelector(".keys");
-  const tabs = el("div", "tabs");
-  const left = el("div", "group");
-  const right = el("div", "group");
-  for (const { name, label, tip } of MENUS) {
-    left.append(keyButton({ label, tex: true, tip, kind: touch.page === name ? "tab active" : "tab", action: () => setPage(name) }));
-  }
-  right.append(
-    keyButton({ label: "abc", kind: "tab", tip: "The system keyboard, for names and Python", action: () => setTyping(true) }),
-    keyButton({ label: "?", kind: "tab", tip: "All the functions", action: () => openCatalog("") }),
-    keyButton({ label: "⋯", kind: "tab menu-key", tip: "Math input, variables, help, clear", action: toggleMenu }),
-  );
-  tabs.append(left, right);
-
-  const menu = menuKeys(touch.page, "touch");
-  const pages = Math.ceil(menu.length / SOFT_KEYS);
-  touch.softPage %= pages;
-  const soft = el("div", "soft");
-  for (const spec of menu.slice(touch.softPage * SOFT_KEYS, (touch.softPage + 1) * SOFT_KEYS)) soft.append(keyButton(spec));
-  soft.append(keyButton({ label: `${touch.softPage + 1}/${pages} ▸`, kind: "next", tip: "The menu's next page (or swipe the row)", action: () => turnPage(1) }));
-
-  const top = el("div", "top");
-  for (const spec of TOP) top.append(keyButton(spec));
-  const pad = el("div", "pad");
-  for (const spec of PAD) pad.append(keyButton(spec));
-  keys.replaceChildren(tabs, soft, top, pad);
+  const frow = el("div", "frow");
+  for (let i = 0; i < SOFT_KEYS; i++) frow.append(keyButton(action(`f${i + 1}`, () => pressSoft(i), "The soft key above"), "fkey"));
+  const grid = el("div", "ti");
+  for (const spec of KEYPAD) grid.append(keyButton(spec));
+  const arrows = el("div", "arrows");
+  for (const spec of ARROWS) arrows.append(keyButton(spec));
+  grid.append(arrows);
+  const bar = el("div", "bar");
+  for (const spec of BAR) bar.append(keyButton(spec));
+  keypadEl.replaceChildren(frow, grid, bar);
 }
 
-// A menu opens on its first page
-function setPage(name) {
-  touch.page = name;
-  saveMenu(name);
-  touch.softPage = 0;
-  renderKeys();
+// --- modifiers -------------------------------------------------------------------------
+
+function setMod(mod) {
+  touch.mod = mod;
+  const root = document.documentElement.classList;
+  root.toggle("mod-2nd", mod === "2nd");
+  root.toggle("mod-alpha", mod === "alpha" || mod === "lock");
+  renderStatus();
 }
 
-function turnPage(delta) {
-  const pages = Math.ceil(menuKeys(touch.page, "touch").length / SOFT_KEYS);
-  touch.softPage = (touch.softPage + delta + pages) % pages;
-  renderKeys();
+// A key let go: its 2nd function after 2nd, its letter after alpha, else what it does
+function keyPressed(spec) {
+  if (spec.action !== toggleMenu) hideMenu();
+  const mod = touch.mod;
+  if (mod === "2nd" && spec !== SECOND) {
+    setMod(null);
+    if (spec.second) return run(spec.second, spec);
+  } else if ((mod === "alpha" || mod === "lock") && spec.letter && !spec.modifier) {
+    if (mod === "alpha") setMod(null);
+    return run({ letter: spec.letter }, spec);
+  } else if (mod === "alpha" && !spec.modifier) setMod(null);
+  run(spec, spec);
+}
+
+function run(spec, key = spec) {
+  if (spec.letter && !spec.action && spec.type === undefined && spec.template === undefined) typeLetter(spec.letter);
+  else activate(spec);
+  touch.lastKey = key;
+}
+
+function activate(spec) {
+  if (spec.action) spec.action();
+  else if (spec.template !== undefined) insertKeyTemplate(spec);
+  else typeText(spec.type, spec.math);
 }
 
 // --- what the keys do --------------------------------------------------------------
@@ -151,36 +213,60 @@ function sendKey(key, options = {}, target = editorElement()) {
   return event.defaultPrevented;
 }
 
-// After any edit: keep the caret visible, and the preview and the strip current
+// After any edit: keep the caret visible, and the preview and the soft keys current
 function edited() {
   if (document.activeElement !== editorElement()) focusEditor();
   schedulePreview();
   renderStrip();
 }
 
-function activate(spec) {
-  if (spec.action !== toggleMenu) hideMenu();
-  if (spec.action) spec.action();
-  else if (spec.template !== undefined) insertKeyTemplate(spec);
-  else typeText(spec.type, spec.math);
+// Text into the editor as it is, without the keyboard's rules (ans continuation)
+function insertRaw(text, math) {
+  if (state.selected) select(null);
+  if (state.mode === "math") {
+    if (math) insertMath(math);
+    else mathField.insert(text, { format: "latex", selectionMode: "after" });
+  } else input.setRangeText(text, input.selectionStart, input.selectionEnd, "end");
 }
 
 function typeText(text, math) {
   if (state.selected) select(null);
   if (!(text.length === 1 && sendKey(text))) {
-    if (state.mode === "math") {
-      if (math) insertMath(math);
-      else mathField.executeCommand(["typedText", text, { focus: true, simulateKeystroke: true }]);
-    } else {
-      input.setRangeText(text, input.selectionStart, input.selectionEnd, "end");
-    }
+    if (state.mode === "math" && !math) mathField.executeCommand(["typedText", text, { focus: true, simulateKeystroke: true }]);
+    else insertRaw(text, math);
   }
+  edited();
+}
+
+function typeLetter(letter) {
+  if (letter === "θ") insertRaw("theta", "\\theta");
+  else insertRaw(letter === "␣" ? " " : letter);
   edited();
 }
 
 function insertKeyTemplate(spec) {
   if (state.selected) select(null);
   insertKey(spec); // app.js, as the palette does
+  edited();
+}
+
+// x, then t, θ, n when pressed again right away
+function cycleVar() {
+  const [prev] = VARS[touch.varIndex];
+  const before = state.mode === "text" ? input.value.slice(0, input.selectionStart) : "";
+  const again = touch.lastKey?.cycle && (state.mode === "math" || before.endsWith(prev));
+  if (again) {
+    if (state.mode === "math") mathField.executeCommand("deleteBackward");
+    else input.setRangeText("", input.selectionStart - prev.length, input.selectionStart, "end");
+    touch.varIndex = (touch.varIndex + 1) % VARS.length;
+  } else touch.varIndex = 0;
+  const [text, math] = VARS[touch.varIndex];
+  insertRaw(text, math);
+  edited();
+}
+
+function negate() {
+  insertRaw("-");
   edited();
 }
 
@@ -196,6 +282,12 @@ function moveCaret(delta) {
   renderStrip();
 }
 
+// ▲ ▼: the keyboard's ↑ ↓, which select earlier entries (enter then inserts one)
+function walkTape(delta) {
+  sendKey(delta < 0 ? "ArrowUp" : "ArrowDown");
+  renderStrip();
+}
+
 function backspace() {
   if (sendKey("Backspace")) return; // deleted the selected tape entries (app.js)
   if (state.mode === "math") mathField.executeCommand("deleteBackward");
@@ -207,8 +299,8 @@ function backspace() {
   edited();
 }
 
-function clearLine() {
-  if (state.selected) select(null);
+function clearKey() {
+  if (state.selected) return select(null);
   clearEditor();
   edited();
 }
@@ -218,187 +310,94 @@ function enter() {
   edited();
 }
 
-// --- pressing ------------------------------------------------------------------------
+// 2nd enter: the last line typed, back in the input to change
+function recallEntry() {
+  const last = state.entries.findLast((e) => !e.pending);
+  if (!last) return;
+  clearEditor();
+  if (state.mode === "math") textToLatex(last.input).then((latex) => latex && insertMath(latex));
+  else insertAtCursor(last.input);
+  edited();
+}
+
+// ‹›: the selected result, or the last one, shown the next way it can be: exact, as a
+// decimal, in degrees
+function cycleView() {
+  const id = state.selected?.part === "result" ? state.selected.id : state.entries.findLast((e) => e.result)?.id;
+  const entry = id && entryById(id);
+  if (!entry) return;
+  const views = ["exact", ...["float", "degrees"].filter((v) => entry.result[v])];
+  if (views.length === 1) return flash("This one has no other form");
+  entry.view = views[(views.indexOf(entry.view ?? "exact") + 1) % views.length];
+  replaceEntryNode(entry);
+}
+
+// --- the soft keys -----------------------------------------------------------------------
 //
-// Keys act when let go. Held, a key repeats (◀ ▶), does its hold action (⌫ clears), or
-// opens a popup with its tip and related keys: slide onto one and let go, or let go and
-// tap one. One key at a time.
+// What they show, first that applies: what can be done with the selected entry,
+// completions of the name being typed, or the menu last opened.
 
-function onPointerDown(e) {
-  const key = e.target.closest?.(".key");
-  if (!key || !keypadEl.contains(key)) return;
-  e.preventDefault(); // keep the focus in the input
-  if (touch.press) return;
-  const inPopup = touch.popup?.contains(key);
-  if (touch.popup && !inPopup) closePopup();
-  const spec = keySpecs.get(key);
-  key.setPointerCapture?.(e.pointerId);
-  key.classList.add("down");
-  const press = { key, spec, id: e.pointerId, held: false, cell: null, timer: null, x: e.clientX, y: e.clientY };
-  touch.press = press;
-  if (inPopup) return;
-  if (spec.repeat) {
-    const repeat = () => {
-      press.held = true;
-      activate(spec);
-      press.timer = setTimeout(repeat, REPEAT_MS[1]);
-    };
-    press.timer = setTimeout(repeat, REPEAT_MS[0]);
-  } else if (spec.hold || spec.alts || spec.tip) {
-    press.timer = setTimeout(() => {
-      press.held = true;
-      if (spec.hold) {
-        key.classList.remove("down");
-        spec.hold();
-      } else openPopup(key, spec);
-    }, HOLD_MS);
+function openMenu(name) {
+  if (state.selected) select(null);
+  // the menu showing already: its next page
+  if (touch.page === name && touch.softFor === `menu:${name}`) return turnPage(1);
+  touch.page = name;
+  if (MENUS.some((m) => m.name === name)) saveMenu("touch", name);
+  touch.softPage = 0;
+  renderStrip();
+}
+
+function turnPage(delta) {
+  const pages = Math.max(1, Math.ceil(softContext().keys.length / SOFT_KEYS));
+  touch.softPage = (touch.softPage + delta + pages) % pages;
+  renderSoft();
+}
+
+function softContext() {
+  if (state.selected) {
+    const keys = selectionActions() // app.js: the hint line's actions
+      .filter((a) => !["Esc", "f", "d"].includes(a.key)) // clear lets go; ‹› has the views
+      .map((a) => {
+        const text = a.chip ?? a.label;
+        const run = a.key === "⌫" ? () => (a.run(), select(null)) : a.run;
+        return action(/^[A-Z][^A-Z]*$/.test(text) ? text.toLowerCase() : text, run, "", { danger: a.danger }); // as on a TI: insert, copy, LaTeX
+      });
+    return { id: `sel:${state.selected.id}:${state.selected.part}`, name: `$${state.selected.id}`, keys };
   }
+  const names = completions();
+  if (names.length) return { id: "names", name: "names", keys: names.map((s) => action(s.name, () => insertSuggestion(s))) };
+  if (touch.page === "vars") return { id: "menu:vars", name: "vars", keys: varsKeys() };
+  if (touch.page === "test") return { id: "menu:test", name: "test", keys: TEST };
+  const menu = MENUS.find((m) => m.name === touch.page);
+  return { id: `menu:${menu.name}`, name: menu.label, keys: menuKeys(menu.name, "touch") };
 }
 
-function onPointerMove(e) {
-  const press = touch.press;
-  if (!press || e.pointerId !== press.id) return;
-  if (!touch.popup && !press.held && press.key.closest(".soft")) {
-    // a sideways drag on the soft keys turns the menu's page, instead of pressing a key
-    const dx = e.clientX - press.x;
-    if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(e.clientY - press.y)) {
-      clearTimeout(press.timer);
-      press.key.classList.remove("down");
-      press.held = true; // so letting go does nothing more
-      touch.press = null;
-      turnPage(dx < 0 ? 1 : -1);
-    }
-    return;
-  }
-  if (!touch.popup) return;
-  const under = document.elementFromPoint(e.clientX, e.clientY)?.closest(".key");
-  press.cell = under && touch.popup.contains(under) ? under : null;
-  touch.popup.querySelectorAll(".key").forEach((k) => k.classList.toggle("hot", k === press.cell));
-}
-
-function onPointerUp(e) {
-  const press = touch.press;
-  if (!press || e.pointerId !== press.id) return;
-  touch.press = null;
-  clearTimeout(press.timer);
-  press.key.classList.remove("down");
-  if (press.cell) {
-    // slid onto one of the popup's keys
-    const spec = keySpecs.get(press.cell);
-    closePopup();
-    activate(spec);
-  } else if (press.held) {
-    // a popup with keys stays for a tap; a tip alone goes
-    if (touch.popup && !touch.popup.querySelector(".key")) closePopup();
-  } else {
-    closePopup();
-    activate(press.spec);
-  }
-}
-
-function onPointerCancel(e) {
-  const press = touch.press;
-  if (!press || e.pointerId !== press.id) return;
-  touch.press = null;
-  clearTimeout(press.timer);
-  press.key.classList.remove("down");
-}
-
-function openPopup(key, spec) {
-  closePopup();
-  const popup = el("div", "popup");
-  if (spec.alts) {
-    const cells = el("div", "cells");
-    for (const alt of spec.alts) cells.append(keyButton(alt));
-    popup.append(cells);
-  }
-  if (spec.tip) popup.append(el("div", "hint", spec.tip));
-  keypadEl.append(popup);
-  // above the key, inside the keypad's width
-  const box = keypadEl.getBoundingClientRect();
-  const r = key.getBoundingClientRect();
-  const left = r.left - box.left + r.width / 2 - popup.offsetWidth / 2;
-  popup.style.left = `${Math.max(0, Math.min(left, box.width - popup.offsetWidth))}px`;
-  popup.style.top = `${r.top - box.top - popup.offsetHeight - 6}px`;
-  touch.popup = popup;
-}
-
-function closePopup() {
-  touch.popup?.remove();
-  touch.popup = null;
-}
-
-// --- the strip: suggestions, actions on the selection, messages ----------------------
-
-function chip(label, run, className = "") {
-  const b = el("button", `chip ${className}`.trim(), label);
-  b.type = "button";
-  b.tabIndex = -1;
-  b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
-  b.addEventListener("click", () => run());
-  return b;
-}
-
-function note(html, className) {
-  const span = el("span", `note ${className}`);
-  span.innerHTML = html.replaceAll("⌃M", "⋯ → Math input");
-  return span;
-}
-
-// Called by app.js's renderHints: on a touch screen the strip says what the hint line would
-function renderStrip() {
-  if (!stripEl) return;
-  stripEl.replaceChildren();
-  stripEl.scrollLeft = 0;
-  if (state.status) stripEl.append(note(state.status, "status"));
-  if (state.flash) {
-    stripEl.append(note(state.flash.replace(UNDO_HINT, ""), "flash")); // app.js
-    if (UNDO_HINT.test(state.flash)) stripEl.append(chip("Undo", undo, "action"));
-    return;
-  }
-  if (state.selected) return selectionChips();
-  if (busy()) stripEl.append(note("computing…", "status"), chip("Stop", () => send({ type: "interrupt" }), "action danger"));
-  for (const s of suggestions()) stripEl.append(chip(s.name, () => insertSuggestion(s), s.fn ? "fn" : ""));
-}
-
-// The hint line's actions (app.js's selectionActions), as chips; ✕ first
-function selectionChips() {
-  const actions = selectionActions();
-  const back = actions.find((a) => a.key === "Esc");
-  stripEl.append(chip(back.chip, back.run, "action close"));
-  for (const a of actions) {
-    if (a === back) continue;
-    // deleting moves the selection on, for ↑ ↓; here nothing would show it's still there
-    const run = a.key === "⌫" ? () => (a.run(), select(null)) : a.run;
-    stripEl.append(chip(a.chip ?? a.label, run, a.danger ? "action danger" : "action"));
-  }
-}
-
-// What the strip offers to insert: completions of the name being typed, else the last
-// result and what's been defined
-function suggestions() {
+// vars: ans and what's been defined
+function varsKeys() {
   const functions = new Set(state.names.functions);
-  if (state.mode === "text") {
-    const { prefix, start } = wordBeforeCursor();
-    if (prefix) {
-      for (const c of state.catalog) if (c.insert.endsWith("(")) functions.add(c.name);
-      const names = new Set([
-        ...state.names.defined,
-        ...state.names.variables,
-        ...state.names.functions,
-        ...state.catalog.filter((c) => /^\w+$/.test(c.name)).map((c) => c.name),
-      ]);
-      const mine = new Set(state.names.defined);
-      return [...names]
-        .filter((n) => n.startsWith(prefix) && (n !== prefix || functions.has(n)))
-        .sort((a, b) => mine.has(b) - mine.has(a) || a.length - b.length || a.localeCompare(b))
-        .slice(0, 24)
-        .map((name) => ({ name, fn: functions.has(name), start }));
-    }
-  }
-  const list = state.entries.some((e) => e.result) ? [{ name: "ans" }] : [];
-  for (const name of state.names.defined) if (name !== "ans") list.push({ name, fn: functions.has(name) });
-  return list;
+  const names = [{ name: "ans" }, ...state.names.defined.filter((n) => n !== "ans").map((name) => ({ name, fn: functions.has(name) }))];
+  return names.map((s) => action(s.fn ? `${s.name}( )` : s.name, () => insertSuggestion(s)));
+}
+
+// Completions of the name being typed (two letters or more), defined names first
+function completions() {
+  if (state.mode !== "text") return [];
+  const { prefix, start } = wordBeforeCursor();
+  if (prefix.length < 2) return [];
+  const functions = new Set(state.names.functions);
+  for (const c of state.catalog) if (c.insert.endsWith("(")) functions.add(c.name);
+  const names = new Set([
+    ...state.names.defined,
+    ...state.names.variables,
+    ...state.names.functions,
+    ...state.catalog.filter((c) => /^\w+$/.test(c.name)).map((c) => c.name),
+  ]);
+  const mine = new Set(state.names.defined);
+  return [...names]
+    .filter((n) => n.startsWith(prefix) && (n !== prefix || functions.has(n)))
+    .sort((a, b) => mine.has(b) - mine.has(a) || a.length - b.length || a.localeCompare(b))
+    .slice(0, 20)
+    .map((name) => ({ name, fn: functions.has(name), start }));
 }
 
 function insertSuggestion(s) {
@@ -408,6 +407,151 @@ function insertSuggestion(s) {
     insertMath(s.fn ? `${name}\\left(#?\\right)` : name);
   } else insertAtCursor(s.fn ? `${s.name}(` : s.name, s.start ?? null);
   edited();
+}
+
+function renderSoft() {
+  if (!softEl) return;
+  const context = softContext();
+  if (context.id !== touch.softFor) {
+    touch.softFor = context.id;
+    touch.softPage = 0;
+  }
+  const pages = Math.max(1, Math.ceil(context.keys.length / SOFT_KEYS));
+  touch.softPage %= pages;
+  touch.soft = context.keys.slice(touch.softPage * SOFT_KEYS, (touch.softPage + 1) * SOFT_KEYS);
+  const buttons = [];
+  for (let i = 0; i < SOFT_KEYS; i++) {
+    const spec = touch.soft[i];
+    if (!spec) {
+      buttons.push(el("span", "sk empty"));
+      continue;
+    }
+    const b = el("button", `key sk${spec.danger ? " danger" : ""}`);
+    b.type = "button";
+    b.tabIndex = -1;
+    label(b, spec);
+    if (spec.tip) b.setAttribute("aria-label", spec.tip);
+    keySpecs.set(b, spec);
+    buttons.push(b);
+  }
+  softEl.replaceChildren(...buttons);
+  statusEl.querySelector(".ind").textContent = `${context.name.toUpperCase()}${pages > 1 ? ` ${touch.softPage + 1}/${pages}` : ""}`;
+}
+
+// f1–f5, or a tap on a label: the soft key
+function pressSoft(i) {
+  const spec = touch.soft[i];
+  if (!spec) return;
+  if (touch.mod === "2nd" || touch.mod === "alpha") setMod(null);
+  activate(spec);
+  touch.lastKey = spec;
+}
+
+// --- the status line: 2nd/alpha, messages, Stop and Undo ----------------------------------
+
+function statusLink(text, onClick) {
+  const b = el("button", "link", text);
+  b.type = "button";
+  b.tabIndex = -1;
+  b.addEventListener("mousedown", (e) => e.preventDefault());
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function renderStatus() {
+  if (!statusEl) return;
+  const msg = statusEl.querySelector(".msg");
+  msg.replaceChildren();
+  const badge = { "2nd": "2ND", alpha: "α", lock: "A-LOCK" }[touch.mod];
+  if (badge) msg.append(el("span", `badge ${touch.mod === "2nd" ? "second" : "alpha"}`, badge));
+  if (state.mode === "math") msg.append(el("span", "badge", "MATH"));
+  const text = (html) => {
+    const span = el("span", "text");
+    span.innerHTML = html.replace(UNDO_HINT, "").replaceAll("⌃M", "mode → Math input"); // app.js
+    msg.append(span);
+  };
+  if (state.status) text(state.status);
+  else if (busy()) {
+    text("computing…");
+    msg.append(statusLink("stop", () => send({ type: "interrupt" })));
+  }
+  if (state.flash) {
+    text(state.flash);
+    if (UNDO_HINT.test(state.flash)) msg.append(statusLink("undo", undo));
+  }
+}
+
+// Called by app.js's renderHints: on a touch screen the status line and the soft keys say
+// what the hint line would
+function renderStrip() {
+  renderStatus();
+  renderSoft();
+}
+
+// --- pressing ------------------------------------------------------------------------
+//
+// Keys act when let go. Held, a key repeats (del, the arrows) or does its 2nd function;
+// one with neither says what it does on the status line. One key at a time. A sideways
+// drag on the soft keys turns the menu's page.
+
+function onPointerDown(e) {
+  const key = e.target.closest?.(".key");
+  if (!key || !keySpecs.has(key)) return;
+  e.preventDefault(); // keep the focus in the input
+  if (touch.press) return;
+  const spec = keySpecs.get(key);
+  key.setPointerCapture?.(e.pointerId);
+  key.classList.add("down");
+  const press = { key, spec, id: e.pointerId, held: false, timer: null, x: e.clientX, y: e.clientY };
+  touch.press = press;
+  if (spec.repeat) {
+    const repeat = () => {
+      press.held = true;
+      keyPressed(spec);
+      press.timer = setTimeout(repeat, REPEAT_MS[1]);
+    };
+    press.timer = setTimeout(repeat, REPEAT_MS[0]);
+  } else if (!spec.modifier && (spec.second || spec.tip) && !key.classList.contains("sk")) {
+    press.timer = setTimeout(() => {
+      press.held = true;
+      key.classList.remove("down");
+      if (spec.second) {
+        if (touch.mod === "2nd" || touch.mod === "alpha") setMod(null);
+        run(spec.second, spec);
+      } else flash(spec.tip);
+    }, HOLD_MS);
+  }
+}
+
+function onPointerMove(e) {
+  const press = touch.press;
+  if (!press || e.pointerId !== press.id || press.held || !press.key.classList.contains("sk")) return;
+  const dx = e.clientX - press.x;
+  if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(e.clientY - press.y)) {
+    clearTimeout(press.timer);
+    press.key.classList.remove("down");
+    touch.press = null;
+    turnPage(dx < 0 ? 1 : -1);
+  }
+}
+
+function onPointerUp(e) {
+  const press = touch.press;
+  if (!press || e.pointerId !== press.id) return;
+  touch.press = null;
+  clearTimeout(press.timer);
+  press.key.classList.remove("down");
+  if (press.held) return;
+  if (press.key.classList.contains("sk")) return pressSoft([...softEl.children].indexOf(press.key));
+  keyPressed(press.spec);
+}
+
+function onPointerCancel(e) {
+  const press = touch.press;
+  if (!press || e.pointerId !== press.id) return;
+  touch.press = null;
+  clearTimeout(press.timer);
+  press.key.classList.remove("down");
 }
 
 // --- abc: the system keyboard --------------------------------------------------------
@@ -449,7 +593,7 @@ function onEditorBlur() {
 }
 
 // The page's height follows the visual viewport, which the system keyboard shrinks
-// (iOS doesn't resize the layout for it), so the input and the strip stay above it
+// (iOS doesn't resize the layout for it), so the input and the soft keys stay above it
 function fitViewport() {
   const vv = window.visualViewport;
   if (!vv || vv.scale > 1.01) return; // zoomed in: leave the layout alone
@@ -458,15 +602,24 @@ function fitViewport() {
   root.setProperty("--app-top", `${vv.offsetTop}px`);
 }
 
-// --- ⋯ ---------------------------------------------------------------------------------
+// --- mode: settings --------------------------------------------------------------------
+
+// classic (the page's own colours) or calculator (graphite, an LCD); index.html's <head>
+// applies the saved one before anything renders
+function setTheme(theme) {
+  document.documentElement.classList.toggle("theme-calc", theme === "calculator");
+  try {
+    localStorage.setItem("calc.theme", theme);
+  } catch {}
+}
 
 function toggleMenu() {
   if (touch.menu) return hideMenu();
   const menu = el("div", "touch-menu");
   menu.setAttribute("role", "menu");
   const loaded = (ok) => ok || flash("Python is still loading");
-  const item = (label, run) => {
-    const b = el("button", "", label);
+  const item = (text, run) => {
+    const b = el("button", "", text);
     b.type = "button";
     b.tabIndex = -1;
     b.addEventListener("mousedown", (e) => e.preventDefault());
@@ -474,10 +627,11 @@ function toggleMenu() {
     menu.append(b);
     return b;
   };
+  const calc = document.documentElement.classList.contains("theme-calc");
   item(state.mode === "math" ? "Math input: on" : "Math input: off", toggleMode);
+  item(calc ? "Theme: calculator" : "Theme: classic", () => setTheme(calc ? "classic" : "calculator"));
   item("Variables", () => loaded(COMMANDS.vars.run()));
   item("Help", () => COMMANDS.help.run());
-  item("Undo", undo);
   item("Clear the tape", () => loaded(COMMANDS.clear.run()));
   const reset = item("Reset…", () => {
     if (Date.now() > touch.resetArmed) {
@@ -508,21 +662,19 @@ function hideMenu() {
   touch.menu = null;
 }
 
-// Taps anywhere but on the popup's keys close it (it can cover other keys); taps
-// outside the menu close the menu
+// Taps outside the menu close it
 function closeOnOutside(e) {
-  if (touch.popup && !(touch.popup.contains(e.target) && e.target.closest?.(".key"))) closePopup();
   if (touch.menu && !touch.menu.contains(e.target) && !e.target.closest?.(".menu-key")) hideMenu();
 }
 
 // --- panels, tape, welcome --------------------------------------------------------------
 
-function panelButton(label, run, className = "") {
-  const b = el("button", className, label);
+function panelButton(text, onClick, className = "") {
+  const b = el("button", className, text);
   b.type = "button";
   b.tabIndex = -1;
   b.addEventListener("mousedown", (e) => e.preventDefault());
-  b.addEventListener("click", run);
+  b.addEventListener("click", onClick);
   return b;
 }
 
@@ -552,23 +704,30 @@ function setupPanels() {
 function setupTouch() {
   input.inputMode = "none";
   input.enterKeyHint = "go";
+
+  // the screen: status line, tape, preview, input, soft keys
+  screenEl = el("div", "screen");
+  statusEl = el("div", "status");
+  statusEl.append(el("span", "msg"), el("span", "ind"));
+  softEl = el("div", "softline");
+  screenEl.append(statusEl, tapeEl, previewEl, loadingEl, promptEl, softEl);
+  document.querySelector("main").prepend(screenEl);
+
   keypadEl = el("div");
   keypadEl.id = "keypad";
-  stripEl = el("div", "strip");
-  const bar = el("div", "bar");
-  for (const spec of BAR) bar.append(keyButton(spec));
-  keypadEl.append(stripEl, el("div", "keys"), bar);
   document.getElementById("composer").append(keypadEl);
   renderKeys();
   renderStrip();
 
-  keypadEl.addEventListener("pointerdown", onPointerDown);
-  keypadEl.addEventListener("pointermove", onPointerMove);
-  keypadEl.addEventListener("pointerup", onPointerUp);
-  keypadEl.addEventListener("pointercancel", onPointerCancel);
-  // no double-tap zoom, text selection or focus change from the keys; the strip still scrolls
-  keypadEl.addEventListener("touchstart", (e) => e.target.closest(".key") && e.preventDefault(), { passive: false });
-  keypadEl.addEventListener("contextmenu", (e) => e.preventDefault());
+  for (const root of [keypadEl, softEl]) {
+    root.addEventListener("pointerdown", onPointerDown);
+    root.addEventListener("pointermove", onPointerMove);
+    root.addEventListener("pointerup", onPointerUp);
+    root.addEventListener("pointercancel", onPointerCancel);
+    // no double-tap zoom, text selection or focus change from the keys
+    root.addEventListener("touchstart", (e) => e.target.closest(".key") && e.preventDefault(), { passive: false });
+    root.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
   document.addEventListener("pointerdown", closeOnOutside, true);
 
   // typing with the system keyboard, or moving the caret by tapping, changes the completions
@@ -577,7 +736,7 @@ function setupTouch() {
   document.addEventListener("selectionchange", () => {
     if (document.activeElement !== input) return;
     cancelAnimationFrame(caretFrame);
-    caretFrame = requestAnimationFrame(renderStrip);
+    caretFrame = requestAnimationFrame(renderSoft);
   });
   promptEl.addEventListener("focusout", onEditorBlur);
 

@@ -538,7 +538,7 @@ function insertAtCursor(text, replaceFrom = null) {
 // template marks the cursor with "|"; selected text in the input lands there, so selecting
 // x+1 and clicking √ gives sqrt(x+1). Clicking never moves focus away from the input.
 
-let paletteMenu = savedMenu(); // keys.js
+let paletteMenu = savedMenu("desktop"); // keys.js
 
 // A key from keys.js that inserts something (a template, or text), in either input
 function insertKey(spec) {
@@ -636,13 +636,14 @@ function renderPalette() {
     return b;
   };
   const tabs = el("div", "tabs");
-  for (const menu of MENUS) {
+  for (const menu of layoutMenus("desktop")) {
     const b = button(menu.name === paletteMenu ? "tab active" : "tab", menu.tip, () => {
       paletteMenu = menu.name;
-      saveMenu(menu.name);
+      saveMenu("desktop", menu.name);
       renderPalette();
     });
-    tex(b, menu.label, false);
+    if (/^[a-z]+$/.test(menu.label)) b.textContent = menu.label; // math, calc: words, not math
+    else tex(b, menu.label, false);
     tabs.append(b);
   }
   const keys = el("div", "keys");

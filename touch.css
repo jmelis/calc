@@ -1,23 +1,102 @@
 /* Touch layout (keypad.js): everything here is under html.touch, which index.html sets on
-   touch-only devices (or ?layout=touch), so the keyboard layout never sees any of it. */
+   touch-only devices (or ?layout=touch), so the keyboard layout never sees any of it. The
+   page is a screen (status line, tape, input, soft keys) over a TI-84-style keypad. */
+
+/* --- themes ------------------------------------------------------------------------
+   classic: the page's own colours (light or dark with the system). calculator
+   (html.theme-calc): a graphite face and an LCD, the same by day and by night. */
 
 html.touch {
-  --key-h: clamp(30px, 6.4dvh, 54px); /* the number block */
-  --row-h: clamp(30px, 6dvh, 46px); /* the soft keys and the row under them */
+  --key-h: clamp(28px, 5.4dvh, 40px); /* the lower six rows */
+  --small-h: clamp(24px, 4.4dvh, 32px); /* the three rows under the arrows */
+  --f-h: clamp(18px, 3.2dvh, 24px); /* f1–f5 */
   --gap: 6px;
+
+  --body: var(--bg);
+  --bezel: var(--faint);
+  --lcd: var(--surface);
+  --ink: var(--text);
+  --ink-soft: var(--muted);
+  --rule: var(--faint);
+  --soft-bg: var(--kbd);
+  --soft-text: var(--text);
+  --key: var(--kbd);
+  --key-text: var(--text);
+  --hi: transparent;
+  --lo: rgba(0, 0, 0, 0.13);
   --press: rgba(0, 0, 0, 0.09);
+  --menu: var(--kbd);
+  --digit: var(--surface);
+  --digit-text: var(--text);
+  --op: var(--accent-soft);
+  --op-text: var(--accent);
+  --enter: var(--accent);
+  --enter-text: var(--bg);
+  --second: var(--accent-soft);
+  --second-text: var(--accent);
+  --alpha: #dfe8ee;
+  --alpha-text: #3d6178;
+  --l2: var(--accent);
+  --la: #4d6f86;
+  --l2-digit: var(--accent);
+  --la-digit: #4d6f86;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 @media (prefers-color-scheme: dark) {
   html.touch {
+    --lo: rgba(0, 0, 0, 0.6);
     --press: rgba(255, 255, 255, 0.12);
+    --alpha: #263642;
+    --alpha-text: #9cc0d6;
+    --la: #8fb3c9;
+    --la-digit: #8fb3c9;
   }
+}
+html.touch.theme-calc {
+  --body: #2a2c30;
+  --bezel: #18191c;
+  --lcd: #c9cdc0;
+  --ink: #23281f;
+  --ink-soft: #4c5446;
+  --rule: rgba(35, 40, 31, 0.16);
+  --soft-bg: #23281f;
+  --soft-text: #c9cdc0;
+  --key: #3b3e44;
+  --key-text: #ecedef;
+  --hi: rgba(255, 255, 255, 0.06);
+  --lo: rgba(0, 0, 0, 0.55);
+  --press: rgba(255, 255, 255, 0.1);
+  --menu: #34373c;
+  --digit: #e4e4e2;
+  --digit-text: #1c1d1f;
+  --op: #45484f;
+  --op-text: #fff;
+  --enter: #c2410c;
+  --enter-text: #fff;
+  --second: #d9773a;
+  --second-text: #1d1006;
+  --alpha: #8aa9bf;
+  --alpha-text: #0e1a22;
+  --l2: #e8955f;
+  --la: #9ab7cb;
+  --l2-digit: #b5470f;
+  --la-digit: #4d6f86;
+}
+/* the screen's content in the LCD's ink, whatever the system's scheme */
+html.touch.theme-calc .screen {
+  --text: var(--ink);
+  --muted: var(--ink-soft);
+  --faint: var(--rule);
+  --accent: var(--ink);
+  --accent-soft: rgba(35, 40, 31, 0.1);
+  --kbd: rgba(35, 40, 31, 0.08);
+  --error: #8b1d12;
 }
 
 /* the page doesn't scroll or bounce; main follows the visual viewport (fitViewport), so
    the input stays above the system keyboard */
-html.touch body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; }
+html.touch body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; background: var(--body); }
 html.touch main {
   position: fixed;
   left: 0;
@@ -26,6 +105,7 @@ html.touch main {
   height: var(--app-height, 100dvh);
   max-width: 720px;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  background: var(--body);
 }
 
 html.touch .desktop-only,
@@ -34,173 +114,188 @@ html.touch #palette,
 html.touch #hints,
 html.touch #mode-toggle { display: none; }
 
-/* --- tape -------------------------------------------------------------------- */
+/* --- the screen ---------------------------------------------------------------------- */
+
+.screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 10px 10px 2px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--lcd);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--bezel);
+}
+html.touch.theme-calc .screen { box-shadow: 0 0 0 4px var(--bezel), inset 0 1px 4px rgba(0, 0, 0, 0.18); }
+
+/* top: 2nd/alpha, messages (with stop, undo); the soft keys' menu at the right */
+.screen .status {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  height: 18px;
+  padding: 4px 2px 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 14px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.screen .status .msg { display: flex; gap: 6px; min-width: 0; overflow: hidden; }
+.screen .status .text { overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.screen .status .text kbd { font-size: 1em; padding: 0 0.2em; }
+.screen .status .badge { padding: 0 4px; border-radius: 3px; background: var(--ink); color: var(--lcd); font-weight: 600; }
+.screen .status .badge.second { background: var(--l2-digit); color: #fff; }
+.screen .status .badge.alpha { background: var(--la-digit); color: #fff; }
+.screen .status .link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.screen .status .ind { flex: none; }
 
 html.touch #tape {
-  padding: 10px 6px 6px;
+  padding: 2px 0 4px;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
-html.touch #empty { margin-bottom: 4vh; padding: 0 12px; }
+html.touch .entry { border-color: var(--rule); }
+html.touch #empty { margin-bottom: 2vh; padding: 0 8px; color: var(--ink-soft); }
 html.touch #empty code { cursor: pointer; }
-html.touch .item { padding: 4px 8px; }
-html.touch .outputs { padding: 0 8px 0 calc(8px + 2.2em + 10px); }
-html.touch .err { padding: 4px 8px 4px calc(8px + 2.2em + 10px); }
+html.touch .item { padding: 4px 6px; }
+html.touch .outputs { padding: 0 6px 0 calc(6px + 2.2em + 10px); }
+html.touch .err { padding: 4px 6px 4px calc(6px + 2.2em + 10px); }
 /* a sideways drag pans an iplot graph (graph.js), an upright one still scrolls the tape */
 html.touch .outputs .graph .u-over { touch-action: pan-y; }
+html.touch .outputs .graph { min-height: 0; }
 
-/* --- composer ---------------------------------------------------------------- */
+html.touch #preview { padding: 0 4px; }
+html.touch #loading { padding: 0 2px 6px; }
+/* the input: a line on the screen, not a box */
+html.touch #prompt {
+  min-height: 40px;
+  padding: 4px 4px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+}
+html.touch #prompt.browsing { opacity: 0.6; }
+html.touch #prompt .caret { color: var(--ink); }
+html.touch #input { font-size: 20px; min-width: 0; color: var(--ink); caret-color: var(--ink); } /* 16px at least, or iOS zooms in */
+html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
 
-html.touch #composer { padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+/* bottom: the soft keys' labels, one above each f-key */
+.screen .softline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  padding: 2px 0 6px;
+  touch-action: pan-y;
+}
+.screen .softline .sk {
+  height: 26px;
+  min-width: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 3px 3px 0 0;
+  background: var(--soft-bg);
+  color: var(--soft-text);
+  font-family: var(--sans);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  touch-action: none;
+}
+.screen .softline .sk .katex { font-size: 1.05em; }
+.screen .softline .sk.empty { background: transparent; }
+.screen .softline .sk.danger { text-decoration: underline; text-underline-offset: 3px; }
+.screen .softline .sk.down { opacity: 0.7; }
+
+/* --- the keypad ------------------------------------------------------------------------ */
+
+html.touch #composer { padding: 9px 8px calc(6px + env(safe-area-inset-bottom)); background: transparent; border: 0; }
 html.touch.typing #composer { padding-bottom: 6px; }
-html.touch #preview { padding: 0 8px; }
-html.touch #prompt { padding: 6px 12px; min-height: 48px; border-radius: 12px; }
-html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zooms in on it */
 
 #keypad {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
-  margin-top: var(--gap);
+  gap: 7px;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
-
-/* the strip: suggestions, actions on the selection, messages */
-#keypad .strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  white-space: nowrap;
-  touch-action: pan-x;
-}
-#keypad .strip::-webkit-scrollbar { display: none; }
-#keypad .chip {
-  flex: none;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--faint);
-  border-radius: 15px;
-  background: var(--surface);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 15px;
-}
-#keypad .chip.fn::after { content: "( )"; color: var(--muted); margin-left: 2px; }
-#keypad .chip.action { font-family: var(--sans); color: var(--accent); }
-#keypad .chip.danger { color: var(--error); }
-#keypad .chip.close { color: var(--muted); padding: 0 10px; }
-#keypad .chip:active { background: var(--accent-soft); }
-#keypad .note { flex: none; font-size: 13px; color: var(--text); padding: 0 4px; }
-#keypad .note.status { color: var(--accent); }
-#keypad .note kbd { font-size: 0.9em; }
-
-/* tabs for the menus, then abc ? ⋯ */
-#keypad .tabs {
-  display: grid;
-  grid-template-columns: 4fr 3fr;
-  gap: var(--gap);
-}
-#keypad .tabs .group { display: flex; gap: 4px; }
-#keypad .key.tab {
-  flex: 1;
-  height: 32px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--muted);
-  font-size: 15px;
-}
-#keypad .key.tab.active { background: var(--accent-soft); color: var(--accent); }
-
-/* the soft keys (a menu's page, then ▸), the row every menu needs, the number block */
-#keypad .keys { display: flex; flex-direction: column; gap: var(--gap); }
-#keypad .soft {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) 0.8fr;
-  grid-auto-rows: var(--row-h);
-  gap: 5px;
-  touch-action: pan-y;
-}
-#keypad .top {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  grid-auto-rows: var(--row-h);
-  gap: var(--gap);
-}
-#keypad .pad {
+#keypad .frow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+#keypad .ti {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-auto-rows: var(--key-h);
-  gap: var(--gap);
+  grid-template-rows: repeat(3, var(--small-h)) repeat(6, var(--key-h));
+  gap: var(--gap) 7px;
 }
 
 #keypad .key {
   position: relative;
   min-width: 0;
-  padding: 0;
+  padding: 0 0 3px;
   border: 0;
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: var(--key-shadow);
-  color: var(--text);
+  border-radius: 7px;
+  background: var(--key);
+  color: var(--key-text);
+  box-shadow: inset 0 1px 0 var(--hi), 0 1px 0 var(--lo);
   font-family: var(--sans);
-  font-size: 22px;
+  font-size: 19px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   overflow: hidden;
   touch-action: none;
 }
-#keypad .key .katex { font-size: 0.9em; }
-#keypad .soft .key { background: var(--kbd); border-radius: 8px; font-size: 17px; }
-#keypad .soft .key.word { font-size: 13px; letter-spacing: -0.01em; }
-#keypad .key.next { background: transparent; box-shadow: none; color: var(--accent); font-size: 13px; font-weight: 600; }
-#keypad .key.fn { background: var(--kbd); font-size: 19px; }
-#keypad .key.ctl { background: var(--kbd); color: var(--muted); font-size: 18px; }
-#keypad .pad .key { font-size: 26px; }
-#keypad .pad .key.fn { font-size: 22px; }
-#keypad .pad .key.word { font-size: 17px; }
-#keypad .pad .key.ctl { font-size: 22px; }
-#keypad .key.op { background: var(--accent-soft); color: var(--accent); }
-#keypad .pad .key.op { font-size: 30px; }
-#keypad .key.enter { background: var(--accent); color: var(--bg); }
-#keypad .pad .key.enter { font-size: 26px; }
-/* a narrower phone (an iPhone SE or mini): tighter gaps and smaller soft key labels, so
-   simplify and tan⁻¹ still fit */
-@media (max-width: 380px) {
-  html.touch { --gap: 5px; }
-  #keypad .soft .key { font-size: 16px; }
-  #keypad .soft .key .katex { font-size: 0.85em; }
-  #keypad .soft .key.word { font-size: 12px; letter-spacing: -0.03em; }
-  #keypad .key.fn { font-size: 17px; }
-}
-@media (max-width: 340px) {
-  html.touch { --gap: 4px; }
-  #keypad .soft { gap: 4px; }
-  #keypad .soft .key { font-size: 15px; }
-  #keypad .soft .key .katex { font-size: 0.8em; }
-  #keypad .soft .key.word { font-size: 10.5px; letter-spacing: -0.04em; }
-  #keypad .key.fn { font-size: 15px; }
-}
+#keypad .key .katex { font-size: 0.95em; }
+#keypad .key.word { font-size: 15px; }
+#keypad .frow .key { height: var(--f-h); padding: 0; align-items: center; font-size: 10px; color: var(--key-text); opacity: 0.85; }
+/* the top three rows: smaller labels, as on the TI */
+#keypad .ti > .key:nth-child(-n + 11) { font-size: 14px; }
+#keypad .ti > .key:nth-child(-n + 11) .katex { font-size: 1em; }
+#keypad .key .l2,
+#keypad .key .la { position: absolute; top: 2px; font-size: 8.5px; line-height: 1; font-weight: 600; }
+#keypad .key .l2 { left: 5px; color: var(--l2); }
+#keypad .key .la { right: 5px; color: var(--la); }
+#keypad .key.digit { background: var(--digit); color: var(--digit-text); }
+#keypad .key.digit .l2 { color: var(--l2-digit); }
+#keypad .key.digit .la { color: var(--la-digit); }
+#keypad .key.op { background: var(--op); color: var(--op-text); font-size: 22px; }
+#keypad .key.enter { background: var(--enter); color: var(--enter-text); }
+#keypad .key.enter .l2 { color: inherit; opacity: 0.75; }
+#keypad .key.second { background: var(--second); color: var(--second-text); }
+#keypad .key.alpha { background: var(--alpha); color: var(--alpha-text); }
+#keypad .key.second .l2,
+#keypad .key.alpha .l2 { color: inherit; opacity: 0.7; }
+#keypad .key.menu { background: var(--menu); }
 #keypad .key.down { box-shadow: inset 0 0 0 100px var(--press); }
-/* hold for more */
-#keypad .key.more::after {
-  content: "";
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.3;
-}
+/* 2nd or alpha pressed: it stays lit, and the legends it brings come forward */
+html.mod-2nd #keypad .key.second,
+html.mod-alpha #keypad .key.alpha { box-shadow: 0 0 0 2px var(--key-text); }
+html.mod-2nd #keypad .key .l2,
+html.mod-alpha #keypad .key .la { font-size: 10px; text-decoration: underline; }
+
+/* the arrows: one rocker, split along its diagonals */
+#keypad .arrows { grid-column: 4 / 6; grid-row: 1 / 3; position: relative; border-radius: 999px; overflow: hidden; }
+#keypad .arrows .key { position: absolute; inset: 0; padding: 0; border-radius: 0; box-shadow: none; font-size: 12px; }
+#keypad .arrows .to-up { clip-path: polygon(10px 0, calc(100% - 10px) 0, 50% calc(50% - 1.5px)); align-items: flex-start; padding-top: 4px; }
+#keypad .arrows .to-down { clip-path: polygon(10px 100%, calc(100% - 10px) 100%, 50% calc(50% + 1.5px)); align-items: flex-end; padding-bottom: 4px; }
+#keypad .arrows .to-left { clip-path: polygon(0 0, 0 100%, calc(50% - 2px) 50%); align-items: center; justify-content: flex-start; padding-left: 14px; }
+#keypad .arrows .to-right { clip-path: polygon(100% 0, 100% 100%, calc(50% + 2px) 50%); align-items: center; justify-content: flex-end; padding-right: 14px; }
+#keypad .arrows .key.down { box-shadow: inset 0 0 0 100px var(--press); }
 
 /* over the system keyboard (abc): instead of the keys */
 #keypad .bar {
@@ -208,31 +303,12 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
   grid-template-columns: 1.4fr repeat(6, 1fr);
   gap: var(--gap);
 }
-#keypad .bar .key { height: 40px; background: var(--kbd); font-family: var(--mono); font-size: 18px; }
+#keypad .bar .key { height: 40px; padding: 0; align-items: center; font-family: var(--mono); font-size: 18px; }
 html.touch.typing #keypad .bar { display: grid; }
-html.touch.typing #keypad .keys { display: none; }
+html.touch.typing #keypad .frow,
+html.touch.typing #keypad .ti { display: none; }
 
-/* a long press: the key's tip and related keys */
-#keypad .popup {
-  position: absolute;
-  z-index: 20;
-  max-width: min(320px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px;
-  background: var(--surface);
-  border: 1px solid var(--faint);
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
-}
-#keypad .popup .cells { display: flex; flex-wrap: wrap; gap: 4px; }
-#keypad .popup .key { width: 46px; height: 44px; background: var(--kbd); font-size: 19px; }
-#keypad .popup .key.word { width: auto; padding: 0 10px; }
-#keypad .popup .key.hot { background: var(--accent); color: var(--bg); }
-#keypad .popup .hint { padding: 2px 4px; font-size: 13px; line-height: 1.35; color: var(--muted); }
-
-/* ⋯ */
+/* mode: settings */
 #keypad .touch-menu {
   position: absolute;
   right: 0;
@@ -247,7 +323,7 @@ html.touch.typing #keypad .keys { display: none; }
   background: var(--surface);
   border: 1px solid var(--faint);
   border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
 }
 #keypad .touch-menu button {
   padding: 11px 12px;
@@ -270,23 +346,29 @@ html.touch.typing #keypad .keys { display: none; }
 }
 #keypad .touch-menu .about a { color: inherit; }
 
-/* a phone on its side: the keypad beside the tape and the input, filling the height */
+/* a narrow phone (the first iPhone SE): smaller labels */
+@media (max-width: 350px) {
+  #keypad .key { font-size: 17px; }
+  #keypad .key.word { font-size: 13px; }
+  #keypad .key .l2, #keypad .key .la { font-size: 7.5px; left: 3px; }
+  #keypad .key .la { left: auto; right: 3px; }
+  .screen .softline .sk { font-size: 11.5px; }
+}
+
+/* a phone on its side: the screen beside the keypad, both the full height */
 @media (orientation: landscape) and (max-height: 500px) {
   html.touch main {
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto auto auto;
     padding-bottom: env(safe-area-inset-bottom);
   }
-  html.touch #composer { display: contents; }
-  html.touch #tape { grid-column: 1; grid-row: 1; }
-  html.touch #preview { grid-column: 1; grid-row: 2; }
-  html.touch #loading { grid-column: 1; grid-row: 3; padding: 0 8px 6px; }
-  html.touch #prompt { grid-column: 1; grid-row: 4; margin: 0 0 6px 6px; }
-  html.touch #keypad { grid-column: 2; grid-row: 1 / -1; margin: 6px 6px 6px 8px; justify-content: flex-end; }
-  html.touch #keypad .keys { flex: 1; min-height: 0; }
-  html.touch #keypad .pad { flex: 1; grid-auto-rows: minmax(0, 1fr); }
+  .screen { margin: 8px 4px 8px 8px; }
+  html.touch #composer { display: flex; flex-direction: column; padding: 6px 8px 6px 4px; min-height: 0; }
+  #keypad { flex: 1; min-height: 0; gap: 4px; }
+  #keypad .ti { flex: 1; min-height: 0; grid-template-rows: repeat(9, minmax(0, 1fr)); gap: 4px 6px; }
+  #keypad .key .l2, #keypad .key .la { display: none; }
+  #keypad .key { padding: 0; align-items: center; }
 }
 
 /* --- panels: full screen -------------------------------------------------------- */

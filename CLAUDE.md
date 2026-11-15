@@ -40,10 +40,10 @@ keypad.js + touch.css: the touch layout, on top of app.js (only with <html class
 | File | Role |
 | --- | --- |
 | `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette (keys.js's menus: tabs, then one row of keys), hint line, catalog, Memory panel, hover tips, keyboard handling |
-| `keys.js` | `MENUS`: the functions both layouts offer (`xy`, `f(x)`, `∫`, `[ ]`), with their templates and tips: the desktop palette shows a menu's keys in one row, the keypad six at a time. `menuKeys(name, layout)` drops the keys one layout doesn't need (`only`); the chosen menu is remembered (`calc.menu`) |
+| `keys.js` | `MENUS`: the functions both layouts offer, with their templates and tips: `math`, `calc`, `matrix`, `stat` (a TI-84's menus) and the desktop's own `f(x)` (on the keypad those have keys). The desktop palette shows a menu's keys in one row, the keypad five at a time as soft keys. `layoutMenus(layout)` and `menuKeys(name, layout)` drop what one layout doesn't need (`only`); each layout remembers its menu (`calc.menu.touch`, `calc.menu.desktop`) |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
-| `keypad.js` | The touch layout: keypad, the strip above it (suggestions, actions on the selection, messages, Undo), long-press popups, `abc` (system keyboard), `⋯` menu, full-screen panels. Drives app.js's own functions; does nothing without `html.touch` |
-| `touch.css` | The touch layout's styles, every rule under `html.touch` (or `#keypad`, which only exists there) |
+| `keypad.js` | The touch layout: a screen (status line, tape, input, soft keys) over a TI-84-style keypad (`KEYPAD`, `ARROWS`) with 2nd and alpha, the f1–f5 row, `abc` (system keyboard), `mode`'s menu (with the theme), full-screen panels. Drives app.js's own functions; does nothing without `html.touch` |
+| `touch.css` | The touch layout's styles and its two themes (classic; calculator: graphite and an LCD, `html.theme-calc`), every rule under `html.touch` (or `#keypad`, `.screen`, which only exist there) |
 | `graph.js` | `iplot` graphs on the tape: draws Python's samples with uPlot (fetched on the first graph), asks for new samples when zoomed or panned, keys for a selected graph |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
@@ -122,12 +122,27 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `class="touch"` to `<html>` before anything renders, on `(hover: none) and (pointer: coarse)`
   (phones, tablets without a mouse; an iPad with a trackpad gets the keyboard layout), or with
   `?layout=touch` / `?layout=desktop` (remembered in `localStorage` as `calc.layout`; `?layout=auto`
-  forgets). The keys, top to bottom: tabs picking a menu (`xy`, `f(x)`, `∫`, `[ ]`) and `abc ? ⋯`; soft
-  keys, as on an HP 50g, showing six of the menu's functions with `▸` (or a sideways swipe) for the
-  next six (keys.js's `MENUS`, `SOFT_KEYS`); a row with what every menu needs (`◀ ▶ x ( ) ^ = ,`); and a
-  full-width number block laid out like a Casio's (`7 8 9 ⌫ AC`, `× ÷`, `+ −`, `0 . π ans ⏎`). The keyboard layout must look and behave exactly as without it: touch styles live
-  under `html.touch` only, and app.js only branches on `TOUCH` in `renderHints` (the strip replaces
-  the hint line) and `renderPalette` (the keypad has the menus). The keys reuse the keyboard's logic: a
+  forgets). The page is a calculator: a screen, holding a status line (2nd/alpha, messages
+  with *stop* and *undo* links, the soft keys' menu), the tape, the input and the soft keys'
+  labels on its bottom edge; then f1–f5 (as on a physical device, where those labels are drawn
+  on the display; on the phone a label can be tapped too) and a TI-84's keys, five columns:
+  `2nd mode del`/`alpha x,t,θ stat` beside the arrow rocker, `math calc matrix vars clear`,
+  `xⁿ sin cos tan ÷`, `x² , ( ) ×`, `log 7 8 9 −`, `ln 4 5 6 +`, `= 1 2 3 ‹›`,
+  `abc 0 . (−) enter` (`abc` where the TI has ON). Each key prints its 2nd function (top left,
+  `second`) and its alpha letter (top right, `letter`); 2nd and alpha apply to the next key,
+  2nd alpha locks letters, and holding a key does its 2nd. The soft keys show, first that
+  applies: the selected entry's actions (`selectionActions`), completions of the name being
+  typed (2+ letters), or the menu last opened (keys.js's, `vars`, or `test` from 2nd =), five
+  at a time (`SOFT_KEYS`): pressing the menu's key again, or swiping the labels, turns the
+  page. `▲ ▼` are the keyboard's ↑ ↓ (walk the tape), `‹›` cycles the selected or last result
+  through exact/decimal/degrees, `(−)` types a minus without ans continuation, `x,t,θ` cycles
+  when pressed again, 2nd enter recalls the last line. Themes: classic, or calculator
+  (`html.theme-calc`, set from `calc.theme` by the head script, switched in `mode`'s menu);
+  the calculator theme ignores the system's dark mode, and re-themes the screen's content by
+  overriding the page's tokens (`--text`, `--muted`, …) on `.screen`. The keyboard layout must look and behave exactly as without it: touch styles live
+  under `html.touch` only, and app.js only branches on `TOUCH` in `renderHints` (the status line and
+  soft keys replace the hint line) and `renderPalette` (the keypad has the menus); graph.js fits graphs to the short
+  tape on `TOUCH`. The keys reuse the keyboard's logic: a
   character key dispatches a synthetic `keydown` on the editor first and types only if app.js
   didn't `preventDefault` it, so `ans` continuation, `--`, ⏎ / ⌫ on a selection and ← → on a
   graph all apply unchanged; function keys go through `insertKey`, as the palette's do, so they
@@ -136,14 +151,14 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   is what makes iOS raise its keyboard; when the editor loses focus, the keypad comes back. `main`
   follows `visualViewport` (`--app-height`, `--app-top`), since iOS covers the page with its
   keyboard instead of resizing it. Short screens (a phone on its side) put the keypad beside the
-  tape. Key handling is pointer events on `#keypad`, acting on release; `touchstart` is
+  screen, without legends. Key handling is pointer events on `#keypad`, acting on release; `touchstart` is
   `preventDefault`ed on keys (no double-tap zoom, no focus change). `iplot` graphs pan with one
   finger and pinch with two (`touchToMove` in graph.js, touch pointers only).
 - **The hint line's actions** (a selection's Insert, Decimal, Copy…, Undo after a delete, Stop
   while computing) are buttons labelled with the key that does the same, so they teach the keys
-  and work with a mouse. The touch strip shows the same actions as chips: both come from
+  and work with a mouse. The touch layout shows the same actions on its soft keys: both come from
   `selectionActions()`, and flash messages ending in "· ⌃Z undo" (`UNDO_HINT`) get an Undo button
-  or chip and stay 5 s instead of 1.5.
+  (an *undo* link on the touch status line) and stay 5 s instead of 1.5.
 - **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
   user's manual: keep it in step with the syntax, short and with examples.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
@@ -162,14 +177,14 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   never take focus from the input (`mousedown` → `preventDefault`). Keep the number of shortcuts
   small: in the tape, single letters act on the selection (`f`, `d`, `c`); everything else types.
 - **Touch second, never at the keyboard layout's expense.** A feature reachable by keyboard gets a
-  touch path too, usually a key, a strip chip or a `⋯` entry calling the same function (or sending
+  touch path too, usually a key, a soft key or a `mode` menu entry calling the same function (or sending
   the same key, as `sendKey` does). Nothing in `touch.css` may match without `html.touch`.
 - **Tips** (`setTip`): say what a control does, with an example when it helps. Don't repeat its
   label or the text it inserts (not "Factor: factor(…)").
-- Keys (keys.js) are `{label (LaTeX) or word, template, math, tip, alts, only}`: in the template `|`
+- Keys (keys.js) are `{label (LaTeX) or word, template, math, tip, only}`: in the template `|`
   marks the cursor (or wraps the selection), in `math` `#0` does and `#?` is an empty MathLive box;
   `math: null` means text input only. A new function goes in `MENUS` once and shows in both
-  layouts. Commands live in the `COMMANDS` table.
+  layouts. The keypad's own keys (keypad.js) add `second`, `letter`, `repeat`, `modifier`. Commands live in the `COMMANDS` table.
 - `py/calc/` stays plain Python with no browser dependencies; test it natively. Anything Pyodide-
   specific belongs in `worker.js`.
 - Every user-visible feature gets a line in the catalog (`catalog.py`) or the hint line, so it can
@@ -214,7 +229,8 @@ Run `make serve` (or `python3 -m http.server <port>` for a second instance) and 
 Claude in Chrome. For the touch layout, emulate a phone (Playwright's `devices["iPhone 13"]`, which
 matches `pointer: coarse`) or add `?layout=touch`; taps go through `page.touchscreen`, long presses
 through CDP's `Input.dispatchTouchEvent`. Emulation has no system keyboard, so `abc` (and iOS's
-keyboard covering the page) can only really be checked on a phone. The tape and variables live in that origin's IndexedDB, so testing on the same
+keyboard covering the page) can only really be checked on a phone. The arrows are clip-path wedges
+of one rocker: tap inside a wedge, not the middle of its box. The tape and variables live in that origin's IndexedDB, so testing on the same
 host and port as the user's own session changes *their* tape: use a different port. To start
 clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 
