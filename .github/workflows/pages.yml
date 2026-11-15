@@ -39,7 +39,7 @@ jobs:
       - name: Collect the site (only what the browser loads)
         run: |
           mkdir -p _site/py/calc
-          cp index.html app.css touch.css app.js latex.js backend.js graph.js keys.js keypad.js worker.js _site/
+          cp index.html app.css touch.css app.js latex.js backend.js graph.js keys.js keypad.js worker.js manifest.webmanifest icon-180.png icon-192.png icon-512.png _site/
           # stamp this site's files with the commit, so a deploy reaches the next reload
           # instead of waiting out the browser cache (backend.js passes it on to the rest)
           sed -i -E 's/(src|href)="([a-z]+\.css|[a-z]+\.js)"/\1="\2?v=${{ github.sha }}"/' _site/index.html

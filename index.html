@@ -27,6 +27,17 @@
   </script>
   <title>SymPy Calc</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23c2410c'/><text x='32' y='46' text-anchor='middle' font-family='Georgia,serif' font-size='38' fill='white'>2π</text></svg>">
+  <!-- Add to Home Screen (iOS, Android): the app then runs on its own, without the
+       browser around it. iOS won't take the SVG favicon, hence icon-*.png
+       (tools/make_icons.py); nothing is cached, so the first run still needs the network -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Calc">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <link rel="stylesheet" href="app.css">
@@ -88,6 +99,7 @@
             <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries; <kbd>enter</kbd> inserts one (or tap it; tap again to let go). <kbd>2nd</kbd> <kbd>enter</kbd> brings back the last line typed</dd>
             <dt><kbd>clear</kbd> <kbd>⌫</kbd></dt><dd>Clear the line; delete before the cursor (or the selected entry)</dd>
             <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
+            <dt>home screen</dt><dd>Share → Add to Home Screen on iOS (Install on Android) keeps it a tap away and runs it without the browser around it. It still loads Python from the network the first time</dd>
           </dl>
         </section>
         <section data-tab="typing">

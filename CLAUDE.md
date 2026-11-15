@@ -16,8 +16,13 @@ uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pyte
 
 Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundles and runs the
 tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
-`py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`). A new top-level file the page needs
-must be added to that workflow's copy step (`tests/test_site.py` fails until it is).
+`py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`, `manifest.webmanifest`, `icon-*.png`).
+A new top-level file the page needs must be added to that workflow's copy step
+(`tests/test_site.py` fails until it is).
+
+Add to Home Screen (iOS, Android) runs it as an app of its own: `manifest.webmanifest` plus the
+`apple-mobile-web-app-*` metas in `index.html`'s head, and `icon-*.png` from `tools/make_icons.py`
+(iOS won't take the SVG favicon). Nothing is cached offline: Pyodide still comes from the CDN.
 
 GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `src`/`href` with
 the commit (`app.js?v=<sha>`); `backend.js` passes its own `?v=` on to `worker.js`, and the worker
