@@ -181,8 +181,13 @@ class _Renderer:
         elif isinstance(func, ast.Name):
             name = func.id
         elif isinstance(func, ast.Attribute):
-            # M.det() -> det(M), M.subs(x, 2) -> subs(M, x, 2)
-            return self._function(func.attr, [func.value, *args])
+            # a method that is also a function of its own reads better that way (M.det()
+            # -> det(M)); the rest keep the dot, so what's shown is valid input too
+            # (Integral(1/x, x).doit(), not doit(Integral(1/x, x)))
+            if callable(_GLOBALS.get(func.attr)):
+                return self._function(func.attr, [func.value, *args])
+            value = self.tex(func.value, PREC_ATOM)
+            return rf"{value}.\mathrm{{{func.attr}}}{_paren(self._items(args))}", PREC_ATOM
         else:
             raise ValueError("call")
         special = getattr(self, f"_call_{name.lower()}", None)
@@ -247,8 +252,8 @@ class _Renderer:
     _call_m = _call_matrix
 
     def _limits(self, node):
-        """(x, a, b) -> (x, a, b) rendered; bare x -> (x, None, None)."""
-        if isinstance(node, ast.Tuple) and len(node.elts) == 3:
+        """(x, a, b) -> (x, a, b) rendered; bare x -> (x, None, None). [x, a, b] too, as sympy takes it."""
+        if isinstance(node, (ast.Tuple, ast.List)) and len(node.elts) == 3:
             return tuple(self.tex(e) for e in node.elts)
         return self.tex(node), None, None
 
