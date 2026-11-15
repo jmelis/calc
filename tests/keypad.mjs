@@ -133,6 +133,25 @@ s = await now();
 check(s.view === null && s.input === "7?", "? after something types", s);
 await key("clear");
 
+// a keyboard (?layout=touch on a computer) works a view as the keypad does
+await key("vars");
+await settle(() => memoryState.items.length === 3);
+await page.keyboard.press("ArrowDown");
+await page.keyboard.press("ArrowDown");
+await page.keyboard.press("Enter");
+s = await now();
+check(s.view === null && s.input === "f()", "keyboard: arrows and ⏎ in vars", s);
+await key("clear");
+await key("catalog");
+await page.keyboard.type("sq");
+s = await now();
+check(s.row === "sqrt", "keyboard: letters search the catalog", s);
+await page.keyboard.press("Escape");
+check((await now()).view === "catalog", "keyboard: Esc clears the search first", await now());
+await page.keyboard.press("Escape");
+s = await now();
+check(s.view === null && s.input === "", "keyboard: then Esc goes back", s);
+
 console.log(failures.join("\n"));
 await browser.close();
 process.exit(failures.length ? 1 : 0);

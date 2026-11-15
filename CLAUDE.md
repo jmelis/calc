@@ -147,7 +147,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   back, and the soft keys do the rest (insert, forget, undo, info, help's sections). The
   catalog opens in A-LOCK so the letters search it. Keys that would type into the line
   behind do nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, f1–f5) work as
-  ever. Taps are extra: a tap selects a row, a tap on the selected row picks it (settings act
+  ever. A keyboard (`?layout=touch` on a computer) types into the line as in the keyboard
+  layout, and while a view shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc as
+  clear, ⌫, letters, ⌃Z). Taps are extra: a tap selects a row, a tap on the selected row picks it (settings act
   on the first). They are app.js's panels, shown differently: `setupTouch` puts `openView`
   into `panels`, so `:help`, `:vars`, `:catalog` and `?` open them (alpha's `?` is sent as a
   keydown, `typeLetter`, so an empty line's `?` is the catalog here too), and help reads the Help

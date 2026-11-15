@@ -38,6 +38,7 @@ const touch = {
   view: null, // the view taking the screen over: {name, index, ...} (VIEWS)
   switching: false, // moving the focus on purpose: not the system keyboard going away
   resetArmed: 0, // until when settings' Reset needs only a second enter
+  keyRepeat: false, // a keyboard's key held down, repeating (onKeyboard)
 };
 const keySpecs = new WeakMap(); // button -> its key
 let keypadEl = null;
@@ -528,7 +529,7 @@ const VIEWS = {
     },
     key(view, nav) {
       if (nav !== "del") return false;
-      if (!touch.press?.held) forgetRow(view); // ⌫ held doesn't forget one after another
+      if (!repeating()) forgetRow(view); // ⌫ held doesn't forget one after another
       return true;
     },
     soft: (view) => [
@@ -662,6 +663,31 @@ function viewKey(spec) {
     else if (spec.nav === "clear") closeView();
   } else if (char !== undefined) def.type?.(view, char);
   if (touch.view) renderSoft(); // what they offer can change with the row (catalog's info)
+}
+
+// A key held down, repeating: the keypad's or a keyboard's
+const repeating = () => touch.press?.held || touch.keyRepeat;
+
+// A keyboard (?layout=touch on a computer, or a device whose keys arrive as key events)
+// types into the line as in the keyboard layout. While a view shows, the line is behind it,
+// so the keys work the view as the keypad's do: the arrows, ⏎ (enter), Esc (clear), ⌫,
+// letters and digits (the catalog's search) and ⌃Z (undo).
+const KEYBOARD_NAV = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", Enter: "enter", Escape: "clear", Backspace: "del", Delete: "del" };
+
+function onKeyboard(e) {
+  if (!touch.view || e.metaKey || e.altKey || e.isComposing) return;
+  const nav = KEYBOARD_NAV[e.key];
+  if (e.ctrlKey) {
+    if (e.key !== "z") return;
+    undo();
+  } else if (nav) {
+    touch.keyRepeat = e.repeat;
+    run([...ARROWS, ...KEYPAD].find((spec) => spec.nav === nav));
+    touch.keyRepeat = false;
+  } else if (e.key.length === 1) viewKey({ letter: e.key });
+  else if (e.key !== "Tab") return; // Tab would take the focus from the line
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 function viewRow(view, i, className = "") {
@@ -1064,6 +1090,7 @@ function setupTouch() {
   });
   viewEl.addEventListener("mousedown", (e) => e.target.closest("a") || e.preventDefault()); // keep the focus in the input
   viewEl.addEventListener("click", onViewTap);
+  document.addEventListener("keydown", onKeyboard, true); // before the line (and MathLive) sees it
 
   // typing with the system keyboard, or moving the caret by tapping, changes the completions
   input.addEventListener("input", renderStrip);
