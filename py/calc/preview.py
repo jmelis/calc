@@ -131,7 +131,7 @@ class _Renderer:
         if op is ast.Mult:
             left, right = self.tex(node.left, PREC_MUL), self.right(node.right, PREC_MUL)
             # juxtapose like sympy (2x, x y), but keep the dot before a number: 2 \cdot 3
-            explicit = right[0].isdigit() or self._is_number(node.right)
+            explicit = right[0].isdigit() or self._starts_with_number(node.right)
             return rf"{left} \cdot {right}" if explicit else f"{left} {right}", PREC_MUL
         if op is ast.Div:
             return rf"\frac{{{self.tex(node.left)}}}{{{self.tex(node.right)}}}", PREC_ATOM
@@ -166,6 +166,13 @@ class _Renderer:
             isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
             and node.func.id in ("Integer", "Float", "Number") and node.args
         )
+
+    @classmethod
+    def _starts_with_number(cls, node):
+        """Whether the typeset node opens with a number: 3 * 0.45^2 must not read 30.45^2."""
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Pow, ast.Mult)):
+            return cls._starts_with_number(node.left)
+        return cls._is_number(node)
 
     # --- calls ---
 

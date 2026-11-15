@@ -15,6 +15,8 @@ from calc.preview import preview
         ("x - (1 + 2)", r"x - \left(1 + 2\right)"),
         ("2x + 3y", "2 x + 3 y"),
         ("x*-3", r"x \left(-3\right)"),
+        ("3*0.45^2", r"3 \cdot {0.45}^{2}"),  # not 30.45^2
+        ("2*3^2*4", r"2 \cdot {3}^{2} \cdot 4"),
         ("$3 * 2 + ans", r"\boxed{3} \cdot 2 + \mathrm{ans}"),
         ("a = 3/7", r"a = \frac{3}{7}"),  # "=", not ":=", so copying it back is valid input
         ("f(x, y) = x^2 + y", r"f\left(x, y\right) = {x}^{2} + y"),
