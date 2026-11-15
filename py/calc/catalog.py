@@ -118,11 +118,12 @@ SYMPY = {
         ("pstdev", "(values)", "Population standard deviation (n)", "pstdev([2, 4, 4, 5])"),
     ],
     "Plotting": [
-        ("iplot", "(expr, (x, a, b))", "An interactive graph: drag to pan, pinch to zoom; or select it (↑) and ← → + − 0", "iplot(sin(x)/x, (x, -20, 20))"),
+        ("iplot", "(expr, (x, a, b))", "An interactive graph: drag to pan, pinch to zoom; or select it (↑) and ← → + − 0. The range takes brackets too: iplot(x, [x, -10, 10])", "iplot(sin(x)/x, (x, -20, 20))"),
         ("plot", "(expr, (x, a, b))", "Plot a function of x; several: plot(f, g, (x, a, b))", "plot(sin(x), (x, -5, 5))"),
         ("plot_parametric", "((x(t), y(t)), (t, a, b))", "Plot a parametric curve", "plot_parametric((cos(t), sin(t)), (t, 0, 2pi))"),
         ("plot_implicit", "(Eq(lhs, rhs), (x, a, b), (y, c, d))", "Plot an implicit curve", "plot_implicit(Eq(x^2 + y^2, 4))"),
         ("plot3d", "(expr, (x, a, b), (y, c, d))", "Plot a surface z = f(x, y)", "plot3d(x y, (x, -2, 2), (y, -2, 2))"),
+        ("plt", "plt.plot(xs, ys)", "matplotlib itself, for data rather than expressions: plt.scatter, plt.bar, plt.hist…", "plt.plot([1, 2, 3, 4], [1, 4, 9, 16])"),
     ],
     "Constants": [
         ("pi", "", "π", "pi"),

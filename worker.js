@@ -225,8 +225,8 @@ const EXTRAS = {
   iplot: { what: "numpy (first iplot only)", packages: ["numpy"], bytecode: ["numpy/"], warmUp: "warm_up_iplot()" },
 };
 
-// \bplot: plot, plot_parametric, plot3d…, but not iplot
-const extrasFor = (src) => [/\bplot/.test(src) && "plot", /\biplot\b/.test(src) && "iplot"].filter(Boolean);
+// \bplot: plot, plot_parametric, plot3d…, but not iplot; plt is matplotlib too
+const extrasFor = (src) => [/\bplot|\bplt\b/.test(src) && "plot", /\biplot\b/.test(src) && "iplot"].filter(Boolean);
 
 function loadExtra(name) {
   const { what, packages, bytecode, warmUp } = EXTRAS[name];

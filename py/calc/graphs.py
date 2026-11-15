@@ -11,6 +11,7 @@ numpy is imported only when sampling: in the browser it's loaded on the first ip
 import warnings
 
 from sympy import Symbol, latex, lambdify, srepr, sstr, sympify
+from sympy.core.sympify import SympifyError
 from sympy.core.relational import Relational
 
 SAMPLES = 800
@@ -35,11 +36,27 @@ class Graph:
         }
 
 
+def _is_range(arg):
+    """
+    [x, a, b]: a variable and two numbers, the range written with brackets.
+
+    A list is otherwise the several-expressions form (iplot([f, g])), so it only counts
+    as a range when it reads like one; a 3-tuple always does, as it does in sympy.
+    """
+    if not isinstance(arg, list) or len(arg) != 3:
+        return False
+    var, *bounds = arg
+    try:
+        return isinstance(sympify(var), Symbol) and all(sympify(b).is_number for b in bounds)
+    except (SympifyError, TypeError):
+        return False
+
+
 def iplot(*args):
-    """iplot(f, g, ..., (x, a, b)): the range is optional when there's one variable."""
+    """iplot(f, g, ..., (x, a, b) or [x, a, b]): the range is optional with one variable."""
     args = list(args)
     span = None
-    if args and isinstance(args[-1], tuple) and len(args[-1]) == 3:
+    if args and ((isinstance(args[-1], tuple) and len(args[-1]) == 3) or _is_range(args[-1])):
         span = args.pop()
     exprs = []
     for arg in args:

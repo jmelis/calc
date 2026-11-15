@@ -77,7 +77,10 @@ class Graph {
           bind: { dblclick: () => () => (this.reset(), null) },
         },
         // u, not this.plot: it fires while the constructor is still running
-        hooks: { setScale: [(u, key) => key === "x" && this.viewChanged(u)] },
+        hooks: {
+          setScale: [(u, key) => key === "x" && this.viewChanged(u)],
+          drawClear: [(u) => drawAxisLines(u, color("--muted"))], // under the curves
+        },
       },
       graphData(this.out.data),
       this.node,
@@ -250,6 +253,29 @@ class Graph {
     this.shown = [msg.data.x[0], msg.data.x[1]];
     this.plot.setData(graphData(msg.data));
   }
+}
+
+// x = 0 and y = 0 themselves, where the grid alone wouldn't say where zero is. Drawn in
+// canvas pixels (uPlot's bbox), and only when zero is in view
+function drawAxisLines(u, stroke) {
+  const { left, top, width, height } = u.bbox;
+  const ctx = u.ctx;
+  ctx.save();
+  ctx.beginPath();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = Math.max(1, Math.round(devicePixelRatio || 1));
+  const x0 = Math.round(u.valToPos(0, "x", true));
+  if (x0 >= left && x0 <= left + width) {
+    ctx.moveTo(x0, top);
+    ctx.lineTo(x0, top + height);
+  }
+  const y0 = Math.round(u.valToPos(0, "y", true));
+  if (y0 >= top && y0 <= top + height) {
+    ctx.moveTo(left, y0);
+    ctx.lineTo(left + width, y0);
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 // The tape's node for a graph output; drawn once uPlot has loaded

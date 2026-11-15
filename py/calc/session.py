@@ -10,6 +10,7 @@ import base64
 import contextlib
 import copy
 import functools
+import importlib
 import io
 import os
 import pickle
@@ -32,6 +33,27 @@ from .preview import _symbol, preview
 
 FLOAT_DIGITS = 15
 PLOT_FUNCTIONS = ("plot", "plot_parametric", "plot_implicit", "plot3d")
+
+
+class _LazyModule:
+    """
+    matplotlib.pyplot as `plt`, for plotting data: plt.plot([1, 2, 3], [1, 4, 9]).
+
+    It stands in for the module until something is asked of it, since importing
+    matplotlib costs ~13 MB in the browser and most sessions never plot (worker.js
+    loads the package as soon as `plt` or `plot` appears in the input, so by then it
+    is usually there). It lives in the session's namespace, not in _GLOBALS: see
+    MAKERS below.
+    """
+
+    def __init__(self, name):
+        self._name = name
+
+    def __getattr__(self, attr):
+        return getattr(importlib.import_module(self._name), attr)
+
+    def __repr__(self):
+        return f"<{self._name}>"
 
 # Figures are rendered to PNGs (see _figures); no window or browser canvas backend
 os.environ.setdefault("MPLBACKEND", "Agg")
@@ -78,6 +100,7 @@ class Session:
         self.ns["ans"] = Integer(0)
         self.ns.update(stats.FUNCTIONS)
         self.ns["iplot"] = iplot
+        self.ns["plt"] = _LazyModule("matplotlib.pyplot")  # plt.plot(xs, ys): data, not expressions
         self.ns.update(MAKERS)  # M[1, 2], V[1, 2]; here, not only in _GLOBALS, or the parser makes M a Symbol
         for name in PLOT_FUNCTIONS:
             if name in self.ns:
@@ -352,6 +375,9 @@ def _figures():
 
 
 def _is_plot(value):
+    # what plt.plot returns is a plain list of matplotlib artists; the figure is the output
+    if isinstance(value, (list, tuple)):
+        return bool(value) and all(_is_plot(item) for item in value)
     module = type(value).__module__ or ""
     return module.startswith(("sympy.plotting", "matplotlib"))
 

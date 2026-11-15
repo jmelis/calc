@@ -146,10 +146,11 @@
         <section data-tab="graphs">
           <h2>Graphs</h2>
           <dl>
-            <dt>iplot(sin(x)/x)</dt><dd>An interactive graph (of several functions: <code>iplot(f, g, (x, 0, 2pi))</code>)</dd>
+            <dt>iplot(sin(x)/x)</dt><dd>An interactive graph (of several functions: <code>iplot(f, g, (x, 0, 2pi))</code>). A range takes brackets too: <code>iplot(x, [x, -10, 10])</code></dd>
             <dt>drag &nbsp; pinch &nbsp; double-click</dt><dd>Pan (or swipe sideways); zoom; back to the start. Shift+drag zooms into a range</dd>
             <dt><kbd>↑</kbd> then <kbd>←</kbd> <kbd>→</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>With the graph selected: pan, zoom, back to the start</dd>
             <dt>plot(sin(x), (x, -5, 5))</dt><dd>A picture (matplotlib), with all of its options; also <code>plot_parametric</code>, <code>plot_implicit</code></dd>
+            <dt>plt.plot(xs, ys)</dt><dd>Data rather than expressions: <code>plt</code> is matplotlib's pyplot, ready to use (<code>plt.scatter</code>, <code>plt.bar</code>, <code>plt.hist</code>…)</dd>
           </dl>
         </section>
         <section data-tab="sympy">
