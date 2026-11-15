@@ -40,6 +40,13 @@ def test_float_view_is_exact_only_when_the_digits_are_the_value(src, exact):
     assert bool(result["float"].get("exact")) is exact
 
 
+def test_numbers_are_never_run_together():
+    # a space between "0.5" and "{2.0}^{x}" typesets as 0.52.0^x
+    result = run(Session(), "1/2*2^x")["result"]
+    assert result["float"]["latex"] == r"0.5 \cdot {2.0}^{x}"
+    assert run(Session(), "3*2^x")["result"]["latex"] == r"3 \cdot 2^{x}"
+
+
 def test_no_float_view_when_it_adds_nothing():
     result = run(Session(), "x^2 + 1")["result"]
     assert "float" not in result and "degrees" not in result

@@ -14,6 +14,7 @@ import importlib
 import io
 import os
 import pickle
+import re
 import sys
 import types
 import warnings
@@ -66,6 +67,16 @@ k, m, n = symbols('k m n', integer=True)
 f, g, h = symbols('f g h', cls=Function)
 e = E
 """
+
+
+# sympy puts a \cdot between two numbers only if the next factor starts with a digit or a numeric
+# fraction, so 0.5 * 2.0**x came out as "0.5 {2.0}^{x}", which reads as 0.52.0^x: let a power's
+# opening braces through
+_sympy_latex = importlib.import_module("sympy.printing.latex")  # not sympy.printing.latex: that's the function
+_sympy_latex._between_two_numbers_p = (
+    _sympy_latex._between_two_numbers_p[0],
+    re.compile(r"(\{*\d|\\frac{\d+}{\d+})"),
+)
 
 
 class _LatexPrinter(LatexPrinter):

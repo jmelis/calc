@@ -16,6 +16,12 @@ from calc.preview import preview
         ("2x + 3y", "2 x + 3 y"),
         ("x*-3", r"x \left(-3\right)"),
         ("3*0.45^2", r"3 \cdot {0.45}^{2}"),  # not 30.45^2
+        ("3*(5!)^2", r"3 \cdot {5!}^{2}"),
+        ("0.45*(1/2)", r"0.45 \cdot \frac{1}{2}"),
+        ("30°*(1/2)", r"30^{\circ} \cdot \frac{1}{2}"),
+        ("x*(1/2)", r"x \frac{1}{2}"),
+        ("64/(3*2^3)", r"\frac{64}{3 \cdot {2}^{3}}"),
+        ("x^(2*3^2)", r"{x}^{2 \cdot {3}^{2}}"),
         ("2*3^2*4", r"2 \cdot {3}^{2} \cdot 4"),
         ("$3 * 2 + ans", r"\boxed{3} \cdot 2 + \mathrm{ans}"),
         ("a = 3/7", r"a = \frac{3}{7}"),  # "=", not ":=", so copying it back is valid input
