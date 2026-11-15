@@ -44,6 +44,9 @@ main {
   margin: 0 auto;
 }
 
+/* the touch layout's own text (keypad.js, touch.css) */
+html:not(.touch) .touch-only { display: none; }
+
 kbd {
   font-family: var(--mono);
   font-size: 0.85em;

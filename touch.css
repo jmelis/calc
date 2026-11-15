@@ -1,0 +1,313 @@
+/* Touch layout (keypad.js): everything here is under html.touch, which index.html sets on
+   touch-only devices (or ?layout=touch), so the keyboard layout never sees any of it. */
+
+html.touch {
+  --key-h: clamp(30px, 6.4dvh, 54px);
+  --gap: 6px;
+  --press: rgba(0, 0, 0, 0.09);
+  --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.13);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  html.touch {
+    --press: rgba(255, 255, 255, 0.12);
+    --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* the page doesn't scroll or bounce; main follows the visual viewport (fitViewport), so
+   the input stays above the system keyboard */
+html.touch body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; }
+html.touch main {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--app-top, 0px);
+  height: var(--app-height, 100dvh);
+  max-width: 720px;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+}
+
+html.touch .desktop-only,
+html.touch .tip,
+html.touch #palette,
+html.touch #hints,
+html.touch #mode-toggle { display: none; }
+
+/* --- tape -------------------------------------------------------------------- */
+
+html.touch #tape {
+  padding: 10px 6px 6px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+html.touch #empty { margin-bottom: 4vh; padding: 0 12px; }
+html.touch #empty code { cursor: pointer; }
+html.touch .item { padding: 4px 8px; }
+html.touch .outputs { padding: 0 8px 0 calc(8px + 2.2em + 10px); }
+html.touch .err { padding: 4px 8px 4px calc(8px + 2.2em + 10px); }
+/* a sideways drag pans an iplot graph (graph.js), an upright one still scrolls the tape */
+html.touch .outputs .graph .u-over { touch-action: pan-y; }
+
+/* --- composer ---------------------------------------------------------------- */
+
+html.touch #composer { padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+html.touch.typing #composer { padding-bottom: 6px; }
+html.touch #preview { padding: 0 8px; }
+html.touch #prompt { padding: 6px 12px; min-height: 48px; border-radius: 12px; }
+html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zooms in on it */
+
+#keypad {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  margin-top: var(--gap);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* the strip: suggestions, actions on the selection, messages */
+#keypad .strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  touch-action: pan-x;
+}
+#keypad .strip::-webkit-scrollbar { display: none; }
+#keypad .chip {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--faint);
+  border-radius: 15px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+}
+#keypad .chip.fn::after { content: "( )"; color: var(--muted); margin-left: 2px; }
+#keypad .chip.action { font-family: var(--sans); color: var(--accent); }
+#keypad .chip.danger { color: var(--error); }
+#keypad .chip.close { color: var(--muted); padding: 0 10px; }
+#keypad .chip:active { background: var(--accent-soft); }
+#keypad .note { flex: none; font-size: 13px; color: var(--text); padding: 0 4px; }
+#keypad .note.status { color: var(--accent); }
+#keypad .note kbd { font-size: 0.9em; }
+
+/* tabs for the side block's pages, then abc ? ⋯ over the number pad */
+#keypad .tabs {
+  display: grid;
+  grid-template-columns: 3fr 4fr;
+  gap: var(--gap);
+}
+#keypad .tabs .group { display: flex; gap: 4px; }
+#keypad .key.tab {
+  flex: 1;
+  height: 32px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 15px;
+}
+#keypad .key.tab.active { background: var(--accent-soft); color: var(--accent); }
+
+#keypad .keys { display: flex; flex-direction: column; gap: var(--gap); }
+#keypad .grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: var(--key-h);
+  gap: var(--gap);
+}
+/* a little more room between the side block and the number pad */
+#keypad .grid > .side:nth-child(7n + 3) { margin-right: 4px; }
+
+#keypad .key {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--key-shadow);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+#keypad .key .katex { font-size: 0.9em; }
+#keypad .key.side,
+#keypad .key.fn { background: var(--kbd); font-size: 19px; }
+#keypad .key.word { font-size: 13px; letter-spacing: -0.01em; }
+#keypad .key.op { background: var(--accent-soft); color: var(--accent); font-size: 26px; }
+#keypad .key.ctl { background: var(--kbd); color: var(--muted); font-size: 18px; }
+#keypad .key.enter { background: var(--accent); color: var(--bg); font-size: 24px; }
+#keypad .key.down { box-shadow: inset 0 0 0 100px var(--press); }
+/* hold for more */
+#keypad .key.more::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+/* over the system keyboard (abc): instead of the tabs and keys */
+#keypad .bar {
+  display: none;
+  grid-template-columns: 1.4fr repeat(6, 1fr);
+  gap: var(--gap);
+}
+#keypad .bar .key { height: 40px; background: var(--kbd); font-family: var(--mono); font-size: 18px; }
+html.touch.typing #keypad .bar { display: grid; }
+html.touch.typing #keypad .tabs,
+html.touch.typing #keypad .grid { display: none; }
+
+/* a long press: the key's tip and related keys */
+#keypad .popup {
+  position: absolute;
+  z-index: 20;
+  max-width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--faint);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+#keypad .popup .cells { display: flex; flex-wrap: wrap; gap: 4px; }
+#keypad .popup .key { width: 46px; height: 44px; background: var(--kbd); font-size: 19px; }
+#keypad .popup .key.word { width: auto; padding: 0 10px; }
+#keypad .popup .key.hot { background: var(--accent); color: var(--bg); }
+#keypad .popup .hint { padding: 2px 4px; font-size: 13px; line-height: 1.35; color: var(--muted); }
+
+/* ⋯ */
+#keypad .touch-menu {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  min-width: 230px;
+  max-height: calc(var(--app-height, 100dvh) - 24px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--faint);
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+#keypad .touch-menu button {
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  text-align: left;
+}
+#keypad .touch-menu button:active { background: var(--accent-soft); }
+#keypad .touch-menu button.danger { color: var(--error); }
+#keypad .touch-menu .about {
+  margin-top: 4px;
+  padding: 8px 12px 4px;
+  border-top: 1px solid var(--faint);
+  font-size: 12px;
+  color: var(--muted);
+}
+#keypad .touch-menu .about a { color: inherit; }
+
+/* a phone on its side: the keypad beside the tape and the input, filling the height */
+@media (orientation: landscape) and (max-height: 500px) {
+  html.touch main {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto auto;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  html.touch #composer { display: contents; }
+  html.touch #tape { grid-column: 1; grid-row: 1; }
+  html.touch #preview { grid-column: 1; grid-row: 2; }
+  html.touch #loading { grid-column: 1; grid-row: 3; padding: 0 8px 6px; }
+  html.touch #prompt { grid-column: 1; grid-row: 4; margin: 0 0 6px 6px; }
+  html.touch #keypad { grid-column: 2; grid-row: 1 / -1; margin: 6px 6px 6px 8px; justify-content: flex-end; }
+  html.touch #keypad .keys { flex: 1; min-height: 0; }
+  html.touch #keypad .grid { flex: 1; grid-auto-rows: minmax(0, 1fr); }
+}
+
+/* --- panels: full screen -------------------------------------------------------- */
+
+html.touch #catalog,
+html.touch #memory,
+html.touch #help {
+  top: var(--app-top, 0px);
+  bottom: auto;
+  height: var(--app-height, 100dvh);
+  padding: 0;
+  align-items: stretch;
+}
+html.touch #catalog .panel,
+html.touch #memory .panel,
+html.touch #help .panel {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+html.touch .panel > .close {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 7px);
+  right: calc(env(safe-area-inset-right) + 8px);
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 17px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+}
+html.touch #catalog-search { padding-right: 96px; }
+html.touch #catalog .footer,
+html.touch #help .footer { display: none; }
+html.touch #catalog-list .fn { padding: 10px 12px; font-size: 16px; }
+html.touch #memory-list .var { padding: 10px 12px; }
+html.touch #memory .footer { display: flex; gap: 8px; padding: 8px; }
+html.touch #memory .footer button {
+  flex: 1;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--kbd);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+}
+html.touch #help .body { font-size: 15px; }
+@media (min-width: 641px) {
+  html.touch #help dl.keys { grid-template-columns: 8em 1fr; }
+}

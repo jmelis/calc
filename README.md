@@ -7,6 +7,8 @@ in your browser through [Pyodide](https://pyodide.org). Exact results, typeset a
 
 Type an expression and press <kbd>⏎</kbd>. Press <kbd>?</kbd> for the function catalog,
 <kbd>↑</kbd> to pick earlier results, and <kbd>Ctrl</kbd>+<kbd>M</kbd> for typeset math input.
+On a phone or tablet it shows a calculator keypad instead (`?layout=touch` or `?layout=desktop`
+in the address picks one).
 
 To run it locally: `make serve`, then open http://127.0.0.1:8000. Tests: `make test`.
 

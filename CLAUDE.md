@@ -2,7 +2,8 @@
 
 A keyboard-driven SymPy calculator that runs entirely in the browser: SymPy in Pyodide (CPython
 compiled to WebAssembly) in a Web Worker, results typeset with KaTeX, optional math input with
-MathLive. A static site with no build step and no server, published at https://jmelis.github.io/calc/.
+MathLive, and a calculator keypad on phones and tablets. A static site with no build step and no
+server, published at https://jmelis.github.io/calc/.
 
 ## Commands
 
@@ -16,13 +17,13 @@ uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pyte
 Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundles and runs the
 tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
 `py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`). A new top-level file the page needs
-must be added to that workflow's copy step.
+must be added to that workflow's copy step (`tests/test_site.py` fails until it is).
 
 GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `src`/`href` with
 the commit (`app.js?v=<sha>`); `backend.js` passes its own `?v=` on to `worker.js`, and the worker
 to `py/calc/*.py`. The bundles are stamped with `PYODIDE_VERSION` instead, so they stay cached
 across deploys. A new local script or stylesheet in `index.html` is stamped automatically if it's
-named `name.js` or `app.css`. The footer shows the stamp's commit, linked to it on GitHub
+named `name.js` or `name.css`. The footer shows the stamp's commit, linked to it on GitHub
 (`renderAbout`; "local" without a stamp), next to a link to the source.
 
 ## Architecture
@@ -32,12 +33,15 @@ index.html ─ app.js ──messages──▶ backend.js ──postMessage──
    (UI)        ▲                  (tape, IndexedDB,               (loads Pyodide,             (evaluates in one
                └──messages─────── worker lifecycle)                SymPy, py/calc/*)            namespace)
 latex.js: math input's LaTeX → calculator text (page side)
+keypad.js + touch.css: the touch layout, on top of app.js (only with <html class="touch">)
 ```
 
 | File | Role |
 | --- | --- |
 | `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette, catalog, Memory panel, hover tips, keyboard handling |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
+| `keypad.js` | The touch layout: keypad, the strip above it (suggestions, actions on the selection, messages, Undo), long-press popups, `abc` (system keyboard), `⋯` menu, full-screen panels. Drives app.js's own functions; does nothing without `html.touch` |
+| `touch.css` | The touch layout's styles, every rule under `html.touch` (or `#keypad`, which only exists there) |
 | `graph.js` | `iplot` graphs on the tape: draws Python's samples with uPlot (fetched on the first graph), asks for new samples when zoomed or panned, keys for a selected graph |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
@@ -112,6 +116,24 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
   Python directly; any other line that isn't calculator syntax falls back to Python. One line, with
   `;` between statements. They're plain Python: `^` is XOR and nothing is implied (Help says so).
+- **Touch layout** (`keypad.js`, `touch.css`): an inline script in `index.html`'s `<head>` adds
+  `class="touch"` to `<html>` before anything renders, on `(hover: none) and (pointer: coarse)`
+  (phones, tablets without a mouse; an iPad with a trackpad gets the keyboard layout), or with
+  `?layout=touch` / `?layout=desktop` (remembered in `localStorage` as `calc.layout`; `?layout=auto`
+  forgets). The keyboard layout must look and behave exactly as without it: touch styles live
+  under `html.touch` only, and app.js only branches on `TOUCH` in `renderHints` (the strip replaces
+  the hint line) and `flash` (longer, to tap Undo). The keys reuse the keyboard's logic: a
+  character key dispatches a synthetic `keydown` on the editor first and types only if app.js
+  didn't `preventDefault` it, so `ans` continuation, `--`, ⏎ / ⌫ on a selection and ← → on a
+  graph all apply unchanged; function keys call `insertTemplate` with `PALETTE`'s templates
+  (looked up by label), so they work in text and math input. The input has `inputmode="none"`
+  (caret, no system keyboard); `abc` sets `inputmode="text"` and re-focuses inside the tap, which
+  is what makes iOS raise its keyboard; when the editor loses focus, the keypad comes back. `main`
+  follows `visualViewport` (`--app-height`, `--app-top`), since iOS covers the page with its
+  keyboard instead of resizing it. Short screens (a phone on its side) put the keypad beside the
+  tape. Key handling is pointer events on `#keypad`, acting on release; `touchstart` is
+  `preventDefault`ed on keys (no double-tap zoom, no focus change). `iplot` graphs pan with one
+  finger and pinch with two (`touchToMove` in graph.js, touch pointers only).
 - **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
   user's manual: keep it in step with the syntax, short and with examples.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
@@ -129,6 +151,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Keyboard first.** Every feature must work without the mouse; mouse controls (palette, buttons)
   never take focus from the input (`mousedown` → `preventDefault`). Keep the number of shortcuts
   small: in the tape, single letters act on the selection (`f`, `d`, `c`); everything else types.
+- **Touch second, never at the keyboard layout's expense.** A feature reachable by keyboard gets a
+  touch path too, usually a key, a strip chip or a `⋯` entry calling the same function (or sending
+  the same key, as `sendKey` does). Nothing in `touch.css` may match without `html.touch`.
 - **Tips** (`setTip`): say what a control does, with an example when it helps. Don't repeat its
   label or the text it inserts (not "Factor: factor(…)").
 - Palette entries are `[label, text template, math template, tip]`: `|` / `#0` mark the cursor (or
@@ -174,7 +199,10 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 ## Testing in a browser
 
 Run `make serve` (or `python3 -m http.server <port>` for a second instance) and drive it with
-Claude in Chrome. The tape and variables live in that origin's IndexedDB, so testing on the same
+Claude in Chrome. For the touch layout, emulate a phone (Playwright's `devices["iPhone 13"]`, which
+matches `pointer: coarse`) or add `?layout=touch`; taps go through `page.touchscreen`, long presses
+through CDP's `Input.dispatchTouchEvent`. Emulation has no system keyboard, so `abc` (and iOS's
+keyboard covering the page) can only really be checked on a phone. The tape and variables live in that origin's IndexedDB, so testing on the same
 host and port as the user's own session changes *their* tape: use a different port. To start
 clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 

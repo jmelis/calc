@@ -3,14 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Touch-only devices (phones, tablets without a mouse) get the touch layout: keypad.js,
+    // touch.css. ?layout=touch or ?layout=desktop chooses one and is remembered; ?layout=auto
+    // forgets. Decided here, before anything renders, so the other layout never flashes.
+    (() => {
+      let layout = new URLSearchParams(location.search).get("layout");
+      try {
+        if (layout === "touch" || layout === "desktop") localStorage.setItem("calc.layout", layout);
+        else if (layout === "auto") localStorage.removeItem("calc.layout");
+        else layout = localStorage.getItem("calc.layout");
+      } catch {}
+      if (layout !== "touch" && (layout === "desktop" || !matchMedia("(hover: none) and (pointer: coarse)").matches)) return;
+      document.documentElement.classList.add("touch");
+      // under the notch and the home indicator (touch.css pads with the safe areas), and on
+      // Android the system keyboard shrinks the page instead of covering it
+      document.querySelector('meta[name="viewport"]').content += ", viewport-fit=cover, interactive-widget=resizes-content";
+    })();
+  </script>
   <title>SymPy Calc</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23c2410c'/><text x='32' y='46' text-anchor='middle' font-family='Georgia,serif' font-size='38' fill='white'>2π</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="touch.css">
   <script defer src="latex.js"></script>
   <script defer src="backend.js"></script>
   <script defer src="graph.js"></script>
+  <script defer src="keypad.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
@@ -20,7 +40,8 @@
       <div id="empty" hidden>
         <p>Type an expression and press <kbd>⏎</kbd>.</p>
         <p class="examples"><code>integrate(sin(x)^2, x)</code> <code>a = 3/7 + 1/5</code> <code>f(x) = x^2 + 1</code> <code>solve(x^2 = 2, x)</code></p>
-        <p>Press <kbd>?</kbd> for the function catalog; type <code>:help</code> for how to type things.</p>
+        <p class="desktop-only">Press <kbd>?</kbd> for the function catalog; type <code>:help</code> for how to type things.</p>
+        <p class="touch-only">Tap an example to try it. Hold a key to see what it does; <kbd>?</kbd> lists the functions and <kbd>⋯</kbd> has the help.</p>
         <p class="note">SymPy runs in your browser. The first visit downloads it (about 10 MB); after that it's cached.</p>
       </div>
     </div>
@@ -129,6 +150,17 @@
             <dt>def sq(n): return n**2</dt><dd><strong>Python lines are plain Python:</strong> <code>**</code> is a power and <code>^</code> is XOR, and nothing is implied (<code>2*x</code>, not <code>2x</code>)</dd>
           </dl>
         </section>
+        <section class="touch-only">
+          <h2>Touch</h2>
+          <dl class="keys">
+            <dt>hold a key</dt><dd>What it does, and related keys (<code>x</code>: <code>t z n k θ</code>; <code>=</code>: <code>&lt; ≤ ≠</code>; <code>(</code>: <code>[ {</code>): slide onto one, or let go and tap it</dd>
+            <dt><kbd>⌫</kbd></dt><dd>Hold to clear the line</dd>
+            <dt>tap a result</dt><dd>Insert it, show it as a decimal or in degrees, copy it, delete it; tap it again to let go</dd>
+            <dt><kbd>abc</kbd></dt><dd>The system keyboard, for names and Python; <kbd>123</kbd> brings the keypad back</dd>
+            <dt>the strip</dt><dd>Above the keys: <code>ans</code> and what you've defined, or completions of the name you're typing</dd>
+            <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
+          </dl>
+        </section>
         <section>
           <h2>Keys</h2>
           <dl class="keys">
@@ -151,6 +183,7 @@
             <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
             <dt>:reset</dt><dd>Empty the tape and forget everything</dd>
           </dl>
+          <p class="note">Phones and tablets without a mouse get a keypad instead of this layout. Add <code>?layout=touch</code> or <code>?layout=desktop</code> to the address to choose (<code>?layout=auto</code> to let the device decide).</p>
         </section>
       </div>
       <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> scroll · <kbd>Esc</kbd> close</div>

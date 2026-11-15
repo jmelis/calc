@@ -226,6 +226,7 @@ function busy() {
 }
 
 function renderHints() {
+  if (TOUCH) return renderStrip(); // keypad.js: the strip above the keys says it instead
   const parts = [];
   if (state.status) parts.push(`<span class="status">${state.status}</span>`);
   else if (busy()) parts.push('<span class="status">computing…</span> <kbd>⌃C</kbd> interrupt');
@@ -257,7 +258,7 @@ function flash(message) {
   flash.timer = setTimeout(() => {
     state.flash = null;
     renderHints();
-  }, 1500);
+  }, TOUCH && message.includes("⌃Z") ? 5000 : 1500); // on a touch screen, time to tap Undo
 }
 
 // --- hover tips ------------------------------------------------------------------

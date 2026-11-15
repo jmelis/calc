@@ -3,8 +3,8 @@
 // uPlot is only fetched when the first graph is drawn.
 //
 // Mouse: drag (or swipe sideways) to pan, pinch (or Ctrl+wheel) to zoom, Shift+drag to
-// zoom into a range, double-click to reset. Keyboard, with the graph selected on the
-// tape: ← → pan, + − zoom, 0 reset.
+// zoom into a range, double-click to reset. Touch: drag sideways to pan, pinch to zoom.
+// Keyboard, with the graph selected on the tape: ← → pan, + − zoom, 0 reset.
 
 const UPLOT_URL = "https://cdn.jsdelivr.net/npm/uplot@1.6.32/dist/";
 const GRAPH_COLORS = ["--accent", "#2563eb", "#16a34a", "#9333ea", "#ca8a04", "#0891b2"];
@@ -91,6 +91,7 @@ class Graph {
     // drag.x as the mouse moves, so this capturing listener decides it at each press
     this.node.addEventListener("mousedown", (e) => (this.plot.cursor.drag.x = e.shiftKey), true);
     this.plot.over.addEventListener("mousedown", (e) => this.dragToPan(e));
+    this.touchToMove();
     this.node.dispatchEvent(new Event("drawn")); // its height is known now (the tape scrolls to it)
     new ResizeObserver(() => {
       const w = this.width();
@@ -171,6 +172,45 @@ class Graph {
     };
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up, { once: true });
+  }
+
+  // Fingers on a touch screen: one drags the view sideways, two pinch it (and drag it):
+  // the x values under the fingers when they came down stay under them. Upright drags
+  // scroll the tape (touch-action: pan-y in touch.css), and the browser cancels ours.
+  touchToMove() {
+    const over = this.plot.over;
+    const fingers = new Map(); // pointerId -> clientX, now
+    let start = null; // the view, and where the fingers were, when the last one came or went
+    const begin = () => (start = { view: this.view(), at: new Map(fingers) });
+    over.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch") return;
+      fingers.set(e.pointerId, e.clientX);
+      over.setPointerCapture(e.pointerId);
+      begin();
+    });
+    over.addEventListener("pointermove", (e) => {
+      if (!fingers.has(e.pointerId)) return;
+      fingers.set(e.pointerId, e.clientX);
+      const ids = [...start.at.keys()];
+      const [min, max] = start.view;
+      const perPixel = (max - min) / over.clientWidth;
+      const left = over.getBoundingClientRect().left;
+      const value = (x) => min + (x - left) * perPixel; // at the start
+      if (ids.length === 1) {
+        const shift = (fingers.get(ids[0]) - start.at.get(ids[0])) * perPixel;
+        this.setView(min - shift, max - shift);
+      } else {
+        const [a, b] = ids;
+        const apart = fingers.get(a) - fingers.get(b);
+        if (Math.abs(apart) < 20 || Math.abs(start.at.get(a) - start.at.get(b)) < 20) return;
+        const per = (value(start.at.get(a)) - value(start.at.get(b))) / apart;
+        const from = value(start.at.get(a)) - (fingers.get(a) - left) * per;
+        this.setView(from, from + over.clientWidth * per);
+      }
+    });
+    const end = (e) => fingers.delete(e.pointerId) && begin();
+    over.addEventListener("pointerup", end);
+    over.addEventListener("pointercancel", end);
   }
 
   // A pinch on a trackpad arrives as Ctrl+wheel, and zooms; a sideways swipe (or
