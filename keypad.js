@@ -1198,9 +1198,10 @@ function setupTouch() {
   );
 }
 
-// A touch device showing the keyboard layout (?layout=desktop): a way back
+// The keyboard layout's way to the keypad, on any device: a touch one showing
+// ?layout=desktop, and a computer whose owner prefers the keypad (an installed app has no
+// address bar to type ?layout= into, and the keypad's settings have "Desktop layout")
 function offerKeypad() {
-  if (!matchMedia("(hover: none) and (pointer: coarse)").matches) return;
   const b = panelButton("keypad", () => (location.search = "?layout=touch"), "command");
   document.getElementById("commands").append(b);
 }
