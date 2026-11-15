@@ -109,6 +109,7 @@ html.touch main {
 }
 
 html.touch .tip,
+html.touch .desktop-only,
 html.touch #palette,
 html.touch #hints,
 html.touch #mode-toggle { display: none; }
@@ -193,10 +194,11 @@ html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
 
 /* bottom: the soft keys' labels, one above each f-key */
 .screen .softline {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 3px;
-  padding: 2px 0 6px;
+  padding: 2px 0 11px;
   touch-action: pan-y;
 }
 .screen .softline .sk {
@@ -218,6 +220,25 @@ html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
 .screen .softline .sk.empty { background: transparent; }
 .screen .softline .sk.danger { text-decoration: underline; text-underline-offset: 3px; }
 .screen .softline .sk.down { opacity: 0.7; }
+.screen .softline .sk.on { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--soft-bg); }
+/* a menu with more than five: a dot for each page, the one showing filled, between arrows */
+.screen .softline .pages {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 11px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 9px;
+  line-height: 1;
+}
+.screen .softline .pages .dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0.35; }
+.screen .softline .pages .dot.on { opacity: 1; }
+.screen .softline .pages .turn { padding: 1px 8px; }
 
 /* --- the keypad ------------------------------------------------------------------------ */
 
@@ -262,8 +283,9 @@ html.touch.typing #composer { padding-bottom: 6px; }
 #keypad .key.word { font-size: 15px; }
 #keypad .frow .key { height: var(--f-h); padding: 0; align-items: center; font-size: 10px; color: var(--key-text); opacity: 0.85; }
 /* the top three rows: smaller labels, as on the TI */
-#keypad .ti > .key:nth-child(-n + 11) { font-size: 14px; }
-#keypad .ti > .key:nth-child(-n + 11) .katex { font-size: 1em; }
+#keypad .ti > .key:nth-child(-n + 13) { font-size: 14px; }
+#keypad .ti > .key:nth-child(-n + 13) .katex { font-size: 1.05em; }
+#keypad .ti > .key.del { font-size: 18px; }
 #keypad .key .l2,
 #keypad .key .la { position: absolute; top: 2px; font-size: 8.5px; line-height: 1; font-weight: 600; }
 #keypad .key .l2 { left: 5px; color: var(--l2); }
@@ -286,8 +308,8 @@ html.mod-alpha #keypad .key.alpha { box-shadow: 0 0 0 2px var(--key-text); }
 html.mod-2nd #keypad .key .l2,
 html.mod-alpha #keypad .key .la { font-size: 10px; text-decoration: underline; }
 
-/* the arrows: one rocker, split along its diagonals */
-#keypad .arrows { grid-column: 4 / 6; grid-row: 1 / 3; position: relative; border-radius: 999px; overflow: hidden; }
+/* the arrows: one rocker in the middle of the top two rows, split along its diagonals */
+#keypad .arrows { grid-column: 3; grid-row: 1 / 3; position: relative; border-radius: 999px; overflow: hidden; }
 #keypad .arrows .key { position: absolute; inset: 0; padding: 0; border-radius: 0; box-shadow: none; font-size: 12px; }
 #keypad .arrows .to-up { clip-path: polygon(10px 0, calc(100% - 10px) 0, 50% calc(50% - 1.5px)); align-items: flex-start; padding-top: 4px; }
 #keypad .arrows .to-down { clip-path: polygon(10px 100%, calc(100% - 10px) 100%, 50% calc(50% + 1.5px)); align-items: flex-end; padding-bottom: 4px; }
@@ -305,44 +327,6 @@ html.mod-alpha #keypad .key .la { font-size: 10px; text-decoration: underline; }
 html.touch.typing #keypad .bar { display: grid; }
 html.touch.typing #keypad .frow,
 html.touch.typing #keypad .ti { display: none; }
-
-/* mode: settings */
-#keypad .touch-menu {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
-  min-width: 230px;
-  max-height: calc(var(--app-height, 100dvh) - 24px);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  background: var(--surface);
-  border: 1px solid var(--faint);
-  border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-}
-#keypad .touch-menu button {
-  padding: 11px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  font-family: var(--sans);
-  font-size: 16px;
-  text-align: left;
-}
-#keypad .touch-menu button:active { background: var(--accent-soft); }
-#keypad .touch-menu button.danger { color: var(--error); }
-#keypad .touch-menu .about {
-  margin-top: 4px;
-  padding: 8px 12px 4px;
-  border-top: 1px solid var(--faint);
-  font-size: 12px;
-  color: var(--muted);
-}
-#keypad .touch-menu .about a { color: inherit; }
 
 /* a narrow phone (the first iPhone SE): smaller labels */
 @media (max-width: 350px) {
@@ -369,59 +353,135 @@ html.touch.typing #keypad .ti { display: none; }
   #keypad .key { padding: 0; align-items: center; }
 }
 
-/* --- panels: full screen -------------------------------------------------------- */
+/* --- views: settings, vars, the catalog, help (keypad.js) ------------------------------
+   On the screen, between the status line and the soft keys (keypad.js sets top and
+   bottom), over the tape and the input. The selected row is in inverse video. */
 
-html.touch #catalog,
-html.touch #memory,
-html.touch #help {
-  top: var(--app-top, 0px);
-  bottom: auto;
-  height: var(--app-height, 100dvh);
-  padding: 0;
-  align-items: stretch;
-}
-html.touch #catalog .panel,
-html.touch #memory .panel,
-html.touch #help .panel {
-  position: relative;
-  width: 100%;
-  max-width: 720px;
-  max-height: none;
-  border-radius: 0;
-  box-shadow: none;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-}
-html.touch .panel > .close {
+.screen .view {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 7px);
-  right: calc(env(safe-area-inset-right) + 8px);
-  height: 34px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 17px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  padding: 0 6px;
+  border-top: 1px solid var(--rule);
+  background: var(--lcd);
+  color: var(--ink);
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: 14px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.screen .view[hidden] { display: none; }
+.screen .view .scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 0; }
+.screen .view .scroll::-webkit-scrollbar { display: none; }
+.screen .view .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.screen .view .row.on { background: var(--ink); color: var(--lcd); }
+.screen .view .row .kind,
+.screen .view .row .go { flex: none; font-size: 11px; color: var(--ink-soft); }
+.screen .view .row.on .kind,
+.screen .view .row.on .go { color: inherit; opacity: 0.75; }
+.screen .view .note { padding: 6px; font-size: 13px; color: var(--ink-soft); white-space: normal; }
+.screen .view a { color: inherit; }
+
+/* settings: choices (the chosen one boxed) and commands */
+.screen .view.settings .row { align-items: center; min-height: 29px; }
+.screen .view.settings .label { white-space: normal; }
+.screen .view.settings .row.danger .label { font-weight: 600; }
+.screen .view.settings .options { display: flex; gap: 2px; font-size: 13px; }
+.screen .view.settings .option { padding: 1px 6px; border-radius: 3px; color: var(--ink-soft); }
+.screen .view.settings .option.chosen { color: inherit; box-shadow: inset 0 0 0 1px currentColor; }
+.screen .view.settings .row.on .option { color: inherit; opacity: 0.7; }
+.screen .view.settings .row.on .option.chosen { opacity: 1; }
+.screen .view .about { flex: none; padding: 6px; border-top: 1px solid var(--rule); font-size: 11.5px; color: var(--ink-soft); }
+
+/* vars: name = value, one line each */
+.screen .view.vars .row { align-items: center; }
+.screen .view.vars .row .math { min-width: 0; overflow: hidden; }
+
+/* catalog: the search, the list, the selected entry's signature and summary */
+.screen .view .search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 14px;
+}
+.screen .view .search .placeholder { font-family: var(--sans); font-size: 12px; color: var(--ink-soft); }
+.screen .view .search .cursor { width: 7px; height: 15px; margin-left: 1px; background: var(--ink); animation: lcd-blink 1s steps(1) infinite; }
+@keyframes lcd-blink { 50% { opacity: 0; } }
+.screen .view.catalog .row .name { font-family: var(--mono); font-size: 13.5px; }
+.screen .view .group {
+  padding: 7px 6px 2px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.screen .view .line {
+  flex: none;
+  height: 54px;
+  overflow: hidden;
+  padding: 4px 6px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  line-height: 15px;
+}
+.screen .view .line .sig { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.screen .view .line .summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--ink-soft);
+}
+.screen .view .info { padding: 6px; font-size: 13px; line-height: 1.4; }
+.screen .view .info h2 { margin: 0 0 2px; font-family: var(--mono); font-size: 16px; }
+.screen .view .info .sig { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); word-break: break-word; }
+.screen .view .info .summary { margin: 6px 0; }
+.screen .view .info .example code { padding: 0.1em 0.4em; border-radius: 3px; background: var(--kbd); font-family: var(--mono); }
+.screen .view .info .example-math { margin-top: 4px; overflow-x: auto; }
+.screen .view .info pre { margin: 8px 0 0; white-space: pre-wrap; font-size: 11.5px; color: var(--ink-soft); }
+
+/* help: one section of the Help panel at a time */
+.screen .view.help .head {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 5px 6px 4px;
+  border-bottom: 1px solid var(--rule);
   font-weight: 600;
 }
-html.touch #catalog-search { padding-right: 96px; }
-html.touch #catalog .footer,
-html.touch #help .footer { display: none; }
-html.touch #catalog-list .fn { padding: 10px 12px; font-size: 16px; }
-html.touch #memory-list .var { padding: 10px 12px; }
-html.touch #memory .footer { display: flex; gap: 8px; padding: 8px; }
-html.touch #memory .footer button {
-  flex: 1;
-  height: 40px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--kbd);
-  color: var(--text);
-  font-family: var(--sans);
-  font-size: 15px;
-}
-html.touch #help .body { font-size: 15px; }
-@media (min-width: 641px) {
-  html.touch #help dl.keys { grid-template-columns: 8em 1fr; }
+.screen .view.help .head .n { font-family: var(--mono); font-size: 11px; font-weight: 400; color: var(--ink-soft); }
+.screen .view.help .body { padding: 2px 6px 10px; font-size: 13px; line-height: 1.4; }
+.screen .view.help p { margin: 6px 0; }
+.screen .view.help .note { color: var(--ink-soft); font-size: 12px; }
+.screen .view.help dl { margin: 2px 0; }
+.screen .view.help dt { margin-top: 8px; font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+.screen .view.help dl.keys dt { font-family: var(--sans); }
+.screen .view.help dd { margin: 1px 0 0 12px; }
+.screen .view.help code { font-family: var(--mono); font-size: 0.95em; }
+.screen .view.help kbd { padding: 0 0.3em; border: 1px solid var(--rule); border-radius: 3px; font-family: var(--mono); font-size: 0.9em; }
+
+/* a short screen (a small phone): a one-line summary, so the list keeps more room */
+@media (max-height: 640px) {
+  .screen .view .line { height: 38px; }
+  .screen .view .line .summary { -webkit-line-clamp: 1; }
+  .screen .view .row { min-height: 24px; padding: 3px 6px; }
 }

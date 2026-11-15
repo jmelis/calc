@@ -10,46 +10,48 @@
 // under it, as on a calculator whose labels are drawn on the screen. Under them, the
 // keys of a TI-84: 2nd and alpha print their functions on each key (holding a key is its
 // 2nd), the arrows move the caret (◀ ▶) and walk the tape (▲ ▼), ‹› shows the last
-// result as a decimal or in degrees, and abc (where the TI has ON) brings up the system
-// keyboard.
+// result as a decimal (2nd ‹› in degrees), and abc (where the TI has ON) brings up the
+// system keyboard. settings, vars, the catalog and help are views that take the screen
+// over, worked with the same keys (see "views" below).
 //
 // The keys drive the code the keyboard does. A character key first dispatches a keydown
 // on the editor, so app.js's rules apply unchanged (an operator on an empty line
-// continues from ans, ⏎ on a selected result inserts it, del deletes it, ← → pan a
+// continues from ans, ⏎ on a selected result inserts it, ⌫ deletes it, ← → pan a
 // selected graph), and types the character only if app.js left it alone. Function keys
 // go through insertKey, as the palette's buttons do, in text and math input alike.
 
 const TOUCH = document.documentElement.classList.contains("touch");
 const HOLD_MS = 450; // a long press: the key's 2nd function
-const REPEAT_MS = [400, 70]; // del and the arrows held: the first repeat, then every
+const REPEAT_MS = [400, 70]; // ⌫ and the arrows held: the first repeat, then every
 const SOFT_KEYS = 5; // a menu page, one label above each f-key
 const SWIPE_PX = 36; // a sideways drag this long on the soft keys turns the page
+const SCROLL_PX = 40; // ▲ ▼ in help
 
 const touch = {
-  page: savedMenu("touch"), // the menu the soft keys show (keys.js, or vars, test)
+  page: savedMenu("touch"), // the menu the soft keys show (keys.js's, or test)
   softPage: 0, // and which page of it
   softFor: "", // what the soft keys showed, to start a new context on its first page
   soft: [], // the five soft keys showing
   mod: null, // "2nd", "alpha", "lock" (alpha until pressed again)
-  lastKey: null, // the key pressed last (x,t,θ cycles when pressed again)
-  varIndex: 0,
   typing: false, // the system keyboard is up (abc)
   press: null, // the key being pressed: {key, spec, id, timer, held, x, y}
-  menu: null, // mode's menu
+  view: null, // the view taking the screen over: {name, index, ...} (VIEWS)
   switching: false, // moving the focus on purpose: not the system keyboard going away
-  resetArmed: 0,
-  tappedFn: null, // the catalog item tapped once (on a wide screen the first tap shows it)
+  resetArmed: 0, // until when settings' Reset needs only a second enter
 };
 const keySpecs = new WeakMap(); // button -> its key
 let keypadEl = null;
 let screenEl = null;
 let statusEl = null;
+let viewEl = null;
 let softEl = null;
 
 // --- the keys ----------------------------------------------------------------------
 //
 // A key is keys.js's (see there), plus: second (what 2nd, or holding the key, does,
-// with the legend printed on the key), letter (what alpha types), modifier, repeat.
+// with the legend printed on the key), letter (what alpha types), modifier, repeat, nav
+// (what it is to a view: up, down, left, right, enter, clear, del) and anywhere (it works
+// while a view shows: it opens a menu or a view, or undoes).
 
 const op = (label, type, extra = {}) => typed(label, type, { kind: "op", ...extra });
 const digit = (d, letter) => typed(d, d, { kind: "digit", letter });
@@ -57,29 +59,31 @@ const action = (word, run, tip, extra = {}) => ({ word, action: run, tip, ...ext
 
 function menuKey(name, letter) {
   const menu = MENUS.find((m) => m.name === name);
-  return action(menu?.label ?? name, () => openMenu(name), menu?.tip ?? "Your variables and ans", { kind: "menu", letter });
+  return action(menu?.label ?? name, () => openMenu(name), menu?.tip ?? "", { kind: "menu", letter, anywhere: true });
 }
 
 const SECOND = action("2nd", () => setMod(touch.mod === "2nd" ? null : "2nd"), "The function printed above a key: 2nd, then the key (or hold the key)", { kind: "second", modifier: true });
 const ALPHA = action("alpha", () => setMod(touch.mod ? null : "alpha"), "The letter printed on a key; 2nd alpha keeps them coming", {
   kind: "alpha",
   modifier: true,
-  second: action("A-lock", () => setMod("lock"), "Letters until alpha again"),
+  second: action("A-lock", () => setMod("lock"), "Letters until alpha again", { anywhere: true }),
 });
-const VARS = [["x"], ["t"], ["theta", "\\theta"], ["n"]];
 
-// Row by row, five keys each; the arrows take the top two rows' last two columns
+// Row by row, five keys each; the arrows take the middle of the top two rows
 const KEYPAD = [
   SECOND,
-  action("mode", toggleMenu, "Settings: math input, theme, variables, help, clear", { kind: "menu-key", second: action("help", () => COMMANDS.help.run()) }),
-  action("del", backspace, "Delete before the cursor, or the selected entry", { repeat: true, second: action("undo", () => undo(), "Takes back the last delete, clear or forget") }), // app.js
+  action("settings", () => openView("settings"), "Math input, the theme, clearing the tape…", { anywhere: true, second: action("help", () => openView("help"), "", { anywhere: true }) }),
+  menuKey("stat"),
+  action("catalog", () => openView("catalog"), "All the functions: search, see an example, insert", { kind: "menu", anywhere: true }),
 
   ALPHA,
-  { label: "x,t,\\theta", tex: true, action: cycleVar, cycle: true, tip: "x; press again for t, θ, n" },
-  menuKey("stat"),
+  typed("x", "x", { tex: true, tip: "The variable x" }),
+  fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor (on an empty line, the last result)"),
+  action("clear", clearKey, "Clears the line (or lets go of the selected entry)", { nav: "clear" }),
 
-  menuKey("math", "a"), menuKey("calc", "b"), menuKey("mat", "c"), menuKey("vars"),
-  action("clear", clearKey, "Clears the line (or lets go of the selected entry)"),
+  menuKey("math", "a"), menuKey("calc", "b"), menuKey("mat", "c"),
+  action("vars", () => openView("vars"), "Your variables: insert one, or forget it", { kind: "menu", anywhere: true }),
+  { label: "⌫", action: backspace, tip: "Delete before the cursor, or the selected entry", kind: "del", repeat: true, nav: "del", second: action("undo", () => undo(), "Takes back the last delete, clear or forget", { anywhere: true }) }, // app.js
 
   typed("x^{n}", "^", { tex: true, letter: "d", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result", second: fn("\\sqrt[n]{x}", "root(|, 3)", "\\sqrt[#?]{#0}", "Root of any degree", { legend: "ⁿ√" }) }),
   word("sin", "sin(|)", "\\sin\\left(#0\\right)", "Angle in radians; add ° (math menu) for degrees", { letter: "e", second: fn("\\sin^{-1}", "asin(|)", "\\arcsin\\left(#0\\right)", "", { legend: "sin⁻¹" }) }),
@@ -101,26 +105,26 @@ const KEYPAD = [
   digit("4", "t"), digit("5", "u"), digit("6", "v"),
   op("+", "+", { letter: "w", second: typed("]", "]", { legend: "]" }) }),
 
-  typed("=", "=", { letter: "x", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: action("test", () => openMenu("test"), "", { legend: "≤ ≠" }) }),
+  typed("=", "=", { letter: "x", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: action("test", () => openMenu("test"), "", { legend: "≤ ≠", anywhere: true }) }),
   digit("1", "y"), digit("2", "z"), digit("3", "θ"),
-  action("‹›", cycleView, "The selected or last result as a decimal, in degrees, or exact", { kind: "op", letter: '"' }),
+  action("‹›", () => showAs("float"), "The selected or last result as a decimal, or exact again", { kind: "op", letter: '"', second: action("°", () => showAs("degrees"), "", { legend: "→°" }) }),
 
   action("abc", () => setTyping(true), "The system keyboard, for names and Python"),
-  { ...digit("0", "␣"), second: action("catalog", () => openCatalog(""), "All the functions") },
+  { ...digit("0", "␣"), second: action("catalog", () => openView("catalog"), "All the functions", { anywhere: true }) },
   { ...digit(".", ":"), second: fn("i", "I", "i", "", { legend: "i" }) },
   action("(−)", negate, "A minus sign; − subtracts (on an empty line, from the last result)", {
     kind: "digit",
     letter: "?",
     second: typed("ans", "ans", { math: "\\mathrm{ans}", legend: "ans" }),
   }),
-  action("enter", enter, "Evaluate; on an empty line, the last one again", { kind: "enter", second: action("entry", recallEntry, "The last line typed, back in the input") }),
+  action("enter", enter, "Evaluate; on an empty line, the last one again", { kind: "enter", nav: "enter", second: action("entry", recallEntry, "The last line typed, back in the input") }),
 ];
 
 const ARROWS = [
-  { label: "▲", kind: "arrow to-up", repeat: true, action: () => walkTape(-1), tip: "Earlier entries" },
-  { label: "▼", kind: "arrow to-down", repeat: true, action: () => walkTape(1) },
-  { label: "◀", kind: "arrow to-left", repeat: true, action: () => moveCaret(-1) },
-  { label: "▶", kind: "arrow to-right", repeat: true, action: () => moveCaret(1) },
+  { label: "▲", kind: "arrow to-up", repeat: true, nav: "up", action: () => walkTape(-1), tip: "Earlier entries" },
+  { label: "▼", kind: "arrow to-down", repeat: true, nav: "down", action: () => walkTape(1) },
+  { label: "◀", kind: "arrow to-left", repeat: true, nav: "left", action: () => moveCaret(-1) },
+  { label: "▶", kind: "arrow to-right", repeat: true, nav: "right", action: () => moveCaret(1) },
 ];
 
 // 2nd = : comparisons, as the TI's TEST menu
@@ -157,7 +161,7 @@ function keyButton(spec, extraClass = "") {
 
 function renderKeys() {
   const frow = el("div", "frow");
-  for (let i = 0; i < SOFT_KEYS; i++) frow.append(keyButton(action(`f${i + 1}`, () => pressSoft(i), "The soft key above"), "fkey"));
+  for (let i = 0; i < SOFT_KEYS; i++) frow.append(keyButton(action(`f${i + 1}`, () => pressSoft(i), "The soft key above", { anywhere: true }), "fkey"));
   const grid = el("div", "ti");
   for (const spec of KEYPAD) grid.append(keyButton(spec));
   const arrows = el("div", "arrows");
@@ -180,22 +184,24 @@ function setMod(mod) {
 
 // A key let go: its 2nd function after 2nd, its letter after alpha, else what it does
 function keyPressed(spec) {
-  if (spec.action !== toggleMenu) hideMenu();
   const mod = touch.mod;
   if (mod === "2nd" && spec !== SECOND) {
     setMod(null);
-    if (spec.second) return run(spec.second, spec);
+    if (spec.second) return run(spec.second);
   } else if ((mod === "alpha" || mod === "lock") && spec.letter && !spec.modifier) {
     if (mod === "alpha") setMod(null);
-    return run({ letter: spec.letter }, spec);
+    return run({ letter: spec.letter });
   } else if (mod === "alpha" && !spec.modifier) setMod(null);
-  run(spec, spec);
+  run(spec);
 }
 
-function run(spec, key = spec) {
-  if (spec.letter && !spec.action && spec.type === undefined && spec.template === undefined) typeLetter(spec.letter);
+// alpha's letter, rather than a key that has one
+const isLetter = (spec) => spec.letter && !spec.action && spec.type === undefined && spec.template === undefined;
+
+function run(spec) {
+  if (touch.view && !spec.modifier && !spec.anywhere) viewKey(spec);
+  else if (isLetter(spec)) typeLetter(spec.letter);
   else activate(spec);
-  touch.lastKey = key;
 }
 
 function activate(spec) {
@@ -247,21 +253,6 @@ function typeLetter(letter) {
 function insertKeyTemplate(spec) {
   if (state.selected) select(null);
   insertKey(spec); // app.js, as the palette does
-  edited();
-}
-
-// x, then t, θ, n when pressed again right away
-function cycleVar() {
-  const [prev] = VARS[touch.varIndex];
-  const before = state.mode === "text" ? input.value.slice(0, input.selectionStart) : "";
-  const again = touch.lastKey?.cycle && (state.mode === "math" || before.endsWith(prev));
-  if (again) {
-    if (state.mode === "math") mathField.executeCommand("deleteBackward");
-    else input.setRangeText("", input.selectionStart - prev.length, input.selectionStart, "end");
-    touch.varIndex = (touch.varIndex + 1) % VARS.length;
-  } else touch.varIndex = 0;
-  const [text, math] = VARS[touch.varIndex];
-  insertRaw(text, math);
   edited();
 }
 
@@ -320,24 +311,27 @@ function recallEntry() {
   edited();
 }
 
-// ‹›: the selected result, or the last one, shown the next way it can be: exact, as a
-// decimal, in degrees
-function cycleView() {
+// ‹› (float) and 2nd ‹› (degrees): the selected result, or the last one, shown that way,
+// or exact again
+function showAs(view) {
   const id = state.selected?.part === "result" ? state.selected.id : state.entries.findLast((e) => e.result)?.id;
   const entry = id && entryById(id);
   if (!entry) return;
-  const views = ["exact", ...["float", "degrees"].filter((v) => entry.result[v])];
-  if (views.length === 1) return flash("This one has no other form");
-  entry.view = views[(views.indexOf(entry.view ?? "exact") + 1) % views.length];
+  if (!entry.result[view] && entry.view !== view) {
+    return flash(view === "float" ? "This one has no other decimal form" : "Only a real number has a degrees view");
+  }
+  entry.view = entry.view === view ? "exact" : view;
   replaceEntryNode(entry);
 }
 
 // --- the soft keys -----------------------------------------------------------------------
 //
-// What they show, first that applies: what can be done with the selected entry,
-// completions of the name being typed, or the menu last opened.
+// What they show, first that applies: the view's own, what can be done with the selected
+// entry, completions of the name being typed, or the menu last opened. Under them, when a
+// menu has more than five, arrows and a dot for each page.
 
 function openMenu(name) {
+  if (touch.view) closeView();
   if (state.selected) select(null);
   // the menu showing already: its next page
   if (touch.page === name && touch.softFor === `menu:${name}`) return turnPage(1);
@@ -354,6 +348,10 @@ function turnPage(delta) {
 }
 
 function softContext() {
+  if (touch.view) {
+    const def = VIEWS[touch.view.name];
+    return { id: `view:${touch.view.name}`, name: def.title, keys: def.soft?.(touch.view) ?? [] };
+  }
   if (state.selected) {
     const keys = selectionActions() // app.js: the hint line's actions
       .filter((a) => !["Esc", "f", "d"].includes(a.key)) // clear lets go; ‹› has the views
@@ -366,17 +364,9 @@ function softContext() {
   }
   const names = completions();
   if (names.length) return { id: "names", name: "names", keys: names.map((s) => action(s.name, () => insertSuggestion(s))) };
-  if (touch.page === "vars") return { id: "menu:vars", name: "vars", keys: varsKeys() };
   if (touch.page === "test") return { id: "menu:test", name: "test", keys: TEST };
   const menu = MENUS.find((m) => m.name === touch.page);
   return { id: `menu:${menu.name}`, name: menu.label, keys: menuKeys(menu.name, "touch") };
-}
-
-// vars: ans and what's been defined
-function varsKeys() {
-  const functions = new Set(state.names.functions);
-  const names = [{ name: "ans" }, ...state.names.defined.filter((n) => n !== "ans").map((name) => ({ name, fn: functions.has(name) }))];
-  return names.map((s) => action(s.fn ? `${s.name}( )` : s.name, () => insertSuggestion(s)));
 }
 
 // Completions of the name being typed (two letters or more), defined names first
@@ -402,10 +392,7 @@ function completions() {
 
 function insertSuggestion(s) {
   if (state.selected) select(null);
-  if (state.mode === "math") {
-    const name = s.name.length > 1 ? `\\mathrm{${s.name}}` : s.name;
-    insertMath(s.fn ? `${name}\\left(#?\\right)` : name);
-  } else insertAtCursor(s.fn ? `${s.name}(` : s.name, s.start ?? null);
+  insertName(s.name, s.fn, s.start); // app.js
   edited();
 }
 
@@ -426,7 +413,7 @@ function renderSoft() {
       buttons.push(el("span", "sk empty"));
       continue;
     }
-    const b = el("button", `key sk${spec.danger ? " danger" : ""}`);
+    const b = el("button", `key sk${spec.danger ? " danger" : ""}${spec.on ? " on" : ""}`);
     b.type = "button";
     b.tabIndex = -1;
     label(b, spec);
@@ -434,8 +421,15 @@ function renderSoft() {
     keySpecs.set(b, spec);
     buttons.push(b);
   }
-  softEl.replaceChildren(...buttons);
-  statusEl.querySelector(".ind").textContent = `${context.name.toUpperCase()}${pages > 1 ? ` ${touch.softPage + 1}/${pages}` : ""}`;
+  const dots = el("div", "pages");
+  if (pages > 1) {
+    dots.setAttribute("aria-label", `Page ${touch.softPage + 1} of ${pages}`);
+    dots.append(el("span", "turn back", "◂"));
+    for (let p = 0; p < pages; p++) dots.append(el("span", p === touch.softPage ? "dot on" : "dot"));
+    dots.append(el("span", "turn on", "▸"));
+  }
+  softEl.replaceChildren(...buttons, dots);
+  statusEl.querySelector(".ind").textContent = context.name.toUpperCase();
 }
 
 // f1–f5, or a tap on a label: the soft key
@@ -444,7 +438,413 @@ function pressSoft(i) {
   if (!spec) return;
   if (touch.mod === "2nd" || touch.mod === "alpha") setMod(null);
   activate(spec);
-  touch.lastKey = spec;
+}
+
+// --- views: settings, vars, the catalog, help --------------------------------------------
+//
+// As on a TI-84, these take the screen over (the tape and the line wait behind) and the
+// keys work them: ▲ ▼ move, ◀ ▶ change the group (catalog, help) or the setting, enter
+// picks, clear goes back (as does the key that opened the view), and the soft keys do the
+// rest. The catalog opens in A-LOCK: the letters on the keys search it. Nothing needs a
+// tap, so they'd work on a calculator with only keys; on a phone the lists also scroll, a
+// tap selects a row and a tap on the selected one picks it.
+//
+// A view is {title, hint, render(view, node)} and, as it needs them, open(options) (its
+// state), count (rows), pick (enter), key(view, nav) (true if it took the key), type (a
+// letter or digit), moved (the selected row changed), tap, soft (its soft keys), refresh.
+
+const VIEWS = {
+  settings: {
+    title: "settings",
+    hint: "◀ ▶ change · clear: back",
+    count: () => settingsRows().length,
+    render(view, node) {
+      const list = el("div", "scroll");
+      settingsRows().forEach((r, i) => {
+        const row = viewRow(view, i, r.danger ? "danger" : "");
+        row.append(el("span", "label", r.label));
+        if (r.options) {
+          const options = el("span", "options");
+          for (const o of r.options) options.append(el("span", o === r.value ? "option chosen" : "option", o));
+          row.append(options);
+        } else row.append(el("span", "go", r.go ?? ""));
+        list.append(row);
+      });
+      node.append(list, about());
+    },
+    key(view, nav) {
+      const r = settingsRows()[view.index];
+      if (!r.options || (nav !== "left" && nav !== "right")) return false;
+      const i = r.options.indexOf(r.value) + (nav === "left" ? -1 : 1);
+      if (i >= 0 && i < r.options.length) choose(r, r.options[i]);
+      return true;
+    },
+    pick(view) {
+      const r = settingsRows()[view.index];
+      if (r.options) choose(r, r.options[(r.options.indexOf(r.value) + 1) % r.options.length]);
+      else r.run();
+    },
+    // a tap acts at once: it's a menu of commands (Reset still asks twice)
+    tap(view, i, target) {
+      view.index = i;
+      const r = settingsRows()[i];
+      const option = target.closest(".option");
+      if (r.options && option) choose(r, option.textContent);
+      else VIEWS.settings.pick(view);
+    },
+  },
+
+  vars: {
+    title: "vars",
+    hint: "clear: back",
+    open() {
+      memoryState.items = [];
+      requestVariables(); // app.js: they arrive in onVars
+      return { loading: true };
+    },
+    count: () => memoryState.items.length,
+    render(view, node) {
+      const list = el("div", "scroll");
+      if (view.loading) list.append(el("div", "note", "Loading…"));
+      memoryState.items.forEach((item, i) => {
+        const row = viewRow(view, i);
+        const math = el("span", "math");
+        tex(math, item.latex, false);
+        row.append(math, el("span", "kind", item.kind));
+        list.append(row);
+      });
+      if (!view.loading && memoryState.items.length <= 1) list.append(el("div", "note", "Nothing defined yet: a = 3/7 or f(x) = x^2 + 1 define things."));
+      node.append(list);
+    },
+    pick(view) {
+      const item = memoryState.items[view.index];
+      if (!item) return;
+      closeView();
+      insertName(item.name, item.kind === "function"); // app.js
+      edited();
+    },
+    key(view, nav) {
+      if (nav !== "del") return false;
+      if (!touch.press?.held) forgetRow(view); // ⌫ held doesn't forget one after another
+      return true;
+    },
+    soft: (view) => [
+      action("insert", () => VIEWS.vars.pick(view)),
+      action("forget", () => forgetRow(view), "", { danger: true }),
+      action("undo", () => undo()),
+    ],
+  },
+
+  catalog: {
+    title: "catalog",
+    hint: "clear: back",
+    open({ query = "", replaceFrom = null }) {
+      const locked = touch.mod !== "lock";
+      if (locked) setMod("lock"); // the letters search; let go of again on the way out
+      return { query, replaceFrom, items: catalogItems(query), ready: state.ready, info: false, locked };
+    },
+    count: (view) => view.items.length,
+    render: renderCatalog,
+    moved(view) {
+      if (view.info) return renderView();
+      markRow();
+      renderCatalogLine(view);
+    },
+    type(view, char) {
+      view.query += char === "␣" ? " " : char === "θ" ? "theta" : char;
+      searchCatalog(view);
+    },
+    key(view, nav) {
+      if (nav === "del") {
+        if (view.query) searchCatalog(view, view.query.slice(0, -1));
+      } else if (nav === "clear" && view.query) searchCatalog(view, "");
+      else if (nav === "clear" && view.info) {
+        view.info = false;
+        renderView();
+      } else if ((nav === "left" || nav === "right") && !view.query) jumpGroup(view, nav === "left" ? -1 : 1);
+      else return nav === "left" || nav === "right";
+      return true;
+    },
+    pick(view) {
+      const entry = view.items[view.index];
+      if (!entry) return;
+      closeView();
+      insertCatalogEntry(entry, view.replaceFrom); // app.js
+      edited();
+    },
+    // opened before Python was up: its functions have come since
+    refresh(view) {
+      if (view.ready === state.ready) return;
+      view.ready = state.ready;
+      searchCatalog(view);
+    },
+    soft: (view) => [
+      action("insert", () => VIEWS.catalog.pick(view)),
+      action(view.info ? "list" : "info", () => {
+        view.info = !view.info;
+        renderView();
+        renderSoft();
+      }),
+    ],
+  },
+
+  help: {
+    title: "help",
+    hint: "◀ ▶ sections · clear: back",
+    open: () => ({ section: 0 }),
+    render(view, node) {
+      const sections = helpSections();
+      const section = sections[view.section];
+      const head = el("div", "head");
+      head.append(el("span", "", section.querySelector("h2").textContent), el("span", "n", `${view.section + 1}/${sections.length}`));
+      const body = el("div", "scroll body");
+      if (view.section === 0) body.append(document.querySelector("#help .intro").cloneNode(true));
+      for (const child of section.children) if (child.tagName !== "H2") body.append(child.cloneNode(true));
+      node.append(head, body);
+    },
+    key(view, nav) {
+      if (nav === "up" || nav === "down") viewEl.querySelector(".body").scrollTop += nav === "up" ? -SCROLL_PX : SCROLL_PX;
+      else if (nav === "left" || nav === "right") showSection(view, view.section + (nav === "left" ? -1 : 1));
+      else return false;
+      return true;
+    },
+    soft: (view) => helpSections().map((s, i) => action(s.dataset.tab ?? s.querySelector("h2").textContent, () => showSection(view, i), "", { on: i === view.section })),
+  },
+};
+
+function openView(name, options = {}) {
+  if (touch.view?.name === name) return closeView(); // its key again: back
+  closeView();
+  if (state.selected) select(null);
+  if (touch.typing) setTyping(false);
+  touch.view = { name, index: 0, ...VIEWS[name].open?.(options) };
+  // over everything between the status line and the soft keys
+  viewEl.style.top = `${statusEl.offsetHeight}px`;
+  viewEl.style.bottom = `${softEl.offsetHeight}px`;
+  viewEl.hidden = false;
+  renderView();
+  renderStrip();
+  return true;
+}
+
+function closeView() {
+  const view = touch.view;
+  if (!view) return true;
+  touch.view = null;
+  if (view.locked && touch.mod === "lock") setMod(null);
+  viewEl.hidden = true;
+  viewEl.replaceChildren();
+  renderStrip();
+  return true;
+}
+
+function renderView() {
+  const view = touch.view;
+  viewEl.className = `view ${view.name}`;
+  viewEl.replaceChildren();
+  VIEWS[view.name].render(view, viewEl);
+  markRow();
+}
+
+// A key while a view shows (one that opens a menu or a view, the modifiers and undo don't
+// come here): the view's if it takes it; ▲ ▼ move, enter picks and clear goes back if it
+// doesn't; anything else would type into the line behind, and does nothing
+function viewKey(spec) {
+  const view = touch.view;
+  const def = VIEWS[view.name];
+  const char = isLetter(spec) ? spec.letter : spec.kind === "digit" ? spec.type : undefined;
+  if (spec.nav && !def.key?.(view, spec.nav)) {
+    if (spec.nav === "up" || spec.nav === "down") moveRow(spec.nav === "up" ? -1 : 1);
+    else if (spec.nav === "enter") def.pick?.(view);
+    else if (spec.nav === "clear") closeView();
+  } else if (char !== undefined) def.type?.(view, char);
+  if (touch.view) renderSoft(); // what they offer can change with the row (catalog's info)
+}
+
+function viewRow(view, i, className = "") {
+  const row = el("div", ["row", i === view.index && "on", className].filter(Boolean).join(" "));
+  row.dataset.i = i;
+  return row;
+}
+
+// The selected row marked, and scrolled to (with its group's heading, if it's the first)
+function markRow() {
+  viewEl.querySelector(".row.on")?.classList.remove("on");
+  const row = viewEl.querySelector(`.row[data-i="${touch.view.index}"]`);
+  if (!row) return;
+  row.classList.add("on");
+  const scroller = row.closest(".scroll");
+  const top = row.previousElementSibling?.classList.contains("group") ? row.previousElementSibling : row;
+  const box = scroller.getBoundingClientRect();
+  const above = box.top - top.getBoundingClientRect().top;
+  const below = row.getBoundingClientRect().bottom - box.bottom;
+  if (above > 0) scroller.scrollTop -= above;
+  else if (below > 0) scroller.scrollTop += below;
+}
+
+// ▲ ▼: the next row, round from the last to the first, as a TI's menus do
+function moveRow(delta) {
+  const view = touch.view;
+  const def = VIEWS[view.name];
+  const n = def.count?.(view) ?? 0;
+  if (!n) return;
+  view.index = (view.index + delta + n) % n;
+  if (def.moved) def.moved(view);
+  else markRow();
+}
+
+// A tap: selects a row; on the selected one, picks it
+function onViewTap(e) {
+  const view = touch.view;
+  const row = e.target.closest?.(".row[data-i]");
+  if (!view || !row) return;
+  const i = Number(row.dataset.i);
+  const def = VIEWS[view.name];
+  if (def.tap) def.tap(view, i, e.target);
+  else if (i === view.index) def.pick?.(view);
+  else {
+    view.index = i;
+    if (def.moved) def.moved(view);
+    else markRow();
+  }
+}
+
+// settings: a choice (◀ ▶ or enter changes it) or a command (enter)
+function settingsRows() {
+  const calc = document.documentElement.classList.contains("theme-calc");
+  const armed = Date.now() < touch.resetArmed;
+  return [
+    { label: "Input", options: ["text", "math"], value: state.mode, set: (mode) => setMode(mode).then(() => touch.view?.name === "settings" && renderView()) },
+    { label: "Theme", options: ["classic", "calculator"], value: calc ? "calculator" : "classic", set: setTheme },
+    { label: "Variables", go: "vars", run: () => openView("vars") },
+    { label: "Catalog", go: "2nd 0", run: () => openView("catalog") },
+    { label: "Help", go: "2nd settings", run: () => openView("help") },
+    { label: "Clear the tape", run: () => COMMANDS.clear.run() && closeView() },
+    { label: armed ? "Reset: once more to forget all variables too" : "Reset…", danger: armed, run: reset },
+    { label: "Desktop layout", run: () => (location.search = "?layout=desktop") },
+  ];
+}
+
+function choose(row, value) {
+  if (value !== row.value) row.set(value);
+  renderView();
+}
+
+// Reset forgets everything, so it asks for a second enter (or tap)
+function reset() {
+  if (Date.now() > touch.resetArmed) {
+    touch.resetArmed = Date.now() + 4000;
+    setTimeout(() => touch.view?.name === "settings" && renderView(), 4100);
+    return renderView();
+  }
+  touch.resetArmed = 0;
+  COMMANDS.reset.run();
+  closeView();
+}
+
+// classic (the page's own colours) or calculator (graphite, an LCD); index.html's <head>
+// applies the saved one before anything renders
+function setTheme(theme) {
+  document.documentElement.classList.toggle("theme-calc", theme === "calculator");
+  try {
+    localStorage.setItem("calc.theme", theme);
+  } catch {}
+}
+
+// The version (the deploy's commit, linked) and the source, under settings
+function about() {
+  const line = el("div", "about");
+  const revision = document.getElementById("revision"); // app.js's renderAbout
+  const version = revision.href ? el("a", "", revision.textContent) : el("span", "", revision.textContent);
+  if (revision.href) Object.assign(version, { href: revision.href, target: "_blank", rel: "noopener" });
+  const source = Object.assign(el("a", "", "source"), { href: "https://github.com/jmelis/calc", target: "_blank", rel: "noopener" });
+  line.append("Version ", version, " · ", source);
+  return line;
+}
+
+// vars: the list comes again after :vars, a forget or its undo (app.js's onVariables)
+function onVars(error) {
+  const view = touch.view;
+  if (view?.name !== "vars") return;
+  view.loading = false;
+  view.index = Math.min(view.index, Math.max(0, memoryState.items.length - 1));
+  renderView();
+  if (error) flash(error);
+}
+
+function forgetRow(view) {
+  const item = memoryState.items[view.index];
+  if (!item) return;
+  if (item.name === "ans") return flash("ans is the last result: it can't be forgotten");
+  forgetVariable(item.name); // app.js; the list comes back without it
+}
+
+// catalog: a search line, the list (in groups until something's typed) and the selected
+// entry's signature and summary; info shows all of its details instead of the list
+function renderCatalog(view, node) {
+  const search = el("div", "search");
+  if (view.query) search.append(el("span", "query", view.query), el("span", "cursor"));
+  else search.append(el("span", "placeholder", view.ready ? "letters search · ◀ ▶ groups" : "Python is loading the functions…"));
+  node.append(search);
+  const entry = view.items[view.index];
+  if (view.info) {
+    const info = el("div", "scroll info");
+    if (entry) renderCatalogEntry(info, entry); // app.js
+    node.append(info);
+    return;
+  }
+  const list = el("div", "scroll");
+  let group = null;
+  view.items.forEach((e, i) => {
+    if (!view.query && e.category !== group) {
+      group = e.category;
+      list.append(el("div", "group", group));
+    }
+    const row = viewRow(view, i);
+    row.append(el("span", "name", e.name));
+    if (view.query) row.append(el("span", "kind", e.category));
+    list.append(row);
+  });
+  if (!view.items.length && view.ready) list.append(el("div", "note", "Nothing matches"));
+  node.append(list, el("div", "line"));
+  renderCatalogLine(view);
+}
+
+function renderCatalogLine(view) {
+  const line = viewEl.querySelector(".line");
+  const entry = view.items[view.index];
+  line?.replaceChildren(...(entry ? [el("div", "sig", entry.signature || entry.name), el("div", "summary", entry.summary)] : []));
+}
+
+function searchCatalog(view, query = view.query) {
+  view.query = query;
+  view.items = catalogItems(query); // app.js
+  view.index = 0;
+  renderView();
+}
+
+// ◀ ▶ in the catalog: the start of this group (if not there already), the previous one,
+// or the next
+function jumpGroup(view, delta) {
+  const starts = view.items.flatMap((e, i) => (i === 0 || e.category !== view.items[i - 1].category ? [i] : []));
+  if (!starts.length) return;
+  let at = starts.findLastIndex((s) => s <= view.index);
+  if (!(delta < 0 && starts[at] < view.index)) at = (at + delta + starts.length) % starts.length;
+  view.index = starts[at];
+  VIEWS.catalog.moved(view);
+}
+
+// help: the Help panel's sections (index.html), one at a time; their tabs are the soft keys
+function helpSections() {
+  return [...document.querySelectorAll("#help .body > section")].filter((s) => !s.classList.contains("desktop-only"));
+}
+
+function showSection(view, i) {
+  const n = helpSections().length;
+  view.section = (i + n) % n;
+  touch.softPage = Math.floor(view.section / SOFT_KEYS);
+  renderView();
+  renderSoft();
 }
 
 // --- the status line: 2nd/alpha, messages, Stop and Undo ----------------------------------
@@ -465,10 +865,12 @@ function renderStatus() {
   const badge = { "2nd": "2ND", alpha: "α", lock: "A-LOCK" }[touch.mod];
   if (badge) msg.append(el("span", `badge ${touch.mod === "2nd" ? "second" : "alpha"}`, badge));
   if (state.mode === "math") msg.append(el("span", "badge", "MATH"));
+  let said = false;
   const text = (html) => {
     const span = el("span", "text");
-    span.innerHTML = html.replace(UNDO_HINT, "").replaceAll("⌃M", "mode → Math input"); // app.js
+    span.innerHTML = html.replace(UNDO_HINT, "").replaceAll("⌃M", "settings → Input"); // app.js
     msg.append(span);
+    said = true;
   };
   if (state.status) text(state.status);
   else if (busy()) {
@@ -479,20 +881,22 @@ function renderStatus() {
     text(state.flash);
     if (UNDO_HINT.test(state.flash)) msg.append(statusLink("undo", undo));
   }
-  // nothing on the tape or the line yet: where the help is
-  if (!msg.childNodes.length && !state.entries.length) msg.append(el("span", "hint", "2nd mode: help"));
+  // nothing else to say: how to leave a view, or (nothing on the tape yet) where the help is
+  const hint = touch.view ? VIEWS[touch.view.name].hint : state.entries.length ? "" : "2nd settings: help";
+  if (!said && hint) msg.append(el("span", "hint", hint));
 }
 
 // Called by app.js's renderHints: on a touch screen the status line and the soft keys say
 // what the hint line would
 function renderStrip() {
+  if (touch.view) VIEWS[touch.view.name].refresh?.(touch.view);
   renderStatus();
   renderSoft();
 }
 
 // --- pressing ------------------------------------------------------------------------
 //
-// Keys act when let go. Held, a key repeats (del, the arrows) or does its 2nd function;
+// Keys act when let go. Held, a key repeats (⌫, the arrows) or does its 2nd function;
 // one with neither says what it does on the status line. One key at a time. A sideways
 // drag on the soft keys turns the menu's page.
 
@@ -519,7 +923,7 @@ function onPointerDown(e) {
       key.classList.remove("down");
       if (spec.second) {
         if (touch.mod === "2nd" || touch.mod === "alpha") setMod(null);
-        run(spec.second, spec);
+        run(spec.second);
       } else flash(spec.tip);
     }, HOLD_MS);
   }
@@ -582,7 +986,7 @@ function setTyping(on) {
   renderStrip();
 }
 
-// The system keyboard was put away (or the catalog took the focus): back to the keypad
+// The system keyboard was put away: back to the keypad
 function onEditorBlur() {
   if (!touch.typing || touch.switching) return;
   setTimeout(() => {
@@ -604,72 +1008,7 @@ function fitViewport() {
   root.setProperty("--app-top", `${vv.offsetTop}px`);
 }
 
-// --- mode: settings --------------------------------------------------------------------
-
-// classic (the page's own colours) or calculator (graphite, an LCD); index.html's <head>
-// applies the saved one before anything renders
-function setTheme(theme) {
-  document.documentElement.classList.toggle("theme-calc", theme === "calculator");
-  try {
-    localStorage.setItem("calc.theme", theme);
-  } catch {}
-}
-
-function toggleMenu() {
-  if (touch.menu) return hideMenu();
-  const menu = el("div", "touch-menu");
-  menu.setAttribute("role", "menu");
-  const loaded = (ok) => ok || flash("Python is still loading");
-  const item = (text, run) => {
-    const b = el("button", "", text);
-    b.type = "button";
-    b.tabIndex = -1;
-    b.addEventListener("mousedown", (e) => e.preventDefault());
-    b.addEventListener("click", () => run() === "keep" || hideMenu());
-    menu.append(b);
-    return b;
-  };
-  const calc = document.documentElement.classList.contains("theme-calc");
-  item(state.mode === "math" ? "Math input: on" : "Math input: off", toggleMode);
-  item(calc ? "Theme: calculator" : "Theme: classic", () => setTheme(calc ? "classic" : "calculator"));
-  item("Variables", () => loaded(COMMANDS.vars.run()));
-  item("Help", () => COMMANDS.help.run());
-  item("Clear the tape", () => loaded(COMMANDS.clear.run()));
-  const reset = item("Reset…", () => {
-    if (Date.now() > touch.resetArmed) {
-      touch.resetArmed = Date.now() + 4000;
-      reset.textContent = "Tap again to forget all variables too";
-      reset.classList.add("danger");
-      return "keep";
-    }
-    touch.resetArmed = 0;
-    loaded(COMMANDS.reset.run());
-  });
-  item("Desktop layout", () => {
-    location.search = "?layout=desktop";
-  });
-  const about = el("div", "about");
-  const revision = document.getElementById("revision");
-  const version = revision.href ? el("a", "", revision.textContent) : el("span", "", revision.textContent);
-  if (revision.href) Object.assign(version, { href: revision.href, target: "_blank", rel: "noopener" });
-  const source = Object.assign(el("a", "", "source"), { href: "https://github.com/jmelis/calc", target: "_blank", rel: "noopener" });
-  about.append("Version ", version, " · ", source);
-  menu.append(about);
-  keypadEl.append(menu);
-  touch.menu = menu;
-}
-
-function hideMenu() {
-  touch.menu?.remove();
-  touch.menu = null;
-}
-
-// Taps outside the menu close it
-function closeOnOutside(e) {
-  if (touch.menu && !touch.menu.contains(e.target) && !e.target.closest?.(".menu-key")) hideMenu();
-}
-
-// --- panels, tape -------------------------------------------------------------------
+// --- setup -----------------------------------------------------------------------------
 
 function panelButton(text, onClick, className = "") {
   const b = el("button", className, text);
@@ -680,40 +1019,25 @@ function panelButton(text, onClick, className = "") {
   return b;
 }
 
-// Full-screen on a phone (touch.css): a Done button instead of Esc and the backdrop,
-// buttons instead of the keys the footers list
-function setupPanels() {
-  for (const [root, close] of [[catalogEl, closeCatalog], [memoryEl, closeMemory], [helpEl, closeHelp]]) {
-    root.querySelector(".panel").append(panelButton("Done", close, "close"));
-  }
-  // a tap inserts; where the details show beside the list (a wide screen), the first tap
-  // shows them and a second one inserts
-  catalogList.addEventListener("click", (e) => {
-    const li = e.target.closest(".fn");
-    if (!li) return;
-    if (getComputedStyle(catalogDetail).display === "none" || touch.tappedFn === li.dataset.index) insertFromCatalog();
-    else touch.tappedFn = li.dataset.index;
-  });
-  catalogSearch.addEventListener("input", () => (touch.tappedFn = null));
-  const memoryKey = (key, options) => () => sendKey(key, options, memoryPanel);
-  memoryEl.querySelector(".footer").replaceChildren(
-    panelButton("Insert", memoryKey("Enter")),
-    panelButton("Forget", memoryKey("Backspace")),
-    panelButton("Undo", memoryKey("z", { ctrlKey: true })),
-  );
-}
-
 function setupTouch() {
   input.inputMode = "none";
   input.enterKeyHint = "go";
 
-  // the screen: status line, tape, preview, input, soft keys
+  // the screen: status line, tape, preview, input, soft keys, and the view over them
   screenEl = el("div", "screen");
   statusEl = el("div", "status");
   statusEl.append(el("span", "msg"), el("span", "ind"));
   softEl = el("div", "softline");
-  screenEl.append(statusEl, tapeEl, previewEl, loadingEl, promptEl, softEl);
+  viewEl = el("div", "view");
+  viewEl.hidden = true;
+  screenEl.append(statusEl, tapeEl, previewEl, loadingEl, promptEl, viewEl, softEl);
   document.querySelector("main").prepend(screenEl);
+
+  // the catalog, :vars and :help (app.js's popups) are views here
+  panels.catalog = (query = "", replaceFrom = null) => openView("catalog", { query, replaceFrom });
+  panels.vars = () => openView("vars");
+  panels.help = () => openView("help");
+  panels.varsChanged = onVars;
 
   keypadEl = el("div");
   keypadEl.id = "keypad";
@@ -730,7 +1054,13 @@ function setupTouch() {
     root.addEventListener("touchstart", (e) => e.target.closest(".key") && e.preventDefault(), { passive: false });
     root.addEventListener("contextmenu", (e) => e.preventDefault());
   }
-  document.addEventListener("pointerdown", closeOnOutside, true);
+  // the page dots' arrows turn the page too
+  softEl.addEventListener("click", (e) => {
+    const turn = e.target.closest(".turn");
+    if (turn) turnPage(turn.classList.contains("back") ? -1 : 1);
+  });
+  viewEl.addEventListener("mousedown", (e) => e.target.closest("a") || e.preventDefault()); // keep the focus in the input
+  viewEl.addEventListener("click", onViewTap);
 
   // typing with the system keyboard, or moving the caret by tapping, changes the completions
   input.addEventListener("input", renderStrip);
@@ -746,7 +1076,6 @@ function setupTouch() {
   window.visualViewport?.addEventListener("scroll", fitViewport);
   fitViewport();
 
-  setupPanels();
   // tapping the selected item again lets it go (a double tap inserts it, as a double click does)
   tapeEl.addEventListener(
     "click",

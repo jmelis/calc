@@ -75,8 +75,22 @@
     <div class="panel" role="dialog" aria-label="Help">
       <div class="title">Help</div>
       <div class="body" tabindex="-1">
-        <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <kbd>?</kbd> lists the common functions.</p>
-        <section>
+        <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <span class="desktop-only"><kbd>?</kbd></span><span class="touch-only"><kbd>catalog</kbd></span> lists the common functions.</p>
+        <section class="touch-only" data-tab="keypad">
+          <h2>The keypad</h2>
+          <dl class="keys">
+            <dt>soft keys</dt><dd>The labels on the screen's bottom edge: tap one, or the <kbd>f1</kbd>–<kbd>f5</kbd> key under it. They show a menu (<kbd>math</kbd> <kbd>calc</kbd> <kbd>matrix</kbd> <kbd>stat</kbd>; dots under the labels mean more pages: press the menu's key again, or swipe the labels), what you can do with a selected result, or completions of the name you're typing</dd>
+            <dt><kbd>settings</kbd> <kbd>vars</kbd> <kbd>catalog</kbd></dt><dd>Take over the screen: the settings (math input, the theme, clearing the tape), your variables (insert one, or forget it), all the functions; <kbd>2nd</kbd> <kbd>settings</kbd> is this help. <kbd>▲</kbd> <kbd>▼</kbd> move, <kbd>◀</kbd> <kbd>▶</kbd> change a setting or go to the next group, <kbd>enter</kbd> picks, <kbd>clear</kbd> goes back. The catalog opens with the letters on (A-LOCK): type a few to search</dd>
+            <dt><kbd>2nd</kbd></dt><dd>Then a key: what's printed above it on the left (<code>sin⁻¹ √ π e ans</code>, <kbd>2nd</kbd> <kbd>=</kbd> <code>&lt; ≤ ≠</code>, <kbd>2nd</kbd> <kbd>⌫</kbd> undo). Holding a key does the same</dd>
+            <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right; <kbd>2nd</kbd> <kbd>alpha</kbd> keeps typing letters until <kbd>alpha</kbd> again. <kbd>abc</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
+            <dt><kbd>‹›</kbd></dt><dd>The selected result, or the last one, as a decimal or exact; <kbd>2nd</kbd> <kbd>‹›</kbd> in degrees</dd>
+            <dt><kbd>x⁻¹</kbd> &nbsp; <kbd>(−)</kbd></dt><dd>One over what's before the cursor; a minus sign (<kbd>−</kbd> subtracts: on an empty line, from the last result)</dd>
+            <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries; <kbd>enter</kbd> inserts one (or tap it; tap again to let go). <kbd>2nd</kbd> <kbd>enter</kbd> brings back the last line typed</dd>
+            <dt><kbd>clear</kbd> <kbd>⌫</kbd></dt><dd>Clear the line; delete before the cursor (or the selected entry)</dd>
+            <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
+          </dl>
+        </section>
+        <section data-tab="typing">
           <h2>Typing math</h2>
           <dl>
             <dt>2x &nbsp; sin x &nbsp; x^2 &nbsp; 5!</dt><dd>Multiplication and function calls can be implied; <code>^</code> is a power</dd>
@@ -87,7 +101,7 @@
             <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. Typing <code>+ - * / ^</code> first continues from <code>ans</code> (<code>--</code> for a negative number)</dd>
           </dl>
         </section>
-        <section>
+        <section data-tab="assign">
           <h2>Assignment and equations</h2>
           <p>What's left of <code>=</code> decides what it means:</p>
           <dl>
@@ -102,7 +116,7 @@
           </dl>
           <p class="note">Variables and functions defined this way are kept when you reload; Python definitions (<code>def</code>) are not. <code>:vars</code> lists them.</p>
         </section>
-        <section>
+        <section data-tab="matrix">
           <h2>Matrices and vectors</h2>
           <dl>
             <dt>M[1, 2, 3]</dt><dd>A matrix with one row</dd>
@@ -116,7 +130,7 @@
           </dl>
           <p class="note"><code>[1, 2, 3]</code> is a Python list: <code>2*[1, 2]</code> is <code>[1, 2, 1, 2]</code>. <code>M</code> and <code>V</code> are names like any other: <code>M = 3</code> replaces them until you forget it in <code>:vars</code>.</p>
         </section>
-        <section>
+        <section data-tab="graphs">
           <h2>Graphs</h2>
           <dl>
             <dt>iplot(sin(x)/x)</dt><dd>An interactive graph (of several functions: <code>iplot(f, g, (x, 0, 2pi))</code>)</dd>
@@ -125,7 +139,7 @@
             <dt>plot(sin(x), (x, -5, 5))</dt><dd>A picture (matplotlib), with all of its options; also <code>plot_parametric</code>, <code>plot_implicit</code></dd>
           </dl>
         </section>
-        <section>
+        <section data-tab="sympy">
           <h2>All of SymPy</h2>
           <dl>
             <dt>Sum(1/n^2, (n, 1, oo))</dt><dd>Some objects stay unevaluated…</dd>
@@ -136,7 +150,7 @@
             <dt>series(sin x, x, 0, 6) &nbsp; isprime(97)</dt><dd>And every other SymPy function</dd>
           </dl>
         </section>
-        <section>
+        <section data-tab="python">
           <h2>Python</h2>
           <p>Underneath, this is Python with SymPy, running in your browser. A line that starts with <code>def</code>, <code>for</code>, <code>import</code>… or isn't calculator syntax runs as Python, where <code>=</code> is Python's assignment. One line at a time: separate statements with <code>;</code>.</p>
           <dl>
@@ -146,22 +160,7 @@
             <dt>def sq(n): return n**2</dt><dd><strong>Python lines are plain Python:</strong> <code>**</code> is a power and <code>^</code> is XOR, and nothing is implied (<code>2*x</code>, not <code>2x</code>)</dd>
           </dl>
         </section>
-        <section class="touch-only">
-          <h2>The keypad</h2>
-          <dl class="keys">
-            <dt>soft keys</dt><dd>The labels on the screen's bottom edge: tap one, or the <kbd>f1</kbd>–<kbd>f5</kbd> key under it. They show a menu (<kbd>math</kbd> <kbd>calc</kbd> <kbd>matrix</kbd> <kbd>stat</kbd> <kbd>vars</kbd>; press it again, or swipe the labels, for the next five), what you can do with a selected result, or completions of the name you're typing</dd>
-            <dt><kbd>2nd</kbd></dt><dd>Then a key: what's printed above it on the left (<code>sin⁻¹ √ π e ans</code>, <kbd>2nd</kbd> <kbd>0</kbd> the catalog, <kbd>2nd</kbd> <kbd>=</kbd> <code>&lt; ≤ ≠</code>, <kbd>2nd</kbd> <kbd>del</kbd> undo). Holding a key does the same</dd>
-            <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right; <kbd>2nd</kbd> <kbd>alpha</kbd> keeps typing letters until <kbd>alpha</kbd> again. <kbd>abc</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
-            <dt><kbd>x,t,θ</kbd></dt><dd><code>x</code>; press it again for <code>t</code>, <code>θ</code>, <code>n</code></dd>
-            <dt><kbd>‹›</kbd></dt><dd>The selected result, or the last one, as a decimal, in degrees, or exact</dd>
-            <dt><kbd>(−)</kbd></dt><dd>A minus sign; <kbd>−</kbd> subtracts, from the last result on an empty line</dd>
-            <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries; <kbd>enter</kbd> inserts one (or tap it; tap again to let go). <kbd>2nd</kbd> <kbd>enter</kbd> brings back the last line typed</dd>
-            <dt><kbd>clear</kbd> <kbd>del</kbd></dt><dd>Clear the line; delete before the cursor (or the selected entry)</dd>
-            <dt><kbd>mode</kbd></dt><dd>Math input, the theme (classic or calculator), variables, help, clearing the tape</dd>
-            <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
-          </dl>
-        </section>
-        <section>
+        <section class="desktop-only" data-tab="keys">
           <h2>Keys</h2>
           <dl class="keys">
             <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
@@ -175,10 +174,11 @@
             <dt><kbd>⌃C</kbd></dt><dd>Stop a long computation</dd>
           </dl>
         </section>
-        <section>
+        <section data-tab="cmds">
           <h2>Commands</h2>
           <dl>
             <dt>:help</dt><dd>This</dd>
+            <dt>:catalog</dt><dd>The functions, searchable, with examples (<kbd>?</kbd> on an empty line)</dd>
             <dt>:vars</dt><dd>What you've defined; <kbd>⌫</kbd> forgets one</dd>
             <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
             <dt>:reset</dt><dd>Empty the tape and forget everything</dd>

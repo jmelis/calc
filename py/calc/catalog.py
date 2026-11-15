@@ -15,6 +15,7 @@ SYMPY = {
         ("f(x) = …", "", "Define a function", "f(x) = x^2 + 1"),
         ("lhs = rhs", "", "Anything else with = is an equation", "x^2 = 4"),
         (":help", "", "How to type things: syntax, vectors and matrices, Python, keys", ":help"),
+        (":catalog", "", "This list of functions: search it, see an example, insert one", ":catalog"),
         (":vars", "", "Memory: what's defined, with values; ⌫ forgets one (⌃Z undoes)", ":vars"),
         (":clear", "", "Clear the tape (variables are kept; ⌃Z undoes)", ":clear"),
         (":reset", "", "Clear the tape and forget all variables", ":reset"),

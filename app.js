@@ -568,11 +568,23 @@ function insertTemplate(template, mathTemplate) {
   schedulePreview();
 }
 
-// --- commands (:vars, :clear, :reset) -----------------------------------------
+// --- commands (:help, :catalog, :vars, :clear, :reset) ---------------------------------
+
+// The catalog, :vars and :help are popups here. The touch layout shows them on its
+// calculator screen instead and puts its own openers in these places (keypad.js); what they
+// list and do is shared (catalogItems, renderCatalogEntry, insertCatalogEntry, memoryState,
+// forgetVariable, insertName).
+const panels = {
+  catalog: (query = "", replaceFrom = null) => openCatalog(query, replaceFrom),
+  vars: () => openMemory(),
+  help: () => openHelp(),
+  varsChanged: (error) => showVariables(error), // the variables arrived: memoryState.items
+};
 
 const COMMANDS = {
-  help: { help: "how to type things: syntax, vectors and matrices, Python, keys", run: () => openHelp() },
-  vars: { help: "show everything you've defined, with its value", run: () => openMemory() },
+  help: { help: "how to type things: syntax, vectors and matrices, Python, keys", run: () => panels.help() },
+  catalog: { help: "the functions, searchable, with examples (? on an empty line)", run: () => panels.catalog() },
+  vars: { help: "show everything you've defined, with its value", run: () => panels.vars() },
   clear: { help: "empty the tape; variables are kept (⌃Z brings it back)", run: clearTape },
   reset: { help: "empty the tape and forget all variables", run: () => send({ type: "reset" }) },
 };
@@ -696,7 +708,7 @@ function complete() {
       return;
     }
   }
-  openCatalog(prefix, prefix ? start : null);
+  panels.catalog(prefix, prefix ? start : null);
 }
 
 function editorSource() {
@@ -771,7 +783,7 @@ input.addEventListener("keydown", (e) => {
     complete();
   } else if (e.key === "?" && input.value === "") {
     e.preventDefault();
-    openCatalog("");
+    panels.catalog();
   } else if (e.key === "-" && input.value === "ans-" && input.selectionStart === 4) {
     // a second "-" means a negative number, not "ans minus": --5 types -5
     e.preventDefault();
@@ -877,14 +889,14 @@ function onPreview(msg) {
       previewEl.classList.remove("stale");
     } else previewEl.classList.add("stale"); // unfinished: keep the last one, dimmed
   } else if (msg.target === "catalog") {
-    const target = catalogDetail.querySelector(".example-math");
-    if (target && msg.seq === catalogState.exampleSeq && msg.latex) tex(target, msg.latex);
+    const target = catalogState.exampleNode;
+    if (target?.isConnected && msg.seq === catalogState.exampleSeq && msg.latex) tex(target, msg.latex);
   }
 }
 
 // --- catalog -----------------------------------------------------------------
 
-const catalogState = { items: [], index: 0, replaceFrom: null, exampleSeq: 0 };
+const catalogState = { items: [], index: 0, replaceFrom: null, exampleSeq: 0, exampleNode: null };
 
 function catalogEntries() {
   const defined = state.names.defined.map((name) => ({
@@ -913,12 +925,21 @@ function score(entry, q) {
   return 0;
 }
 
+// The entries a search finds, best first; without one, all of them in their groups
+function catalogItems(query) {
+  const q = query.trim().toLowerCase();
+  const all = catalogEntries();
+  if (!q) return all;
+  return all.map((e) => [score(e, q), e]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).map(([, e]) => e);
+}
+
 function openCatalog(query, replaceFrom = null) {
   catalogState.replaceFrom = replaceFrom;
   catalogEl.hidden = false;
   catalogSearch.value = query;
   catalogSearch.focus();
   filterCatalog();
+  return true;
 }
 
 function hideCatalog() {
@@ -933,13 +954,9 @@ function closeCatalog() {
 }
 
 function filterCatalog() {
-  const q = catalogSearch.value.trim().toLowerCase();
-  const all = catalogEntries();
-  catalogState.items = q
-    ? all.map((e) => [score(e, q), e]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).map(([, e]) => e)
-    : all;
+  catalogState.items = catalogItems(catalogSearch.value);
   catalogState.index = 0;
-  renderCatalog(!q);
+  renderCatalog(!catalogSearch.value.trim());
 }
 
 function renderCatalog(grouped) {
@@ -976,22 +993,27 @@ function updateCatalogActive() {
 function renderCatalogDetail() {
   const entry = catalogState.items[catalogState.index];
   catalogDetail.innerHTML = "";
-  if (!entry) {
-    catalogDetail.append(el("p", "summary", "Nothing matches."));
-    return;
-  }
-  catalogDetail.append(el("h2", "", entry.name));
-  if (entry.signature) catalogDetail.append(el("div", "sig", entry.signature));
-  if (entry.summary) catalogDetail.append(el("p", "summary", entry.summary));
+  if (!entry) catalogDetail.append(el("p", "summary", "Nothing matches."));
+  else renderCatalogEntry(catalogDetail, entry);
+}
+
+// An entry's details into node: signature, summary, its example (typeset by the preview,
+// when it comes back) and its docs
+function renderCatalogEntry(node, entry) {
+  node.append(el("h2", "", entry.name));
+  if (entry.signature) node.append(el("div", "sig", entry.signature));
+  if (entry.summary) node.append(el("p", "summary", entry.summary));
   if (entry.example) {
     const ex = el("div", "example");
     ex.append(el("code", "", entry.example));
-    catalogDetail.append(ex, el("div", "example-math"));
+    const math = el("div", "example-math");
+    node.append(ex, math);
     if (!entry.example.startsWith(":")) {
+      catalogState.exampleNode = math;
       send({ type: "preview", target: "catalog", seq: ++catalogState.exampleSeq, src: entry.example });
     }
   }
-  if (entry.doc && entry.doc !== entry.summary) catalogDetail.append(el("pre", "", entry.doc));
+  if (entry.doc && entry.doc !== entry.summary) node.append(el("pre", "", entry.doc));
 }
 
 function catalogMath(entry) {
@@ -1006,20 +1028,25 @@ function insertFromCatalog() {
   const entry = catalogState.items[catalogState.index];
   if (!entry) return;
   hideCatalog();
+  // in math input, after the catalog's search box is hidden, or focus falls back to <body>
+  if (state.mode === "math") requestAnimationFrame(() => insertCatalogEntry(entry));
+  else insertCatalogEntry(entry, catalogState.replaceFrom);
+}
+
+// An entry into the line: its text (replacing the word being completed, from replaceFrom)
+// or, in math input, its LaTeX
+function insertCatalogEntry(entry, replaceFrom = null) {
   if (state.mode === "math") {
     const special = { pi: "\\pi", oo: "\\infty", E: "e", I: "i" }[entry.name];
     const latex = special ?? catalogMath(entry);
-    // after the catalog's search box is hidden, or focus falls back to <body>
-    requestAnimationFrame(() => {
-      focusEditor();
-      if (latex) insertMath(latex);
-      else flash(`${entry.name}: switch to text input (⌃M) for this one`);
-    });
+    focusEditor();
+    if (latex) insertMath(latex);
+    else flash(`${entry.name}: switch to text input (⌃M) for this one`);
     return;
   }
   input.focus();
-  if (catalogState.replaceFrom !== null) input.setSelectionRange(input.selectionStart, input.selectionStart);
-  insertAtCursor(entry.insert, catalogState.replaceFrom);
+  if (replaceFrom !== null) input.setSelectionRange(input.selectionStart, input.selectionStart);
+  insertAtCursor(entry.insert, replaceFrom);
 }
 
 catalogSearch.addEventListener("input", filterCatalog);
@@ -1055,8 +1082,14 @@ const memoryPanel = memoryEl.querySelector(".panel");
 const memoryList = document.getElementById("memory-list");
 const memoryState = { items: [], index: 0 };
 
+// Python sends what's defined, with values: they arrive in memoryState.items
+// (panels.varsChanged), as they do again after a forget and its undo
+function requestVariables() {
+  return send({ type: "vars" });
+}
+
 function openMemory() {
-  if (!send({ type: "vars" })) return false;
+  if (!requestVariables()) return false;
   memoryState.items = [];
   memoryList.innerHTML = "";
   memoryList.append(el("li", "empty", "Loading…"));
@@ -1072,11 +1105,30 @@ function closeMemory() {
 }
 
 function onVariables(msg) {
-  if (memoryEl.hidden) return;
   memoryState.items = msg.items;
   memoryState.index = Math.min(memoryState.index, Math.max(0, msg.items.length - 1));
+  panels.varsChanged(msg.error);
+}
+
+function showVariables(error) {
+  if (memoryEl.hidden) return;
   renderMemory();
-  if (msg.error) flash(msg.error);
+  if (error) flash(error);
+}
+
+// Forgets a name defined in the calculator (not ans); the list comes back without it
+function forgetVariable(name) {
+  if (name === "ans") return;
+  send({ type: "forget", name });
+  flash(`Forgot ${name} · <kbd>⌃Z</kbd> undo`);
+}
+
+// A name into the line; a function's with its brackets, the cursor between them
+function insertName(name, fn = false, replaceFrom = null) {
+  if (state.mode === "math") {
+    const latex = name.length > 1 ? `\\mathrm{${name}}` : name;
+    insertMath(fn ? `${latex}\\left(#?\\right)` : latex);
+  } else insertAtCursor(fn ? `${name}(` : name, replaceFrom);
 }
 
 function renderMemory() {
@@ -1104,13 +1156,7 @@ function insertFromMemory() {
   const item = memoryState.items[memoryState.index];
   if (!item) return;
   closeMemory();
-  const fn = item.kind === "function";
-  requestAnimationFrame(() => {
-    if (state.mode === "math") {
-      const name = item.name.length > 1 ? `\\mathrm{${item.name}}` : item.name;
-      insertMath(fn ? `${name}\\left(#?\\right)` : name);
-    } else insertAtCursor(fn ? `${item.name}(` : item.name);
-  });
+  requestAnimationFrame(() => insertName(item.name, item.kind === "function"));
 }
 
 memoryPanel.addEventListener("keydown", (e) => {
@@ -1120,10 +1166,8 @@ memoryPanel.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowUp" && n) memoryState.index = (memoryState.index - 1 + n) % n;
   else if (e.key === "Enter") return void (e.preventDefault(), insertFromMemory());
   else if (e.key === "Escape") return void (e.preventDefault(), closeMemory());
-  else if ((e.key === "Backspace" || e.key === "Delete") && item && item.name !== "ans") {
-    send({ type: "forget", name: item.name });
-    flash(`Forgot ${item.name} · <kbd>⌃Z</kbd> undo`);
-  } else if (e.key === "z" && e.ctrlKey) send({ type: "undo" }); // the list refreshes when it's back
+  else if ((e.key === "Backspace" || e.key === "Delete") && item && item.name !== "ans") forgetVariable(item.name);
+  else if (e.key === "z" && e.ctrlKey) send({ type: "undo" }); // the list refreshes when it's back
   else return;
   e.preventDefault();
   renderMemory();
@@ -1330,7 +1374,7 @@ function onMathKey(e) {
     mathField.executeCommand(e.shiftKey ? "moveToPreviousPlaceholder" : "moveToNextPlaceholder");
   } else if (e.key === "?" && empty) {
     stop(e);
-    openCatalog("");
+    panels.catalog();
   } else if (e.key === "-" && mathField.value === "\\mathrm{ans}-") {
     stop(e);
     mathField.value = "-"; // a second "-" means a negative number
