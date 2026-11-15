@@ -449,7 +449,7 @@ function pressSoft(i) {
 // As on a TI-84, these take the screen over (the tape and the line wait behind) and the
 // keys work them: ▲ ▼ move, ◀ ▶ change the group (catalog, help) or the setting, enter
 // picks, clear goes back (as does the key that opened the view), and the soft keys do the
-// rest. The catalog opens in A-LOCK: the letters on the keys search it. Nothing needs a
+// rest. The catalog opens in A-LOCK: the letters on the keys jump to an entry. Nothing needs a
 // tap, so they'd work on a calculator with only keys; on a phone the lists also scroll, a
 // tap selects a row and a tap on the selected one picks it.
 //
@@ -541,32 +541,43 @@ const VIEWS = {
 
   catalog: {
     title: "catalog",
-    hint: "clear: back",
+    hint: "enter inserts · clear: back",
     open({ query = "", replaceFrom = null }) {
       const locked = touch.mod !== "lock";
-      if (locked) setMod("lock"); // the letters search; let go of again on the way out
-      return { query, replaceFrom, items: catalogItems(query), ready: state.ready, info: false, locked };
+      if (locked) setMod("lock"); // the letters jump; let go of again on the way out
+      const view = { query: "", replaceFrom, group: ALL, items: catalogGroup(ALL), ready: state.ready, info: false, locked };
+      jumpCatalog(view, query); // ? or Tab on a name half typed opens it there
+      return view;
     },
     count: (view) => view.items.length,
     render: renderCatalog,
     moved(view) {
       if (view.info) return renderView();
+      if (view.query) {
+        jumpCatalog(view, ""); // moving on ends the jump: the next letter starts a new one
+        return renderView();
+      }
       markRow();
       renderCatalogLine(view);
     },
     type(view, char) {
-      view.query += char === "␣" ? " " : char === "θ" ? "theta" : char;
-      searchCatalog(view);
+      jumpCatalog(view, view.query + (char === "␣" ? " " : char === "θ" ? "theta" : char));
+      renderView();
     },
     key(view, nav) {
       if (nav === "del") {
-        if (view.query) searchCatalog(view, view.query.slice(0, -1));
-      } else if (nav === "clear" && view.query) searchCatalog(view, "");
-      else if (nav === "clear" && view.info) {
+        if (view.query) {
+          jumpCatalog(view, view.query.slice(0, -1));
+          renderView();
+        }
+      } else if (nav === "clear" && view.query) {
+        jumpCatalog(view, "");
+        renderView();
+      } else if (nav === "clear" && view.info) {
         view.info = false;
         renderView();
-      } else if ((nav === "left" || nav === "right") && !view.query) jumpGroup(view, nav === "left" ? -1 : 1);
-      else return nav === "left" || nav === "right";
+      } else if (nav === "left" || nav === "right") showGroup(view, stepGroup(view.group, nav === "left" ? -1 : 1));
+      else return false;
       return true;
     },
     pick(view) {
@@ -580,16 +591,31 @@ const VIEWS = {
     refresh(view) {
       if (view.ready === state.ready) return;
       view.ready = state.ready;
-      searchCatalog(view);
+      view.items = catalogGroup(view.group);
+      view.index = 0;
+      jumpCatalog(view, view.query); // what was typed while they loaded jumps now
+      renderView();
     },
-    soft: (view) => [
-      action("insert", () => VIEWS.catalog.pick(view)),
-      action(view.info ? "list" : "info", () => {
-        view.info = !view.info;
-        renderView();
-        renderSoft();
-      }),
-    ],
+    // the groups, four to a page, with info (the selected entry in full) always fifth
+    soft(view) {
+      const keys = [];
+      const groups = catalogGroups();
+      for (let i = 0; i < groups.length; i += SOFT_KEYS - 1) {
+        const page = groups
+          .slice(i, i + SOFT_KEYS - 1)
+          .map((group) => action(groupLabel(group), () => showGroup(view, group), "", { on: group === view.group }));
+        while (page.length < SOFT_KEYS - 1) page.push(undefined);
+        page.push(
+          action(view.info ? "list" : "info", () => {
+            view.info = !view.info;
+            renderView();
+            renderSoft();
+          }),
+        );
+        keys.push(...page);
+      }
+      return keys;
+    },
   },
 
   help: {
@@ -696,16 +722,15 @@ function viewRow(view, i, className = "") {
   return row;
 }
 
-// The selected row marked, and scrolled to (with its group's heading, if it's the first)
+// The selected row marked, and scrolled to
 function markRow() {
   viewEl.querySelector(".row.on")?.classList.remove("on");
   const row = viewEl.querySelector(`.row[data-i="${touch.view.index}"]`);
   if (!row) return;
   row.classList.add("on");
   const scroller = row.closest(".scroll");
-  const top = row.previousElementSibling?.classList.contains("group") ? row.previousElementSibling : row;
   const box = scroller.getBoundingClientRect();
-  const above = box.top - top.getBoundingClientRect().top;
+  const above = box.top - row.getBoundingClientRect().top;
   const below = row.getBoundingClientRect().bottom - box.bottom;
   if (above > 0) scroller.scrollTop -= above;
   else if (below > 0) scroller.scrollTop += below;
@@ -808,12 +833,13 @@ function forgetRow(view) {
   forgetVariable(item.name); // app.js; the list comes back without it
 }
 
-// catalog: a search line, the list (in groups until something's typed) and the selected
-// entry's signature and summary; info shows all of its details instead of the list
+// catalog: the jump line, the group's entries and the selected one's signature and
+// summary; info shows all of its details instead of the list
 function renderCatalog(view, node) {
   const search = el("div", "search");
-  if (view.query) search.append(el("span", "query", view.query), el("span", "cursor"));
-  else search.append(el("span", "placeholder", view.ready ? "letters search · ◀ ▶ groups" : "Python is loading the functions…"));
+  if (view.query) search.append(el("span", `query${view.miss ? " miss" : ""}`, view.query), el("span", "cursor"));
+  else search.append(el("span", "placeholder", view.ready ? "letters jump · ◀ ▶ groups" : "Python is loading the functions…"));
+  search.append(el("span", "group", groupLabel(view.group)));
   node.append(search);
   const entry = view.items[view.index];
   if (view.info) {
@@ -823,18 +849,13 @@ function renderCatalog(view, node) {
     return;
   }
   const list = el("div", "scroll");
-  let group = null;
   view.items.forEach((e, i) => {
-    if (!view.query && e.category !== group) {
-      group = e.category;
-      list.append(el("div", "group", group));
-    }
     const row = viewRow(view, i);
     row.append(el("span", "name", e.name));
-    if (view.query) row.append(el("span", "kind", e.category));
+    if (view.group === ALL) row.append(el("span", "kind", e.category));
     list.append(row);
   });
-  if (!view.items.length && view.ready) list.append(el("div", "note", "Nothing matches"));
+  if (!view.items.length && view.ready) list.append(el("div", "note", "Nothing here"));
   node.append(list, el("div", "line"));
   renderCatalogLine(view);
 }
@@ -845,22 +866,73 @@ function renderCatalogLine(view) {
   line?.replaceChildren(...(entry ? [el("div", "sig", entry.signature || entry.name), el("div", "summary", entry.summary)] : []));
 }
 
-function searchCatalog(view, query = view.query) {
-  view.query = query;
-  view.items = catalogItems(query); // app.js
-  view.index = 0;
-  renderView();
+// The catalog's groups, on the soft keys and under ◀ ▶: all of it, sorted by name, then
+// catalog.py's categories (and your own definitions), with a short name each
+const ALL = "all";
+const GROUP_LABELS = {
+  "Your definitions": "yours",
+  Calculator: "basics",
+  "Linear algebra": "linalg",
+  Statistics: "stats",
+  Plotting: "plots",
+  Constants: "consts",
+};
+const groupLabel = (group) => GROUP_LABELS[group] ?? group.toLowerCase();
+
+function catalogGroups() {
+  const groups = [ALL];
+  for (const e of catalogEntries()) if (!groups.includes(e.category)) groups.push(e.category); // app.js
+  return groups;
 }
 
-// ◀ ▶ in the catalog: the start of this group (if not there already), the previous one,
-// or the next
-function jumpGroup(view, delta) {
-  const starts = view.items.flatMap((e, i) => (i === 0 || e.category !== view.items[i - 1].category ? [i] : []));
-  if (!starts.length) return;
-  let at = starts.findLastIndex((s) => s <= view.index);
-  if (!(delta < 0 && starts[at] < view.index)) at = (at + delta + starts.length) % starts.length;
-  view.index = starts[at];
-  VIEWS.catalog.moved(view);
+function catalogGroup(group) {
+  const all = catalogEntries(); // app.js: your definitions, then catalog.py's
+  if (group !== ALL) return all.filter((e) => e.category === group);
+  return [...all].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+function stepGroup(group, delta) {
+  const groups = catalogGroups();
+  const at = Math.max(0, groups.indexOf(group));
+  return groups[(at + delta + groups.length) % groups.length];
+}
+
+function showGroup(view, group) {
+  view.group = group;
+  view.items = catalogGroup(group);
+  view.index = 0;
+  view.query = "";
+  view.miss = false;
+  view.info = false;
+  touch.softPage = Math.floor(catalogGroups().indexOf(group) / (SOFT_KEYS - 1)); // its soft key, shown
+  renderView();
+  renderSoft();
+}
+
+// Letters jump, as a TI's catalog does: to the first name that starts with what's typed
+// (then to one that has it in), in this group or, failing that, in all of it
+function jumpCatalog(view, query) {
+  view.query = query;
+  view.miss = false;
+  const q = query.trim().toLowerCase();
+  if (!q) return;
+  let at = findEntry(view.items, q);
+  if (at < 0 && view.group !== ALL) {
+    const all = catalogGroup(ALL);
+    at = findEntry(all, q);
+    if (at >= 0) {
+      view.group = ALL;
+      view.items = all;
+      touch.softPage = 0;
+    }
+  }
+  if (at < 0) view.miss = true; // nothing of that name: the line says so, ⌫ takes it back
+  else view.index = at;
+}
+
+function findEntry(items, q) {
+  const starts = items.findIndex((e) => e.name.toLowerCase().startsWith(q));
+  return starts >= 0 ? starts : items.findIndex((e) => e.name.toLowerCase().includes(q));
 }
 
 // help: the Help panel's sections (index.html), one at a time; their tabs are the soft keys

@@ -144,8 +144,11 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   and are worked by keys alone, so they'd work on a device without a touch screen
   (`tests/keypad.mjs` checks): ▲ ▼ move (round from the end), ◀ ▶ change a setting, the
   catalog's group or help's section, enter picks, clear (or the view's key again) goes
-  back, and the soft keys do the rest (insert, forget, undo, info, help's sections). The
-  catalog opens in A-LOCK so the letters search it. Keys that would type into the line
+  back, and the soft keys do the rest (insert, forget, undo, the catalog's groups and info,
+  help's sections). The catalog opens in A-LOCK so the letters jump to an entry (the first
+  whose name starts with them, in this group or else in all of it), and its groups are the
+  soft keys, four to a page with info fifth: all of it sorted by name, then catalog.py's
+  categories and your own definitions. Keys that would type into the line
   behind do nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, f1–f5) work as
   ever. A keyboard (`?layout=touch` on a computer) types into the line as in the keyboard
   layout, and while a view shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc as

@@ -44,7 +44,8 @@ const now = () =>
     view: touch.view?.name ?? null,
     row: document.querySelector(".view .row.on .name, .view .row.on .label")?.textContent ?? null,
     lock: touch.mod === "lock",
-    soft: touch.soft.map((s) => s.word ?? s.label),
+    group: touch.view?.group ?? null,
+    soft: touch.soft.map((s) => s?.word ?? s?.label ?? null),
     names: state.names.defined,
   }));
 const settle = (what) => page.waitForFunction(what, null, { timeout: 10000 });
@@ -73,31 +74,33 @@ await key("clear");
 s = await now();
 check(s.view === null && s.names.includes("a"), "vars: forget, undo, clear", s);
 
-// the catalog: opens in A-LOCK, letters search, enter inserts
+// the catalog: opens in A-LOCK, letters jump, enter inserts
 await keys("2nd", "0");
 s = await now();
 check(s.view === "catalog" && s.lock, "catalog opens in A-LOCK", s);
 await keys("ln", "9"); // s q
 s = await now();
-check(s.row === "sqrt", "catalog: letters search", s);
+check(s.row === "sqrt", "catalog: letters jump to the entry", s);
 await key("⌫");
 await key("enter");
 s = await now();
 check(s.view === null && !s.lock && s.input.length > 0, "catalog: enter inserts, A-LOCK goes", s);
 await key("clear");
 
-// ◀ ▶ go from group to group; info (f2) and back; clear twice: info off, then out
+// the groups: ◀ ▶ and the soft keys; info (f5) and back; clear twice: info off, then out
 await key("catalog");
-const first = (await now()).row;
 await keys("right", "right");
 s = await now();
-check(s.row !== first, "catalog: ▶ goes to the next group", s);
-await key("f2");
+check(s.group !== "all" && s.soft.includes("basics"), "catalog: ▶ goes to the next group", s);
+await key("f1");
 s = await now();
-check(s.soft[1] === "list", "catalog: info", s);
+check(s.group === "all", "catalog: a soft key picks a group", s);
+await key("f5");
+s = await now();
+check(s.soft[4] === "list", "catalog: info", s);
 await key("clear");
 s = await now();
-check(s.view === "catalog" && s.soft[1] === "info", "catalog: clear leaves info", s);
+check(s.view === "catalog" && s.soft[4] === "info", "catalog: clear leaves info", s);
 await key("clear");
 check((await now()).view === null, "catalog: clear goes back", await now());
 
@@ -145,9 +148,9 @@ await key("clear");
 await key("catalog");
 await page.keyboard.type("sq");
 s = await now();
-check(s.row === "sqrt", "keyboard: letters search the catalog", s);
+check(s.row === "sqrt", "keyboard: letters jump in the catalog", s);
 await page.keyboard.press("Escape");
-check((await now()).view === "catalog", "keyboard: Esc clears the search first", await now());
+check((await now()).view === "catalog", "keyboard: Esc clears what was typed first", await now());
 await page.keyboard.press("Escape");
 s = await now();
 check(s.view === null && s.input === "", "keyboard: then Esc goes back", s);

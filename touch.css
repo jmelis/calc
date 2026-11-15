@@ -422,11 +422,13 @@ html.touch.typing #keypad .ti { display: none; }
   font-size: 14px;
 }
 .screen .view .search .placeholder { font-family: var(--sans); font-size: 12px; color: var(--ink-soft); }
+.screen .view .search .query.miss { color: var(--ink-soft); } /* nothing of that name */
 .screen .view .search .cursor { width: 7px; height: 15px; margin-left: 1px; background: var(--ink); animation: lcd-blink 1s steps(1) infinite; }
 @keyframes lcd-blink { 50% { opacity: 0; } }
 .screen .view.catalog .row .name { font-family: var(--mono); font-size: 13.5px; }
-.screen .view .group {
-  padding: 7px 6px 2px;
+.screen .view .search .group {
+  margin-left: auto;
+  padding-left: 6px;
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.04em;
