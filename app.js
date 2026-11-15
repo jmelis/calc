@@ -52,8 +52,9 @@ function resultLatex(entry) {
   if (entry.view === "degrees" && r.degrees) return r.label ? `${r.label} = ${r.degrees.latex}` : r.degrees.latex;
   const isFloat = entry.view === "float" && r.float;
   const body = isFloat ? r.float.latex : r.latex;
-  if (r.label) return `${r.label} ${isFloat ? "\\approx" : "="} ${body}`;
-  return isFloat ? `\\approx ${body}` : body;
+  const relation = isFloat && !r.float.exact ? "\\approx" : "=";
+  if (r.label) return `${r.label} ${relation} ${body}`;
+  return relation === "=" ? body : `${relation} ${body}`;
 }
 
 function el(tag, className, text) {
@@ -116,8 +117,8 @@ function renderResultMath(node, entry) {
     texWrapping(node, resultLatex(entry));
     return;
   }
-  const relation = isFloat ? "\\approx" : "=";
-  renderItems(node, r.label ? `${r.label} ${relation}` : isFloat ? relation : "", items);
+  const relation = isFloat && !r.float.exact ? "\\approx" : "=";
+  renderItems(node, r.label ? `${r.label} ${relation}` : relation === "=" ? "" : relation, items);
 }
 
 function renderResult(entry) {

@@ -295,6 +295,8 @@ class Session:
                 try:
                     approx = _evalf(value)
                     result["float"] = {"latex": latex(approx, full_prec=False), "text": _text(approx, full_prec=False)}
+                    if _shows_exactly(value, approx):
+                        result["float"]["exact"] = True  # 1/2 -> 0.5 is "=", 1/3 -> 0.333… is "≈"
                     if items := _items(approx, full_prec=False):
                         result["float"]["items"] = items
                 except Exception:
@@ -403,6 +405,18 @@ def _evalf(value):
         return {_evalf(k): _evalf(v) for k, v in value.items()}
     evalf = getattr(value, "evalf", None)
     return evalf(FLOAT_DIGITS) if evalf else value
+
+
+def _shows_exactly(value, approx):
+    """Whether the float view's digits, as printed, are the value itself (1/2 -> 0.5, not 1/3 -> 0.333…)."""
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return all(_shows_exactly(v, a) for v, a in zip(value, approx))
+    if isinstance(value, dict):
+        return _shows_exactly(list(value.items()), list(approx.items()))
+    if not isinstance(value, (Basic, MatrixBase)):
+        return True
+    shown = {f: Rational(sstr(f, full_prec=False)) for f in approx.atoms(Float)}
+    return approx.xreplace(shown) == value
 
 
 def _worth_approximating(value):

@@ -1,3 +1,4 @@
+import pytest
 from sympy import beta
 
 from calc.session import Session, configure_matplotlib, warm_up_plotting
@@ -14,6 +15,29 @@ def test_exact_float_and_degrees_views():
     assert result["text"] == "pi/4"
     assert result["float"]["text"] == "0.785398163397448"
     assert result["degrees"]["text"] == "45°"
+
+
+@pytest.mark.parametrize(
+    "src, exact",
+    [
+        ("1/2", True),
+        ("3/8", True),
+        ("1/3", False),
+        ("sqrt(2)", False),
+        ("pi/2", False),
+        ("x/2", True),
+        ("x/3", False),
+        ("[1/2, 1/4]", True),
+        ("[1/2, 1/3]", False),
+        ("1/10^20", True),
+        ("10^20/3", False),
+        ("M[1/2, 3/4]", True),
+        ("M[1/2, 1/3]", False),
+    ],
+)
+def test_float_view_is_exact_only_when_the_digits_are_the_value(src, exact):
+    result = run(Session(), src)["result"]
+    assert bool(result["float"].get("exact")) is exact
 
 
 def test_no_float_view_when_it_adds_nothing():
