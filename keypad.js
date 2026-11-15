@@ -128,11 +128,12 @@ const PAGES = [
 const op = (label, type, extra = {}) => typed(label, type, { kind: "op", ...extra });
 
 // The number pad, 4 × 4, right of the side block
+// ⌫ top right, as on most calculators; + moves down next to ⏎ to make room
 const PAD = [
-  typed("7", "7"), typed("8", "8"), typed("9", "9"), op("÷", "/", { alts: [typed("%", "%", { tip: "Remainder: 7 % 3 = 1" })] }),
-  typed("4", "4"), typed("5", "5"), typed("6", "6"), op("×", "*"),
-  typed("1", "1"), typed("2", "2"), typed("3", "3"), op("−", "-"),
-  typed("0", "0"), typed(".", "."), typed(",", ",", { alts: [typed(":", ":"), typed(";", ";")] }), op("+", "+"),
+  typed("7", "7"), typed("8", "8"), typed("9", "9"), { label: "⌫", kind: "ctl", action: backspace, hold: clearLine, tip: "Hold to clear the line" },
+  typed("4", "4"), typed("5", "5"), typed("6", "6"), op("÷", "/", { alts: [typed("%", "%", { tip: "Remainder: 7 % 3 = 1" })] }),
+  typed("1", "1"), typed("2", "2"), typed("3", "3"), op("×", "*"),
+  typed("0", "0"), typed(".", "."), typed(",", ",", { alts: [typed(":", ":"), typed(";", ";")] }), op("−", "-"),
 ];
 
 // The bottom row, across both blocks
@@ -142,7 +143,7 @@ const BOTTOM = [
   typed("ans", "ans", { word: "ans", kind: "fn", math: "\\mathrm{ans}", tip: "The last result; an operator on an empty line continues from it", alts: [typed("$", "$", { tip: "$3 is entry 3's result" })] }),
   typed("(", "(", { kind: "fn", alts: [typed("[", "["), typed("{", "{")] }),
   typed(")", ")", { kind: "fn", alts: [typed("]", "]"), typed("}", "}")] }),
-  { label: "⌫", kind: "ctl", action: backspace, hold: clearLine, tip: "Hold to clear the line" },
+  op("+", "+"),
   { label: "⏎", kind: "enter", action: enter },
 ];
 
