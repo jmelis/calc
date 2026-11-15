@@ -94,17 +94,17 @@ const KEYPAD = [
 
   fn("x^2", "^2", "^2", "Squares what's before the cursor (on an empty line, the last result)", { letter: "i", second: fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}", "", { legend: "√" }) }),
   typed(",", ",", { letter: "j", second: fn("EE", "*10^(|)", "\\cdot 10^{#0}", "", { legend: "EE" }) }),
-  typed("(", "(", { letter: "k", second: typed("{", "{", { legend: "{" }) }),
-  typed(")", ")", { letter: "l", second: typed("}", "}", { legend: "}" }) }),
+  typed("(", "(", { letter: "k", second: typed("[", "[", { legend: "[" }) }),
+  typed(")", ")", { letter: "l", second: typed("]", "]", { legend: "]" }) }),
   op("×", "*", { letter: "m", second: fn("e", "e", "e", "", { legend: "e" }) }),
 
   word("log", "log(|, 10)", "\\log_{10}\\left(#0\\right)", "Logarithm base 10", { letter: "n", second: fn("10^x", "10^(|)", "10^{#0}", "", { legend: "10ˣ" }) }),
   digit("7", "o"), digit("8", "p"), digit("9", "q"),
-  op("−", "-", { letter: "r", second: typed("[", "[", { legend: "[" }) }),
+  op("−", "-", { letter: "r", second: typed("{", "{", { legend: "{" }) }),
 
   word("ln", "log(|)", "\\ln\\left(#0\\right)", "Logarithm base e", { letter: "s", second: fn("e^x", "exp(|)", "e^{#0}", "", { legend: "eˣ" }) }),
   digit("4", "t"), digit("5", "u"), digit("6", "v"),
-  op("+", "+", { letter: "w", second: typed("]", "]", { legend: "]" }) }),
+  op("+", "+", { letter: "w", second: typed("}", "}", { legend: "}" }) }),
 
   typed("=", "=", { letter: "x", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: action("test", () => openMenu("test"), "", { legend: "≤ ≠", anywhere: true }) }),
   digit("1", "y"), digit("2", "z"), digit("3", "θ"),
