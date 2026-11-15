@@ -21,7 +21,7 @@ const HOLD_MS = 450; // a long press
 const REPEAT_MS = [400, 70]; // ◀ ▶ held: the first repeat, then every
 
 const touch = {
-  page: "xy", // the menu the soft keys show
+  page: savedMenu(), // the menu the soft keys show (keys.js), as last chosen
   softPage: 0, // and which page of it
   typing: false, // the system keyboard is up (abc)
   press: null, // the key being pressed: {key, spec, id, timer, held, cell}
@@ -37,99 +37,12 @@ let stripEl = null;
 
 // --- the keys ----------------------------------------------------------------------
 //
-// A key is {label, tex?, word?, kind?, tip?, alts?} plus what it does: type (characters,
-// with math for the math input's LaTeX if typing them there isn't right), template and
-// math (as the palette's: | is the cursor, #0 the selection, #? an empty box; math null
-// means text input only; method: on an empty line it applies to ans), or action.
-
-const typed = (label, type, extra = {}) => ({ label, type, ...extra });
-const letter = (name, extra = {}) => typed(name, name, { tex: true, ...extra });
-const greek = (name) => typed(`\\${name}`, name, { tex: true, math: `\\${name}` });
-const fn = (label, template, math, tip, extra = {}) => ({ label, tex: true, template, math, tip, ...extra });
-const word = (text, template, math, tip, extra = {}) => ({ word: text, template, math, tip, ...extra });
-
-// one of app.js's PALETTE entries, by its label
-function palette(label, extra = {}) {
-  const [, template, math, tip] = PALETTE.flat().find(([l]) => l === label);
-  return { label, tex: true, template, math, tip, ...extra };
-}
-
-// The menus the soft keys show, as on an HP 50g: six keys a page, ▸ (or a sideways
-// swipe) for the next page. Built on use, since PALETTE is app.js's.
-function menus() {
-  return {
-    xy: [
-      letter("y", { tip: "A symbol", alts: ["a", "b", "c"].map((n) => letter(n)) }),
-      letter("z", { tip: "A symbol", alts: ["w", "u", "v"].map((n) => letter(n)) }),
-      letter("t", { tip: "A symbol", alts: ["n", "k", "m"].map((n) => letter(n)).concat(greek("theta")) }),
-      palette("x^2", { alts: [fn("x^3", "^3", "^3", "Cubes what's before the cursor")] }),
-      fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor (on an empty line, the last result)"),
-      palette("\\sqrt{x}"),
-
-      palette("e"),
-      palette("i"),
-      palette("\\infty"),
-      palette("\\frac{a}{b}"),
-      palette("|x|"),
-      palette("\\sqrt[n]{x}"),
-    ],
-    fx: [
-      palette("\\sin", { alts: [fn("\\sinh", "sinh(|)", "\\sinh\\left(#0\\right)", "Hyperbolic sine")] }),
-      palette("\\cos", { alts: [fn("\\cosh", "cosh(|)", "\\cosh\\left(#0\\right)", "Hyperbolic cosine")] }),
-      palette("\\tan", { alts: [fn("\\tanh", "tanh(|)", "\\tanh\\left(#0\\right)", "Hyperbolic tangent")] }),
-      palette("x^\\circ"), // with the trigonometry: sin(30°)
-      palette("\\ln"),
-      palette("\\log_b", { alts: [fn("\\log_2", "log(|, 2)", "\\log_{2}\\left(#0\\right)", "Base 2: log₂ 8 = 3")] }),
-
-      fn("\\sin^{-1}", "asin(|)", "\\arcsin\\left(#0\\right)", "The angle whose sine this is, in radians: asin(1) = π/2"),
-      fn("\\cos^{-1}", "acos(|)", "\\arccos\\left(#0\\right)", "The angle whose cosine this is, in radians"),
-      fn("\\tan^{-1}", "atan(|)", "\\arctan\\left(#0\\right)", "The angle whose tangent this is, in radians: atan(1) = π/4"),
-      palette("e^x"),
-      palette("n!"),
-      palette("\\tbinom{n}{k}"),
-    ],
-    calc: [
-      palette("\\frac{d}{dx}"),
-      palette("\\int"),
-      palette("\\int_a^b"),
-      palette("\\lim"),
-      palette("\\sum"),
-      palette("\\text{solve}", { word: "solve" }),
-
-      palette("\\text{simplify}", { word: "simplify" }),
-      palette("\\text{factor}", { word: "factor" }),
-      palette("\\text{expand}", { word: "expand" }),
-      palette("\\text{plot}", { word: "plot" }),
-      word("iplot", "iplot(|)", "\\operatorname{iplot}\\left(#0\\right)", "A graph you can drag and pinch: iplot(sin(x)/x)"),
-      word("series", "series(|, x, 0, 6)", "\\operatorname{series}\\left(#0, x, 0, 6\\right)", "Taylor series around 0, up to x⁶ (edit after inserting)"),
-    ],
-    mat: [
-      word("M[ ]", "M[|]", "\\begin{bmatrix}#0 & #?\\\\ #? & #?\\end{bmatrix}", "A matrix: M[1, 2] is one row, M[[1, 2], [3, 4]] two"),
-      word("V[ ]", "V[|]", "\\begin{bmatrix}#0\\\\ #?\\end{bmatrix}", "A column vector: V[1, 2]"),
-      fn("[\\,]", "[|]", "\\left[#0\\right]", "The rows in M[[1, 2], [3, 4]]; parts of a matrix: A[0, 1], A[1, :]"),
-      fn("\\det", "det(|)", "\\det\\left(#0\\right)", "Determinant"),
-      fn("A^{-1}", "^-1", "^{-1}", "Inverse of what's before the cursor (on an empty line, the last result)"),
-      fn("A^{T}", ".T", null, "Transpose of what's before the cursor", { method: true }),
-
-      fn("u\\cdot v", ".dot(|)", null, "Dot product: v.dot(w)", { method: true }),
-      fn("u\\times v", ".cross(|)", null, "Cross product: v.cross(w)", { method: true }),
-      typed(":", ":", { tip: "A whole row or column: A[1, :], A[:, 0]" }),
-      word("eigen", ".eigenvals()", null, "Eigenvalues, each with how many times it appears", { method: true }),
-      word("rref", ".rref()", null, "Reduced row echelon form, and the pivot columns", { method: true }),
-      word("eye", "eye(|)", "\\operatorname{eye}\\left(#0\\right)", "The identity matrix: eye(3)"),
-    ],
-  };
-}
+// Keys are keys.js's (see there for what one is): the menus' functions come from MENUS,
+// shared with the desktop palette; the number block and the rows around it are here.
 
 const SOFT_KEYS = 6; // a menu page
 const SWIPE_PX = 36; // a sideways drag this long on the soft keys turns the page
 
-const MENUS = [
-  ["xy", "x\\,y", "Symbols, powers, roots, constants"],
-  ["fx", "f(x)", "Trigonometry, logarithms, factorials"],
-  ["calc", "\\textstyle\\int", "Calculus and algebra"],
-  ["mat", "[\\,]", "Matrices and vectors"],
-];
 
 const op = (label, type, extra = {}) => typed(label, type, { kind: "op", ...extra });
 
@@ -191,7 +104,7 @@ function renderKeys() {
   const tabs = el("div", "tabs");
   const left = el("div", "group");
   const right = el("div", "group");
-  for (const [name, label, tip] of MENUS) {
+  for (const { name, label, tip } of MENUS) {
     left.append(keyButton({ label, tex: true, tip, kind: touch.page === name ? "tab active" : "tab", action: () => setPage(name) }));
   }
   right.append(
@@ -201,7 +114,7 @@ function renderKeys() {
   );
   tabs.append(left, right);
 
-  const menu = menus()[touch.page];
+  const menu = menuKeys(touch.page, "touch");
   const pages = Math.ceil(menu.length / SOFT_KEYS);
   touch.softPage %= pages;
   const soft = el("div", "soft");
@@ -218,12 +131,13 @@ function renderKeys() {
 // A menu opens on its first page
 function setPage(name) {
   touch.page = name;
+  saveMenu(name);
   touch.softPage = 0;
   renderKeys();
 }
 
 function turnPage(delta) {
-  const pages = Math.ceil(menus()[touch.page].length / SOFT_KEYS);
+  const pages = Math.ceil(menuKeys(touch.page, "touch").length / SOFT_KEYS);
   touch.softPage = (touch.softPage + delta + pages) % pages;
   renderKeys();
 }
@@ -235,10 +149,6 @@ function sendKey(key, options = {}, target = editorElement()) {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...options });
   target.dispatchEvent(event);
   return event.defaultPrevented;
-}
-
-function editorEmpty() {
-  return state.mode === "math" ? !mathField.value : !input.value;
 }
 
 // After any edit: keep the caret visible, and the preview and the strip current
@@ -270,11 +180,7 @@ function typeText(text, math) {
 
 function insertKeyTemplate(spec) {
   if (state.selected) select(null);
-  if (state.mode === "math" && spec.math === null) {
-    flash("Text input only: ⋯ turns the math input off");
-    return;
-  }
-  insertTemplate(spec.method && editorEmpty() ? `ans${spec.template}` : spec.template, spec.math);
+  insertKey(spec); // app.js, as the palette does
   edited();
 }
 
@@ -446,8 +352,8 @@ function renderStrip() {
   stripEl.scrollLeft = 0;
   if (state.status) stripEl.append(note(state.status, "status"));
   if (state.flash) {
-    stripEl.append(note(state.flash.replace(/\s*·\s*<kbd>⌃Z<\/kbd> undo/, ""), "flash"));
-    if (state.flash.includes("⌃Z")) stripEl.append(chip("Undo", undo, "action"));
+    stripEl.append(note(state.flash.replace(UNDO_HINT, ""), "flash")); // app.js
+    if (UNDO_HINT.test(state.flash)) stripEl.append(chip("Undo", undo, "action"));
     return;
   }
   if (state.selected) return selectionChips();
@@ -455,36 +361,17 @@ function renderStrip() {
   for (const s of suggestions()) stripEl.append(chip(s.name, () => insertSuggestion(s), s.fn ? "fn" : ""));
 }
 
+// The hint line's actions (app.js's selectionActions), as chips; ✕ first
 function selectionChips() {
-  const entries = selectedEntries();
-  const { id, part } = state.selected;
-  const entry = entryById(id);
-  const add = (label, run, className = "action") => stripEl.append(chip(label, run, className));
-  add("✕", () => select(null), "action close");
-  // deleting moves the selection on, for ↑ ↓; here nothing would show it's still there
-  const remove = () => {
-    deleteSelected();
-    select(null);
-  };
-  if (entries.length > 1) {
-    add(`Copy ${entries.length}`, copySelected);
-    add(`Delete ${entries.length}`, remove, "action danger");
-  } else {
-    add("Insert", insertSelected);
-    if (part === "graph") {
-      add("Zoom in", () => graphKey(id, "+"));
-      add("Zoom out", () => graphKey(id, "-"));
-      add("Reset", () => graphKey(id, "0"));
-    }
-    if (part === "result" && entry?.result?.float) add(entry.view === "float" ? "Exact" : "Decimal", () => toggleView("float"));
-    if (part === "result" && entry?.result?.degrees) add(entry.view === "degrees" ? "Radians" : "Degrees", () => toggleView("degrees"));
-    add("Copy", copySelected);
-    const hasLatex = part === "result" ? entry?.result?.latex !== undefined : !!entry?.input_latex;
-    if (hasLatex) add("LaTeX", copyLatex);
-    add("Delete", remove, "action danger");
+  const actions = selectionActions();
+  const back = actions.find((a) => a.key === "Esc");
+  stripEl.append(chip(back.chip, back.run, "action close"));
+  for (const a of actions) {
+    if (a === back) continue;
+    // deleting moves the selection on, for ↑ ↓; here nothing would show it's still there
+    const run = a.key === "⌫" ? () => (a.run(), select(null)) : a.run;
+    stripEl.append(chip(a.chip ?? a.label, run, a.danger ? "action danger" : "action"));
   }
-  add("More ↑", () => extendSelection(-1));
-  add("More ↓", () => extendSelection(1));
 }
 
 // What the strip offers to insert: completions of the name being typed, else the last

@@ -225,30 +225,73 @@ function busy() {
   return state.entries.some((e) => e.pending);
 }
 
+// What can be done with the selection, and the key that does it: buttons in the hint line,
+// chips in the touch layout's strip (keypad.js: chip is its label there, touch only there)
+function selectionActions() {
+  const entries = selectedEntries();
+  const { id, part } = state.selected;
+  const entry = entryById(id);
+  const actions = [];
+  const add = (key, label, run, extra = {}) => actions.push({ key, label, run, ...extra });
+  if (entries.length > 1) {
+    add("c", `Copy ${entries.length}`, copySelected);
+    add("⌫", `Delete ${entries.length}`, deleteSelected, { danger: true });
+  } else {
+    add("⏎", "Insert", insertSelected);
+    if (part === "graph") {
+      add("+", "Zoom in", () => graphKey(id, "+")); // graph.js
+      add("−", "Zoom out", () => graphKey(id, "-"));
+      add("0", "Reset", () => graphKey(id, "0"));
+    }
+    if (part === "result" && entry?.result?.float) add("f", entry.view === "float" ? "Exact" : "Decimal", () => toggleView("float"));
+    if (part === "result" && entry?.result?.degrees) add("d", entry.view === "degrees" ? "Radians" : "Degrees", () => toggleView("degrees"));
+    add("c", "Copy", copySelected);
+    if (part === "result" ? entry?.result?.latex !== undefined : entry?.input_latex) add("⇧C", "LaTeX", copyLatex);
+    add("⌫", "Delete", deleteSelected, { danger: true });
+  }
+  add("⇧↑", "More", () => extendSelection(-1), { chip: "More ↑" });
+  add("⇧↓", "More", () => extendSelection(1), { chip: "More ↓", touch: true }); // a keyboard has ⇧↓ next to ⇧↑
+  add("Esc", "Back", () => select(null), { chip: "✕" });
+  return actions;
+}
+
+// A hint-line button: an action, labelled with the key that does the same
+function hintButton(key, label, run, danger = false) {
+  const b = el("button", danger ? "act danger" : "act");
+  b.type = "button";
+  b.tabIndex = -1;
+  b.append(el("kbd", "", key), label);
+  b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
+  b.addEventListener("click", run);
+  return b;
+}
+
+const UNDO_HINT = /\s*·\s*<kbd>⌃Z<\/kbd> undo/; // in flash messages: a button instead (or a chip)
+
 function renderHints() {
   if (TOUCH) return renderStrip(); // keypad.js: the strip above the keys says it instead
+  const html = (text) => {
+    const span = el("span");
+    span.innerHTML = text;
+    return span;
+  };
   const parts = [];
-  if (state.status) parts.push(`<span class="status">${state.status}</span>`);
-  else if (busy()) parts.push('<span class="status">computing…</span> <kbd>⌃C</kbd> interrupt');
+  if (state.status) parts.push(html(`<span class="status">${state.status}</span>`));
+  else if (busy()) parts.push(html('<span class="status">computing…</span>'), hintButton("⌃C", "Stop", () => send({ type: "interrupt" })));
 
-  if (state.flash) parts.push(`<span class="flash">${state.flash}</span>`);
-  else if (state.selected && selectedEntries().length > 1) {
-    const n = selectedEntries().length;
-    parts.push(`<kbd>c</kbd> copy ${n} cells`, `<kbd>⌫</kbd> delete ${n}`, "<kbd>⇧</kbd><kbd>↑</kbd><kbd>↓</kbd> more or fewer", "<kbd>Esc</kbd> back");
-  } else if (state.selected?.part === "graph") {
-    parts.push("<kbd>←</kbd><kbd>→</kbd> pan", "<kbd>+</kbd><kbd>−</kbd> zoom", "<kbd>0</kbd> reset", "<kbd>⏎</kbd> insert", "<kbd>c</kbd> copy", "<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
+  if (state.flash) {
+    parts.push(html(`<span class="flash">${state.flash.replace(UNDO_HINT, "")}</span>`));
+    if (UNDO_HINT.test(state.flash)) parts.push(hintButton("⌃Z", "Undo", undo));
   } else if (state.selected) {
-    const entry = entryById(state.selected.id);
-    parts.push("<kbd>⏎</kbd> insert");
-    if (state.selected.part === "result" && entry?.result?.float) parts.push("<kbd>f</kbd> exact/float");
-    if (state.selected.part === "result" && entry?.result?.degrees) parts.push("<kbd>d</kbd> degrees");
-    parts.push("<kbd>c</kbd> copy", "<kbd>⇧C</kbd> LaTeX", "<kbd>⇧</kbd><kbd>↑</kbd> more", "<kbd>⌫</kbd> delete", "<kbd>Esc</kbd> back");
-  } else if (state.mode === "math") {
-    parts.push("<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>→</kbd> leave a box", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> text input");
+    if (state.selected.part === "graph" && selectedEntries().length === 1) parts.push(html("<kbd>←</kbd><kbd>→</kbd> pan"));
+    for (const a of selectionActions()) if (!a.touch) parts.push(hintButton(a.key, a.label, a.run, a.danger));
   } else {
-    parts.push("<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>Tab</kbd> complete", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> math input");
+    const keys = state.mode === "math"
+      ? ["<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>→</kbd> leave a box", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> text input"]
+      : ["<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>Tab</kbd> complete", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> math input"];
+    parts.push(html((parts.length ? "· " : "") + keys.join(" · ")));
   }
-  hintsEl.innerHTML = parts.join(" · ");
+  hintsEl.replaceChildren(...parts);
 }
 
 function flash(message) {
@@ -258,7 +301,7 @@ function flash(message) {
   flash.timer = setTimeout(() => {
     state.flash = null;
     renderHints();
-  }, TOUCH && message.includes("⌃Z") ? 5000 : 1500); // on a touch screen, time to tap Undo
+  }, UNDO_HINT.test(message) ? 5000 : 1500); // time to click (or tap) Undo
 }
 
 // --- hover tips ------------------------------------------------------------------
@@ -489,55 +532,24 @@ function insertAtCursor(text, replaceFrom = null) {
   schedulePreview();
 }
 
-// --- symbol palette ----------------------------------------------------------
+// --- the palette: keys.js's menus --------------------------------------------------
 //
-// Templates mark the cursor with "|"; selected text in the input lands there, so
-// selecting x+1 and clicking √ gives sqrt(x+1). Clicking never moves focus away
-// from the input.
+// Tabs pick a menu (the touch keypad's, same order), and its keys fill one row. A key's
+// template marks the cursor with "|"; selected text in the input lands there, so selecting
+// x+1 and clicking √ gives sqrt(x+1). Clicking never moves focus away from the input.
 
-const PALETTE = [
-  // [label, text template, math template, hover tip: what it does, not its name again]: "|" / #0 is the cursor (or the selection), #? an empty box
-  [
-    ["\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}", "√8 = 2√2, kept exact"],
-    ["\\sqrt[n]{x}", "root(|, 3)", "\\sqrt[#?]{#0}", "Root of any degree: the cube root of 27 is 3"],
-    ["x^2", "^2", "^2", "Squares what's before the cursor (on an empty line, the last result)"],
-    ["x^n", "^(|)", "^{#0}", "Raise to any power, like 2¹⁰ or x^(1/3)"],
-    ["\\frac{a}{b}", "(|)/()", "\\frac{#0}{#?}", "Results stay exact: 1/3 + 1/6 = 1/2"],
-    ["|x|", "abs(|)", "\\left|#0\\right|", "Distance from zero: |−3| = 3"],
-    ["n!", "!", "!", "5! = 5·4·3·2·1 = 120"],
-    ["\\tbinom{n}{k}", "binomial(|, )", "\\binom{#0}{#?}", "Ways to choose k of n items: 5 choose 2 = 10"],
-  ],
-  [
-    ["\\pi", "pi", "\\pi", "Exact π; press f on a result for its decimal value"],
-    ["e", "e", "e", "e ≈ 2.71828, the base of the natural log"],
-    ["i", "I", "i", "i² = −1, for complex numbers"],
-    ["\\infty", "oo", "\\infty", "For limits, sums and integrals that go on forever"],
-    ["x^\\circ", "°", "\\degree", "Angles are radians unless marked: sin(30°) = 1/2"],
-  ],
-  [
-    ["\\sin", "sin(|)", "\\sin\\left(#0\\right)", "Angle in radians; add ° for degrees"],
-    ["\\cos", "cos(|)", "\\cos\\left(#0\\right)", "Angle in radians; add ° for degrees"],
-    ["\\tan", "tan(|)", "\\tan\\left(#0\\right)", "Angle in radians; add ° for degrees"],
-    ["\\ln", "log(|)", "\\ln\\left(#0\\right)", "Logarithm base e"],
-    ["\\log_b", "log(|, 10)", "\\log_{#?}\\left(#0\\right)", "Any base: log₂ 8 = 3"],
-    ["e^x", "exp(|)", "e^{#0}", "e raised to a power"],
-  ],
-  [
-    ["\\frac{d}{dx}", "diff(|, x)", "\\frac{d}{dx}\\left(#0\\right)", "Rate of change with respect to x"],
-    ["\\int", "integrate(|, x)", "\\int #0\\,dx", "Antiderivative with respect to x"],
-    ["\\int_a^b", "integrate(|, (x, 0, 1))", "\\int_{#?}^{#?} #0\\,dx", "Area under the curve from a to b"],
-    ["\\lim", "limit(|, x, 0)", "\\lim_{x\\to #?} #0", "What the expression approaches as x → a"],
-    ["\\sum", "summation(|, (k, 1, n))", "\\sum_{k=#?}^{#?} #0", "Add up terms for k from a to b; b can be ∞"],
-  ],
-  [
-    ["\\begin{bmatrix}\\cdot\\end{bmatrix}", "Matrix([[|]])", "\\begin{bmatrix}#0 & #?\\\\ #? & #?\\end{bmatrix}", "2×2 to start; Tab moves between cells (math input)"],
-    ["\\text{solve}", "solve(|, x)", "\\operatorname{solve}\\left(#0, x\\right)", "Values of x that make it zero, or that satisfy an equation"],
-    ["\\text{simplify}", "simplify(|)", "\\operatorname{simplify}\\left(#0\\right)", "Rewrite in the simplest form SymPy can find"],
-    ["\\text{factor}", "factor(|)", "\\operatorname{factor}\\left(#0\\right)", "As a product: x² − 1 → (x − 1)(x + 1)"],
-    ["\\text{expand}", "expand(|)", "\\operatorname{expand}\\left(#0\\right)", "Multiply out: (x + 1)² → x² + 2x + 1"],
-    ["\\text{plot}", "plot(|, (x, -5, 5))", "\\operatorname{plot}\\left(#0, \\left(x, -5, 5\\right)\\right)", "Graph it for x from −5 to 5 (edit the range after inserting)"],
-  ],
-];
+let paletteMenu = savedMenu(); // keys.js
+
+// A key from keys.js that inserts something (a template, or text), in either input
+function insertKey(spec) {
+  if (state.mode === "math" && spec.math === null) {
+    flash("Only in text input: ⌃M");
+    return;
+  }
+  const template = spec.template ?? spec.type;
+  const empty = state.mode === "math" ? !mathField.value : !input.value;
+  insertTemplate(spec.method && empty ? `ans${template}` : template, spec.math ?? template);
+}
 
 function insertTemplate(template, mathTemplate) {
   if (state.mode === "math") {
@@ -613,24 +625,37 @@ function commandButton(name) {
 }
 
 function renderPalette() {
-  const palette = document.getElementById("palette");
-  for (const group of PALETTE) {
-    const g = el("div", "group");
-    for (const [label, template, mathTemplate, tip] of group) {
-      const b = el("button");
-      b.type = "button";
-      b.tabIndex = -1;
-      setTip(b, tip);
-      tex(b, label, false);
-      b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
-      b.addEventListener("click", () => {
-        select(null);
-        insertTemplate(template, mathTemplate);
-      });
-      g.append(b);
-    }
-    palette.append(g);
+  if (TOUCH) return; // the keypad has the menus (keypad.js)
+  const button = (className, tip, onClick) => {
+    const b = el("button", className);
+    b.type = "button";
+    b.tabIndex = -1;
+    setTip(b, tip);
+    b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
+    b.addEventListener("click", onClick);
+    return b;
+  };
+  const tabs = el("div", "tabs");
+  for (const menu of MENUS) {
+    const b = button(menu.name === paletteMenu ? "tab active" : "tab", menu.tip, () => {
+      paletteMenu = menu.name;
+      saveMenu(menu.name);
+      renderPalette();
+    });
+    tex(b, menu.label, false);
+    tabs.append(b);
   }
+  const keys = el("div", "keys");
+  for (const spec of menuKeys(paletteMenu, "desktop")) {
+    const b = button(spec.word ? "word" : "", spec.tip, () => {
+      select(null);
+      insertKey(spec);
+    });
+    if (spec.word) b.textContent = spec.word;
+    else tex(b, spec.label, false);
+    keys.append(b);
+  }
+  document.getElementById("palette").replaceChildren(tabs, keys);
 }
 
 function renderCommands() {

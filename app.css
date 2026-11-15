@@ -8,6 +8,7 @@
   --accent-soft: #fdeee4;
   --error: #c0362c;
   --kbd: #efece6;
+  --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.13);
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -23,6 +24,7 @@
     --accent-soft: #3a261a;
     --error: #f87171;
     --kbd: #2c2a27;
+    --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -256,28 +258,45 @@ kbd {
 }
 #loading .label { margin-top: 6px; font-size: 12px; color: var(--muted); }
 
-#palette {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  padding: 0 2px 8px;
+/* keys.js's menus, as the touch keypad has them: tabs, then a menu's keys in one row */
+#palette { padding: 0 2px 8px; }
+#palette .tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+#palette .tab {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
 }
-#palette .group { display: flex; flex-wrap: wrap; gap: 4px; }
-#palette button {
-  min-width: 38px;
-  height: 36px;
-  padding: 0 8px;
-  border: 1px solid var(--faint);
-  border-radius: 6px;
-  background: var(--surface);
+#palette .tab:hover { color: var(--text); }
+#palette .tab.active { background: var(--accent-soft); color: var(--accent); }
+#palette .keys {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 6px;
+}
+#palette .keys button {
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--kbd);
+  box-shadow: var(--key-shadow);
   color: var(--text);
   font-size: 16px;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
-#palette button:hover { border-color: var(--accent); color: var(--accent); }
+#palette .keys button.word { font-family: var(--sans); font-size: 13px; }
+#palette .keys button:hover { box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); }
+#palette .keys button .katex { font-size: 1em; }
 
 /* typing ":" lists the commands */
 #preview .command-hint {
@@ -289,7 +308,6 @@ kbd {
   color: var(--muted);
 }
 #preview .command-hint code { font-family: var(--mono); color: var(--accent); }
-#palette button .katex { font-size: 1em; }
 
 #prompt {
   display: flex;
@@ -366,6 +384,26 @@ body:not(.math-mode) #mathinput { display: none; }
 }
 #hints { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 #hints .status { color: var(--accent); }
+/* what can be done now (a selection, Undo, Stop): buttons that show the key doing the same */
+#hint-text { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+#hints .act {
+  height: 22px;
+  padding: 0 8px 0 3px;
+  border: 1px solid var(--faint);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+#hints .act kbd { margin: 0; }
+#hints .act:hover { border-color: var(--accent); }
+#hints .act.danger { color: var(--error); }
+#hints .act.danger:hover { border-color: var(--error); }
 #footer-right { display: flex; align-items: center; gap: 10px; flex: none; }
 #commands { display: flex; gap: 4px; flex: none; }
 #about { font-size: 11px; white-space: nowrap; }
@@ -612,6 +650,7 @@ body:not(.math-mode) #mathinput { display: none; }
 
 @media (max-width: 640px) {
   #about { display: none; }
+  #palette .keys { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   #help dl { grid-template-columns: 1fr; gap: 0; }
   #help dd { margin-bottom: 6px; }
   #catalog .body { grid-template-columns: 1fr; }

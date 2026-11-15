@@ -33,12 +33,14 @@ index.html ─ app.js ──messages──▶ backend.js ──postMessage──
    (UI)        ▲                  (tape, IndexedDB,               (loads Pyodide,             (evaluates in one
                └──messages─────── worker lifecycle)                SymPy, py/calc/*)            namespace)
 latex.js: math input's LaTeX → calculator text (page side)
+keys.js: the functions both layouts offer, by menu (the palette, the keypad's soft keys)
 keypad.js + touch.css: the touch layout, on top of app.js (only with <html class="touch">)
 ```
 
 | File | Role |
 | --- | --- |
-| `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette, catalog, Memory panel, hover tips, keyboard handling |
+| `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette (keys.js's menus: tabs, then one row of keys), hint line, catalog, Memory panel, hover tips, keyboard handling |
+| `keys.js` | `MENUS`: the functions both layouts offer (`xy`, `f(x)`, `∫`, `[ ]`), with their templates and tips: the desktop palette shows a menu's keys in one row, the keypad six at a time. `menuKeys(name, layout)` drops the keys one layout doesn't need (`only`); the chosen menu is remembered (`calc.menu`) |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
 | `keypad.js` | The touch layout: keypad, the strip above it (suggestions, actions on the selection, messages, Undo), long-press popups, `abc` (system keyboard), `⋯` menu, full-screen panels. Drives app.js's own functions; does nothing without `html.touch` |
 | `touch.css` | The touch layout's styles, every rule under `html.touch` (or `#keypad`, which only exists there) |
@@ -122,14 +124,14 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `?layout=touch` / `?layout=desktop` (remembered in `localStorage` as `calc.layout`; `?layout=auto`
   forgets). The keys, top to bottom: tabs picking a menu (`xy`, `f(x)`, `∫`, `[ ]`) and `abc ? ⋯`; soft
   keys, as on an HP 50g, showing six of the menu's functions with `▸` (or a sideways swipe) for the
-  next six (`menus()`, `SOFT_KEYS`); a row with what every menu needs (`◀ ▶ x ( ) ^ = ,`); and a
+  next six (keys.js's `MENUS`, `SOFT_KEYS`); a row with what every menu needs (`◀ ▶ x ( ) ^ = ,`); and a
   full-width number block laid out like a Casio's (`7 8 9 ⌫ AC`, `× ÷`, `+ −`, `0 . π ans ⏎`). The keyboard layout must look and behave exactly as without it: touch styles live
   under `html.touch` only, and app.js only branches on `TOUCH` in `renderHints` (the strip replaces
-  the hint line) and `flash` (longer, to tap Undo). The keys reuse the keyboard's logic: a
+  the hint line) and `renderPalette` (the keypad has the menus). The keys reuse the keyboard's logic: a
   character key dispatches a synthetic `keydown` on the editor first and types only if app.js
   didn't `preventDefault` it, so `ans` continuation, `--`, ⏎ / ⌫ on a selection and ← → on a
-  graph all apply unchanged; function keys call `insertTemplate` with `PALETTE`'s templates
-  (looked up by label), so they work in text and math input. The input has `inputmode="none"`
+  graph all apply unchanged; function keys go through `insertKey`, as the palette's do, so they
+  work in text and math input. The input has `inputmode="none"`
   (caret, no system keyboard); `abc` sets `inputmode="text"` and re-focuses inside the tap, which
   is what makes iOS raise its keyboard; when the editor loses focus, the keypad comes back. `main`
   follows `visualViewport` (`--app-height`, `--app-top`), since iOS covers the page with its
@@ -137,6 +139,11 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   tape. Key handling is pointer events on `#keypad`, acting on release; `touchstart` is
   `preventDefault`ed on keys (no double-tap zoom, no focus change). `iplot` graphs pan with one
   finger and pinch with two (`touchToMove` in graph.js, touch pointers only).
+- **The hint line's actions** (a selection's Insert, Decimal, Copy…, Undo after a delete, Stop
+  while computing) are buttons labelled with the key that does the same, so they teach the keys
+  and work with a mouse. The touch strip shows the same actions as chips: both come from
+  `selectionActions()`, and flash messages ending in "· ⌃Z undo" (`UNDO_HINT`) get an Undo button
+  or chip and stay 5 s instead of 1.5.
 - **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
   user's manual: keep it in step with the syntax, short and with examples.
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
@@ -159,8 +166,10 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   the same key, as `sendKey` does). Nothing in `touch.css` may match without `html.touch`.
 - **Tips** (`setTip`): say what a control does, with an example when it helps. Don't repeat its
   label or the text it inserts (not "Factor: factor(…)").
-- Palette entries are `[label, text template, math template, tip]`: `|` / `#0` mark the cursor (or
-  wrap the selection), `#?` is an empty MathLive box. Commands live in the `COMMANDS` table.
+- Keys (keys.js) are `{label (LaTeX) or word, template, math, tip, alts, only}`: in the template `|`
+  marks the cursor (or wraps the selection), in `math` `#0` does and `#?` is an empty MathLive box;
+  `math: null` means text input only. A new function goes in `MENUS` once and shows in both
+  layouts. Commands live in the `COMMANDS` table.
 - `py/calc/` stays plain Python with no browser dependencies; test it natively. Anything Pyodide-
   specific belongs in `worker.js`.
 - Every user-visible feature gets a line in the catalog (`catalog.py`) or the hint line, so it can

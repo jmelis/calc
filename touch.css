@@ -6,14 +6,12 @@ html.touch {
   --row-h: clamp(30px, 6dvh, 46px); /* the soft keys and the row under them */
   --gap: 6px;
   --press: rgba(0, 0, 0, 0.09);
-  --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.13);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 @media (prefers-color-scheme: dark) {
   html.touch {
     --press: rgba(255, 255, 255, 0.12);
-    --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
   }
 }
 
