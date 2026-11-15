@@ -127,7 +127,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   with *stop* and *undo* links, the soft keys' menu), the tape, the input and the soft keys'
   labels on its bottom edge; then f1–f5 (as on a physical device, where those labels are drawn
   on the display; on the phone a label can be tapped too) and a TI-84's keys, five columns:
-  `2nd settings`/`alpha x` left of the arrow rocker and `stat catalog`/`x⁻¹ clear` right of it,
+  `2nd settings`/`alpha x` left of the arrow rocker and `stat catalog`/`1/x clear` right of it,
   `math calc matrix vars ⌫`, `xⁿ sin cos tan ÷`, `x² , ( ) ×`, `log 7 8 9 −`, `ln 4 5 6 +`,
   `= 1 2 3 ‹›`, `abc 0 . (−) enter` (`abc` where the TI has ON). Each key prints its 2nd
   function (top left, `second`) and its alpha letter (top right, `letter`); 2nd and alpha
@@ -204,7 +204,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   label or the text it inserts (not "Factor: factor(…)").
 - Keys (keys.js) are `{label (LaTeX) or word, template, math, tip, only}`: in the template `|`
   marks the cursor (or wraps the selection), in `math` `#0` does and `#?` is an empty MathLive box;
-  `math: null` means text input only. A new function goes in `MENUS` once and shows in both
+  `math: null` means text input only. A key that wraps what comes next (`1/x`) gives `ans` the
+  text to insert on an empty line instead (`1/ans`), as `method: true` appends to `ans`. A new function goes in `MENUS` once and shows in both
   layouts. The keypad's own keys (keypad.js) add `second`, `letter`, `repeat`, `modifier`, `nav` (what the key is to a view) and `anywhere` (works while a view shows). Commands live in the `COMMANDS` table.
 - `py/calc/` stays plain Python with no browser dependencies; test it natively. Anything Pyodide-
   specific belongs in `worker.js`.

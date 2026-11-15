@@ -5,7 +5,8 @@
 // A key is {label, tex?, word?, kind?, tip?, only?} plus what it does: template
 // and math (| is the cursor, or wraps the selection; in the math input's LaTeX #0 is the
 // selection and #? an empty box; math null means text input only; method: on an empty
-// line it applies to ans), type (characters to type, with math for the math input if
+// line it applies to ans, ans: the text to insert instead there, for a key that wraps
+// what comes next), type (characters to type, with math for the math input if
 // typing them there isn't right), or action. label is LaTeX when tex is set; word is a
 // plain-text label instead. only: "touch" or "desktop" for a key or a menu one layout
 // doesn't need.
@@ -28,7 +29,7 @@ const MENUS = [
     keys: [
       fn("x^2", "^2", "^2", "Squares what's before the cursor (on an empty line, the last result)"),
       fn("x^n", "^(|)", "^{#0}", "Raise to any power, like 2¹⁰ or x^(1/3)"),
-      fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor (on an empty line, the last result)"),
+      fn("1/x", "1/(|)", "\\frac{1}{#0}", "One over what comes next, or the selection: 1/(x + 1); on an empty line, the last result", { ans: "1/ans" }),
       fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}", "√8 = 2√2, kept exact"),
       fn("\\sqrt[n]{x}", "root(|, 3)", "\\sqrt[#?]{#0}", "Root of any degree: the cube root of 27 is 3"),
       fn("\\pi", "pi", "\\pi", "Exact π; press f on a result for its decimal value"),

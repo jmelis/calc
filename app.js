@@ -544,6 +544,11 @@ function insertKey(spec) {
   }
   const template = spec.template ?? spec.type;
   const empty = state.mode === "math" ? !mathField.value : !input.value;
+  // a key that wraps what comes next (1/x) applies to the last result on an empty line
+  if (empty && spec.ans) {
+    insertTemplate(spec.ans, spec.math.replaceAll("#0", "\\mathrm{ans}"));
+    return;
+  }
   insertTemplate(spec.method && empty ? `ans${template}` : template, spec.math ?? template);
 }
 

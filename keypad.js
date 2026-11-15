@@ -79,7 +79,7 @@ const KEYPAD = [
 
   ALPHA,
   typed("x", "x", { tex: true, tip: "The variable x" }),
-  fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor (on an empty line, the last result)"),
+  fn("1/x", "1/(|)", "\\frac{1}{#0}", "One over what comes next, or the selection (on an empty line, the last result)", { ans: "1/ans" }),
   action("clear", clearKey, "Clears the line (or lets go of the selected entry)", { nav: "clear" }),
 
   menuKey("math", "a"), menuKey("calc", "b"), menuKey("mat", "c"),
