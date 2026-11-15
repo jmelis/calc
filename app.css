@@ -70,25 +70,6 @@ kbd {
 /* keep the tape against the input, like a calculator's, when it's short */
 #tape::before { content: ""; margin-top: auto; }
 
-#empty {
-  color: var(--muted);
-  text-align: center;
-  margin-bottom: 18vh;
-  line-height: 1.8;
-  min-width: 0;
-}
-#empty code {
-  font-family: var(--mono);
-  font-size: 0.9em;
-  background: var(--kbd);
-  padding: 0.15em 0.5em;
-  border-radius: 4px;
-  margin: 0 0.2em;
-  white-space: nowrap;
-}
-#empty .examples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; }
-#empty .note { font-size: 13px; margin-top: 2em; }
-
 .entry {
   border-bottom: 1px solid var(--faint);
   padding: 6px 0;

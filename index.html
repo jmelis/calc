@@ -40,16 +40,7 @@
 </head>
 <body>
   <main>
-    <div id="tape" role="log" aria-live="polite">
-      <!-- hidden until the saved tape has loaded and turns out empty, so it doesn't flash on reload -->
-      <div id="empty" hidden>
-        <p>Type an expression and press <kbd>⏎</kbd>.</p>
-        <p class="examples"><code>integrate(sin(x)^2, x)</code> <code>a = 3/7 + 1/5</code> <code>f(x) = x^2 + 1</code> <code>solve(x^2 = 2, x)</code></p>
-        <p class="desktop-only">Press <kbd>?</kbd> for the function catalog; type <code>:help</code> for how to type things.</p>
-        <p class="touch-only">Tap an example to try it. <kbd>2nd</kbd> then a key (or holding it) gives what's printed above the key; <kbd>mode</kbd> has the settings and the help.</p>
-        <p class="note">SymPy runs in your browser. The first visit downloads it (about 10 MB); after that it's cached.</p>
-      </div>
-    </div>
+    <div id="tape" role="log" aria-live="polite"></div>
     <div id="composer">
       <div id="preview" aria-hidden="true"></div>
       <div id="loading" hidden>

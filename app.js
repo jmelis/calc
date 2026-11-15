@@ -9,7 +9,6 @@
 // syntax by latex.js, so both modes send Python the same thing.
 
 const tapeEl = document.getElementById("tape");
-const emptyEl = document.getElementById("empty");
 const input = document.getElementById("input");
 const promptEl = document.getElementById("prompt");
 const previewEl = document.getElementById("preview");
@@ -175,7 +174,6 @@ function renderTape() {
   destroyGraphs();
   tapeEl.querySelectorAll(".entry").forEach((n) => n.remove());
   for (const entry of state.entries) tapeEl.append(renderEntry(entry));
-  emptyEl.hidden = state.entries.length > 0;
   renderSelection();
   scrollToBottomAfterImages(tapeEl);
 }
@@ -185,7 +183,6 @@ function replaceEntryNode(entry) {
   const node = renderEntry(entry);
   if (old) old.replaceWith(node);
   else tapeEl.append(node);
-  emptyEl.hidden = true;
   renderSelection();
   return node;
 }
@@ -462,7 +459,6 @@ function deleteSelected() {
   const before = items.findIndex((item) => ids.includes(item.id));
   state.entries = state.entries.filter((e) => !ids.includes(e.id));
   for (const id of ids) tapeEl.querySelector(`.entry[data-id="${id}"]`)?.remove();
-  emptyEl.hidden = state.entries.length > 0;
   send({ type: "delete", ids });
   const remaining = selectableItems();
   select(remaining.length ? remaining[Math.min(before, remaining.length - 1)] : null);

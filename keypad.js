@@ -479,6 +479,8 @@ function renderStatus() {
     text(state.flash);
     if (UNDO_HINT.test(state.flash)) msg.append(statusLink("undo", undo));
   }
+  // nothing on the tape or the line yet: where the help is
+  if (!msg.childNodes.length && !state.entries.length) msg.append(el("span", "hint", "2nd mode: help"));
 }
 
 // Called by app.js's renderHints: on a touch screen the status line and the soft keys say
@@ -667,7 +669,7 @@ function closeOnOutside(e) {
   if (touch.menu && !touch.menu.contains(e.target) && !e.target.closest?.(".menu-key")) hideMenu();
 }
 
-// --- panels, tape, welcome --------------------------------------------------------------
+// --- panels, tape -------------------------------------------------------------------
 
 function panelButton(text, onClick, className = "") {
   const b = el("button", className, text);
@@ -758,14 +760,6 @@ function setupTouch() {
     },
     true,
   );
-  // the welcome screen's examples insert themselves
-  emptyEl.addEventListener("click", (e) => {
-    const code = e.target.closest(".examples code");
-    if (!code) return;
-    if (state.mode === "math") textToLatex(code.textContent).then((latex) => latex && insertMath(latex));
-    else insertAtCursor(code.textContent);
-    edited();
-  });
 }
 
 // A touch device showing the keyboard layout (?layout=desktop): a way back

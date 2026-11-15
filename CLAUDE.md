@@ -72,8 +72,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Interrupt** (Ctrl+C) terminates the worker and starts a new one from the state saved after the
   last result. Interrupting Python in place needs SharedArrayBuffer, i.e. cross-origin isolation
   headers that GitHub Pages can't send.
-- **Startup**: the saved tape shows immediately (the welcome screen only once the tape is known to
-  be empty, so it doesn't flash); input submitted before Python is ready queues as "computing".
+- **Startup**: the saved tape shows immediately; input submitted before Python is ready queues as
+  "computing". An empty tape shows nothing: the hint line (and the footer's `:help`), or on touch the
+  status line's "2nd mode: help", say where to start.
   Importing SymPy from source took ~2 s of a ~3 s warm reload, compiling it every time, hence the
   precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
   xz, which would need a decompressor in the browser and time on every load).
