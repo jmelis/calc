@@ -105,7 +105,7 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
 /* tabs for the side block's pages, then abc ? ⋯ over the number pad */
 #keypad .tabs {
   display: grid;
-  grid-template-columns: 3fr 4fr;
+  grid-template-columns: 3fr 5fr;
   gap: var(--gap);
 }
 #keypad .tabs .group { display: flex; gap: 4px; }
@@ -122,12 +122,12 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
 #keypad .keys { display: flex; flex-direction: column; gap: var(--gap); }
 #keypad .grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   grid-auto-rows: var(--key-h);
   gap: var(--gap);
 }
 /* a little more room between the side block and the number pad */
-#keypad .grid > .side:nth-child(7n + 3) { margin-right: 4px; }
+#keypad .grid > .split { margin-right: 4px; }
 
 #keypad .key {
   position: relative;
@@ -149,7 +149,21 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
 #keypad .key .katex { font-size: 0.9em; }
 #keypad .key.side,
 #keypad .key.fn { background: var(--kbd); font-size: 19px; }
-#keypad .key.word { font-size: 13px; letter-spacing: -0.01em; }
+#keypad .key.word { font-size: 12px; letter-spacing: -0.02em; }
+/* 8 keys across a narrower phone (an iPhone SE or mini): tighter gaps and smaller labels,
+   so simplify and tan⁻¹ still fit */
+@media (max-width: 380px) {
+  html.touch { --gap: 5px; }
+  #keypad .key.side, #keypad .key.fn { font-size: 17px; }
+  #keypad .key.side .katex { font-size: 0.85em; }
+  #keypad .key.word { font-size: 11px; letter-spacing: -0.03em; }
+}
+@media (max-width: 340px) {
+  html.touch { --gap: 4px; }
+  #keypad .key.side, #keypad .key.fn { font-size: 15px; }
+  #keypad .key.side .katex { font-size: 0.8em; }
+  #keypad .key.word { font-size: 9.5px; letter-spacing: -0.04em; }
+}
 #keypad .key.op { background: var(--accent-soft); color: var(--accent); font-size: 26px; }
 #keypad .key.ctl { background: var(--kbd); color: var(--muted); font-size: 18px; }
 #keypad .key.enter { background: var(--accent); color: var(--bg); font-size: 24px; }

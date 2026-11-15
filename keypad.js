@@ -57,21 +57,18 @@ function palette(label, extra = {}) {
 function sidePages() {
   return {
     xy: [
-      letter("x", { tip: "A symbol, as is any name that isn't defined", alts: ["t", "z", "n", "k"].map((n) => letter(n)).concat(greek("theta")) }),
-      letter("y", { tip: "A symbol", alts: ["z", "a", "b", "c"].map((n) => letter(n)) }),
-      typed("=", "=", {
-        tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)",
-        alts: [typed("<", "<"), typed(">", ">"), typed("≤", "<=", { math: "\\le" }), typed("≥", ">=", { math: "\\ge" }), typed("≠", "!=", { math: "\\ne" }), typed("==", "==", { word: "==", tip: "Same expression? True or False" })],
-      }),
-      palette("x^2", { alts: [fn("x^3", "^3", "^3", "Cubes what's before the cursor"), fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor")] }),
-      palette("x^n"),
-      palette("\\sqrt{x}", { alts: [palette("\\sqrt[n]{x}")] }),
-      palette("\\pi"),
+      letter("y", { tip: "A symbol", alts: ["a", "b", "c"].map((n) => letter(n)) }),
+      letter("z", { tip: "A symbol", alts: ["w", "u", "v"].map((n) => letter(n)) }),
+      letter("t", { tip: "A symbol", alts: ["n", "k", "m"].map((n) => letter(n)).concat(greek("theta")) }),
+      palette("x^2", { alts: [fn("x^3", "^3", "^3", "Cubes what's before the cursor")] }),
+      fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor (on an empty line, the last result)"),
+      palette("\\sqrt{x}"),
       palette("e"),
       palette("i"),
+      palette("\\infty"),
       palette("\\frac{a}{b}"),
       palette("|x|"),
-      palette("\\infty"),
+      palette("\\sqrt[n]{x}"),
     ],
     fx: [
       palette("\\sin", { alts: [fn("\\sinh", "sinh(|)", "\\sinh\\left(#0\\right)", "Hyperbolic sine")] }),
@@ -127,24 +124,33 @@ const PAGES = [
 
 const op = (label, type, extra = {}) => typed(label, type, { kind: "op", ...extra });
 
-// The number pad, 4 × 4, right of the side block
-// ⌫ top right, as on most calculators; + moves down next to ⏎ to make room
+// The number block, 5 × 4, right of the side block: a Casio's (DEL AC, × ÷, + −,
+// Ans =), with π in the place of Exp (π is that key's shifted function there)
 const PAD = [
-  typed("7", "7"), typed("8", "8"), typed("9", "9"), { label: "⌫", kind: "ctl", action: backspace, hold: clearLine, tip: "Hold to clear the line" },
-  typed("4", "4"), typed("5", "5"), typed("6", "6"), op("÷", "/", { alts: [typed("%", "%", { tip: "Remainder: 7 % 3 = 1" })] }),
-  typed("1", "1"), typed("2", "2"), typed("3", "3"), op("×", "*"),
-  typed("0", "0"), typed(".", "."), typed(",", ",", { alts: [typed(":", ":"), typed(";", ";")] }), op("−", "-"),
+  typed("7", "7"), typed("8", "8"), typed("9", "9"),
+  { label: "⌫", kind: "ctl", action: backspace, hold: clearLine, tip: "Hold to clear the line, as AC does" },
+  { label: "AC", word: "AC", kind: "ctl", action: clearLine, tip: "Clears the line" },
+  typed("4", "4"), typed("5", "5"), typed("6", "6"), op("×", "*"), op("÷", "/", { alts: [typed("%", "%", { tip: "Remainder: 7 % 3 = 1" })] }),
+  typed("1", "1"), typed("2", "2"), typed("3", "3"), op("+", "+"), op("−", "-"),
+  typed("0", "0"), typed(".", "."), fn("\\pi", "pi", "\\pi", "Exact π; tap a result for its decimal value", { kind: "fn" }),
+  typed("ans", "ans", { word: "ans", kind: "fn", math: "\\mathrm{ans}", tip: "The last result; an operator on an empty line continues from it", alts: [typed("$", "$", { tip: "$3 is entry 3's result" })] }),
+  { label: "⏎", kind: "enter", action: enter },
 ];
 
-// The bottom row, across both blocks
-const BOTTOM = [
+// The row above both blocks: the caret, and what every page needs (sin(x)^2 = …)
+const TOP = [
   { label: "◀", kind: "ctl", repeat: true, action: () => moveCaret(-1) },
   { label: "▶", kind: "ctl", repeat: true, action: () => moveCaret(1) },
-  typed("ans", "ans", { word: "ans", kind: "fn", math: "\\mathrm{ans}", tip: "The last result; an operator on an empty line continues from it", alts: [typed("$", "$", { tip: "$3 is entry 3's result" })] }),
+  letter("x", { kind: "fn", tip: "A symbol, as is any name that isn't defined", alts: ["y", "z", "t", "n", "k"].map((n) => letter(n)).concat(greek("theta")) }),
   typed("(", "(", { kind: "fn", alts: [typed("[", "["), typed("{", "{")] }),
   typed(")", ")", { kind: "fn", alts: [typed("]", "]"), typed("}", "}")] }),
-  op("+", "+"),
-  { label: "⏎", kind: "enter", action: enter },
+  typed("x^n", "^", { tex: true, kind: "fn", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result" }),
+  typed("=", "=", {
+    kind: "fn",
+    tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)",
+    alts: [typed("<", "<"), typed(">", ">"), typed("≤", "<=", { math: "\\le" }), typed("≥", ">=", { math: "\\ge" }), typed("≠", "!=", { math: "\\ne" }), typed("==", "==", { word: "==", tip: "Same expression? True or False" })],
+  }),
+  typed(",", ",", { kind: "fn", alts: [typed(":", ":"), typed(";", ";")] }),
 ];
 
 // Over the system keyboard (abc): what it hides on its second and third pages
@@ -185,13 +191,14 @@ function renderKeys() {
     keyButton({ label: "⋯", kind: "tab menu-key", tip: "Math input, variables, help, clear", action: toggleMenu }),
   );
   tabs.append(left, right);
+  // 8 columns: the side block's 3 (the third with a little more room after it), then 5
   const grid = el("div", "grid");
   const side = pages[touch.page];
+  TOP.forEach((spec, i) => grid.append(keyButton(spec, i === 2 ? "split" : "")));
   for (let row = 0; row < 4; row++) {
-    for (const spec of side.slice(row * 3, row * 3 + 3)) grid.append(keyButton(spec, "side"));
-    for (const spec of PAD.slice(row * 4, row * 4 + 4)) grid.append(keyButton(spec));
+    side.slice(row * 3, row * 3 + 3).forEach((spec, i) => grid.append(keyButton(spec, i === 2 ? "side split" : "side")));
+    for (const spec of PAD.slice(row * 5, row * 5 + 5)) grid.append(keyButton(spec));
   }
-  for (const spec of BOTTOM) grid.append(keyButton(spec));
   keys.replaceChildren(tabs, grid);
 }
 
