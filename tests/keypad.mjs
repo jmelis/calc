@@ -124,6 +124,15 @@ await keys("vars", "7", "sin", "clear");
 s = await now();
 check(s.input === "", "a view keeps keys from the line", s);
 
+// alpha ? on an empty line: the catalog, as ? on the keyboard; after something, a ?
+await keys("alpha", "(−)");
+s = await now();
+check(s.view === "catalog", "? on an empty line opens the catalog", s);
+await keys("clear", "7", "alpha", "(−)");
+s = await now();
+check(s.view === null && s.input === "7?", "? after something types", s);
+await key("clear");
+
 console.log(failures.join("\n"));
 await browser.close();
 process.exit(failures.length ? 1 : 0);

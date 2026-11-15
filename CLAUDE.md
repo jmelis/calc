@@ -149,7 +149,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   behind do nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, f1–f5) work as
   ever. Taps are extra: a tap selects a row, a tap on the selected row picks it (settings act
   on the first). They are app.js's panels, shown differently: `setupTouch` puts `openView`
-  into `panels`, so `:help`, `:vars`, `:catalog` and `?` open them, and help reads the Help
+  into `panels`, so `:help`, `:vars`, `:catalog` and `?` open them (alpha's `?` is sent as a
+  keydown, `typeLetter`, so an empty line's `?` is the catalog here too), and help reads the Help
   panel's sections (`#help section`, `data-tab` naming their soft keys). Themes: classic, or
   calculator (`html.theme-calc`, set from `calc.theme` by the head script, switched in
   settings);

@@ -244,7 +244,10 @@ function typeText(text, math) {
   edited();
 }
 
+// alpha's letters type as they are (in the tape, f d c would act on a selection), but ? goes
+// to app.js first: on an empty line it opens the catalog, as on the keyboard
 function typeLetter(letter) {
+  if (letter === "?" && sendKey("?")) return;
   if (letter === "θ") insertRaw("theta", "\\theta");
   else insertRaw(letter === "␣" ? " " : letter);
   edited();
