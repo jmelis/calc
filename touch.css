@@ -2,7 +2,8 @@
    touch-only devices (or ?layout=touch), so the keyboard layout never sees any of it. */
 
 html.touch {
-  --key-h: clamp(30px, 6.4dvh, 54px);
+  --key-h: clamp(30px, 6.4dvh, 54px); /* the number block */
+  --row-h: clamp(30px, 6dvh, 46px); /* the soft keys and the row under them */
   --gap: 6px;
   --press: rgba(0, 0, 0, 0.09);
   --key-shadow: 0 1px 0 rgba(0, 0, 0, 0.13);
@@ -102,10 +103,10 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
 #keypad .note.status { color: var(--accent); }
 #keypad .note kbd { font-size: 0.9em; }
 
-/* tabs for the side block's pages, then abc ? ⋯ over the number pad */
+/* tabs for the menus, then abc ? ⋯ */
 #keypad .tabs {
   display: grid;
-  grid-template-columns: 3fr 5fr;
+  grid-template-columns: 4fr 3fr;
   gap: var(--gap);
 }
 #keypad .tabs .group { display: flex; gap: 4px; }
@@ -119,15 +120,27 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
 }
 #keypad .key.tab.active { background: var(--accent-soft); color: var(--accent); }
 
+/* the soft keys (a menu's page, then ▸), the row every menu needs, the number block */
 #keypad .keys { display: flex; flex-direction: column; gap: var(--gap); }
-#keypad .grid {
+#keypad .soft {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) 0.8fr;
+  grid-auto-rows: var(--row-h);
+  gap: 5px;
+  touch-action: pan-y;
+}
+#keypad .top {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-auto-rows: var(--row-h);
+  gap: var(--gap);
+}
+#keypad .pad {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   grid-auto-rows: var(--key-h);
   gap: var(--gap);
 }
-/* a little more room between the side block and the number pad */
-#keypad .grid > .split { margin-right: 4px; }
 
 #keypad .key {
   position: relative;
@@ -147,26 +160,36 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
   touch-action: none;
 }
 #keypad .key .katex { font-size: 0.9em; }
-#keypad .key.side,
+#keypad .soft .key { background: var(--kbd); border-radius: 8px; font-size: 17px; }
+#keypad .soft .key.word { font-size: 13px; letter-spacing: -0.01em; }
+#keypad .key.next { background: transparent; box-shadow: none; color: var(--accent); font-size: 13px; font-weight: 600; }
 #keypad .key.fn { background: var(--kbd); font-size: 19px; }
-#keypad .key.word { font-size: 12px; letter-spacing: -0.02em; }
-/* 8 keys across a narrower phone (an iPhone SE or mini): tighter gaps and smaller labels,
-   so simplify and tan⁻¹ still fit */
+#keypad .key.ctl { background: var(--kbd); color: var(--muted); font-size: 18px; }
+#keypad .pad .key { font-size: 26px; }
+#keypad .pad .key.fn { font-size: 22px; }
+#keypad .pad .key.word { font-size: 17px; }
+#keypad .pad .key.ctl { font-size: 22px; }
+#keypad .key.op { background: var(--accent-soft); color: var(--accent); }
+#keypad .pad .key.op { font-size: 30px; }
+#keypad .key.enter { background: var(--accent); color: var(--bg); }
+#keypad .pad .key.enter { font-size: 26px; }
+/* a narrower phone (an iPhone SE or mini): tighter gaps and smaller soft key labels, so
+   simplify and tan⁻¹ still fit */
 @media (max-width: 380px) {
   html.touch { --gap: 5px; }
-  #keypad .key.side, #keypad .key.fn { font-size: 17px; }
-  #keypad .key.side .katex { font-size: 0.85em; }
-  #keypad .key.word { font-size: 11px; letter-spacing: -0.03em; }
+  #keypad .soft .key { font-size: 16px; }
+  #keypad .soft .key .katex { font-size: 0.85em; }
+  #keypad .soft .key.word { font-size: 12px; letter-spacing: -0.03em; }
+  #keypad .key.fn { font-size: 17px; }
 }
 @media (max-width: 340px) {
   html.touch { --gap: 4px; }
-  #keypad .key.side, #keypad .key.fn { font-size: 15px; }
-  #keypad .key.side .katex { font-size: 0.8em; }
-  #keypad .key.word { font-size: 9.5px; letter-spacing: -0.04em; }
+  #keypad .soft { gap: 4px; }
+  #keypad .soft .key { font-size: 15px; }
+  #keypad .soft .key .katex { font-size: 0.8em; }
+  #keypad .soft .key.word { font-size: 10.5px; letter-spacing: -0.04em; }
+  #keypad .key.fn { font-size: 15px; }
 }
-#keypad .key.op { background: var(--accent-soft); color: var(--accent); font-size: 26px; }
-#keypad .key.ctl { background: var(--kbd); color: var(--muted); font-size: 18px; }
-#keypad .key.enter { background: var(--accent); color: var(--bg); font-size: 24px; }
 #keypad .key.down { box-shadow: inset 0 0 0 100px var(--press); }
 /* hold for more */
 #keypad .key.more::after {
@@ -181,7 +204,7 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
   opacity: 0.3;
 }
 
-/* over the system keyboard (abc): instead of the tabs and keys */
+/* over the system keyboard (abc): instead of the keys */
 #keypad .bar {
   display: none;
   grid-template-columns: 1.4fr repeat(6, 1fr);
@@ -189,8 +212,7 @@ html.touch #input { font-size: 20px; min-width: 0; } /* 16px at least, or iOS zo
 }
 #keypad .bar .key { height: 40px; background: var(--kbd); font-family: var(--mono); font-size: 18px; }
 html.touch.typing #keypad .bar { display: grid; }
-html.touch.typing #keypad .tabs,
-html.touch.typing #keypad .grid { display: none; }
+html.touch.typing #keypad .keys { display: none; }
 
 /* a long press: the key's tip and related keys */
 #keypad .popup {
@@ -266,7 +288,7 @@ html.touch.typing #keypad .grid { display: none; }
   html.touch #prompt { grid-column: 1; grid-row: 4; margin: 0 0 6px 6px; }
   html.touch #keypad { grid-column: 2; grid-row: 1 / -1; margin: 6px 6px 6px 8px; justify-content: flex-end; }
   html.touch #keypad .keys { flex: 1; min-height: 0; }
-  html.touch #keypad .grid { flex: 1; grid-auto-rows: minmax(0, 1fr); }
+  html.touch #keypad .pad { flex: 1; grid-auto-rows: minmax(0, 1fr); }
 }
 
 /* --- panels: full screen -------------------------------------------------------- */

@@ -120,9 +120,10 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `class="touch"` to `<html>` before anything renders, on `(hover: none) and (pointer: coarse)`
   (phones, tablets without a mouse; an iPad with a trackpad gets the keyboard layout), or with
   `?layout=touch` / `?layout=desktop` (remembered in `localStorage` as `calc.layout`; `?layout=auto`
-  forgets). The keys: a number block laid out like a Casio's (`7 8 9 ⌫ AC`, `× ÷`, `+ −`, `0 . π ans ⏎`),
-  a paged side block (`xy`, `f(x)`, `∫`, `[ ]`) to its left, and a row above both with what every
-  page needs (`◀ ▶ x ( ) ^ = ,`). The keyboard layout must look and behave exactly as without it: touch styles live
+  forgets). The keys, top to bottom: tabs picking a menu (`xy`, `f(x)`, `∫`, `[ ]`) and `abc ? ⋯`; soft
+  keys, as on an HP 50g, showing six of the menu's functions with `▸` (or a sideways swipe) for the
+  next six (`menus()`, `SOFT_KEYS`); a row with what every menu needs (`◀ ▶ x ( ) ^ = ,`); and a
+  full-width number block laid out like a Casio's (`7 8 9 ⌫ AC`, `× ÷`, `+ −`, `0 . π ans ⏎`). The keyboard layout must look and behave exactly as without it: touch styles live
   under `html.touch` only, and app.js only branches on `TOUCH` in `renderHints` (the strip replaces
   the hint line) and `flash` (longer, to tap Undo). The keys reuse the keyboard's logic: a
   character key dispatches a synthetic `keydown` on the editor first and types only if app.js

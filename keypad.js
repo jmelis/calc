@@ -21,7 +21,8 @@ const HOLD_MS = 450; // a long press
 const REPEAT_MS = [400, 70]; // ◀ ▶ held: the first repeat, then every
 
 const touch = {
-  page: "xy", // the side block's page
+  page: "xy", // the menu the soft keys show
+  softPage: 0, // and which page of it
   typing: false, // the system keyboard is up (abc)
   press: null, // the key being pressed: {key, spec, id, timer, held, cell}
   popup: null, // a long press's popup
@@ -53,8 +54,9 @@ function palette(label, extra = {}) {
   return { label, tex: true, template, math, tip, ...extra };
 }
 
-// The side block's pages, 3 × 4 keys each; built on use, since PALETTE is app.js's
-function sidePages() {
+// The menus the soft keys show, as on an HP 50g: six keys a page, ▸ (or a sideways
+// swipe) for the next page. Built on use, since PALETTE is app.js's.
+function menus() {
   return {
     xy: [
       letter("y", { tip: "A symbol", alts: ["a", "b", "c"].map((n) => letter(n)) }),
@@ -63,6 +65,7 @@ function sidePages() {
       palette("x^2", { alts: [fn("x^3", "^3", "^3", "Cubes what's before the cursor")] }),
       fn("x^{-1}", "^-1", "^{-1}", "One over what's before the cursor (on an empty line, the last result)"),
       palette("\\sqrt{x}"),
+
       palette("e"),
       palette("i"),
       palette("\\infty"),
@@ -74,13 +77,14 @@ function sidePages() {
       palette("\\sin", { alts: [fn("\\sinh", "sinh(|)", "\\sinh\\left(#0\\right)", "Hyperbolic sine")] }),
       palette("\\cos", { alts: [fn("\\cosh", "cosh(|)", "\\cosh\\left(#0\\right)", "Hyperbolic cosine")] }),
       palette("\\tan", { alts: [fn("\\tanh", "tanh(|)", "\\tanh\\left(#0\\right)", "Hyperbolic tangent")] }),
+      palette("x^\\circ"), // with the trigonometry: sin(30°)
+      palette("\\ln"),
+      palette("\\log_b", { alts: [fn("\\log_2", "log(|, 2)", "\\log_{2}\\left(#0\\right)", "Base 2: log₂ 8 = 3")] }),
+
       fn("\\sin^{-1}", "asin(|)", "\\arcsin\\left(#0\\right)", "The angle whose sine this is, in radians: asin(1) = π/2"),
       fn("\\cos^{-1}", "acos(|)", "\\arccos\\left(#0\\right)", "The angle whose cosine this is, in radians"),
       fn("\\tan^{-1}", "atan(|)", "\\arctan\\left(#0\\right)", "The angle whose tangent this is, in radians: atan(1) = π/4"),
-      palette("\\ln"),
-      palette("\\log_b", { alts: [fn("\\log_2", "log(|, 2)", "\\log_{2}\\left(#0\\right)", "Base 2: log₂ 8 = 3")] }),
       palette("e^x"),
-      palette("x^\\circ"),
       palette("n!"),
       palette("\\tbinom{n}{k}"),
     ],
@@ -91,6 +95,7 @@ function sidePages() {
       palette("\\lim"),
       palette("\\sum"),
       palette("\\text{solve}", { word: "solve" }),
+
       palette("\\text{simplify}", { word: "simplify" }),
       palette("\\text{factor}", { word: "factor" }),
       palette("\\text{expand}", { word: "expand" }),
@@ -105,6 +110,7 @@ function sidePages() {
       fn("\\det", "det(|)", "\\det\\left(#0\\right)", "Determinant"),
       fn("A^{-1}", "^-1", "^{-1}", "Inverse of what's before the cursor (on an empty line, the last result)"),
       fn("A^{T}", ".T", null, "Transpose of what's before the cursor", { method: true }),
+
       fn("u\\cdot v", ".dot(|)", null, "Dot product: v.dot(w)", { method: true }),
       fn("u\\times v", ".cross(|)", null, "Cross product: v.cross(w)", { method: true }),
       typed(":", ":", { tip: "A whole row or column: A[1, :], A[:, 0]" }),
@@ -115,7 +121,10 @@ function sidePages() {
   };
 }
 
-const PAGES = [
+const SOFT_KEYS = 6; // a menu page
+const SWIPE_PX = 36; // a sideways drag this long on the soft keys turns the page
+
+const MENUS = [
   ["xy", "x\\,y", "Symbols, powers, roots, constants"],
   ["fx", "f(x)", "Trigonometry, logarithms, factorials"],
   ["calc", "\\textstyle\\int", "Calculus and algebra"],
@@ -124,8 +133,8 @@ const PAGES = [
 
 const op = (label, type, extra = {}) => typed(label, type, { kind: "op", ...extra });
 
-// The number block, 5 × 4, right of the side block: a Casio's (DEL AC, × ÷, + −,
-// Ans =), with π in the place of Exp (π is that key's shifted function there)
+// The number block, 5 × 4 across the whole width: a Casio's (DEL AC, × ÷, + −, Ans =),
+// with π in the place of Exp (π is that key's shifted function there)
 const PAD = [
   typed("7", "7"), typed("8", "8"), typed("9", "9"),
   { label: "⌫", kind: "ctl", action: backspace, hold: clearLine, tip: "Hold to clear the line, as AC does" },
@@ -137,7 +146,8 @@ const PAD = [
   { label: "⏎", kind: "enter", action: enter },
 ];
 
-// The row above both blocks: the caret, and what every page needs (sin(x)^2 = …)
+// The row between the soft keys and the number block: the caret, and what every menu
+// needs (sin(x)^2 = …)
 const TOP = [
   { label: "◀", kind: "ctl", repeat: true, action: () => moveCaret(-1) },
   { label: "▶", kind: "ctl", repeat: true, action: () => moveCaret(1) },
@@ -177,12 +187,11 @@ function keyButton(spec, extraClass = "") {
 }
 
 function renderKeys() {
-  const pages = sidePages();
   const keys = keypadEl.querySelector(".keys");
   const tabs = el("div", "tabs");
   const left = el("div", "group");
   const right = el("div", "group");
-  for (const [name, label, tip] of PAGES) {
+  for (const [name, label, tip] of MENUS) {
     left.append(keyButton({ label, tex: true, tip, kind: touch.page === name ? "tab active" : "tab", action: () => setPage(name) }));
   }
   right.append(
@@ -191,19 +200,31 @@ function renderKeys() {
     keyButton({ label: "⋯", kind: "tab menu-key", tip: "Math input, variables, help, clear", action: toggleMenu }),
   );
   tabs.append(left, right);
-  // 8 columns: the side block's 3 (the third with a little more room after it), then 5
-  const grid = el("div", "grid");
-  const side = pages[touch.page];
-  TOP.forEach((spec, i) => grid.append(keyButton(spec, i === 2 ? "split" : "")));
-  for (let row = 0; row < 4; row++) {
-    side.slice(row * 3, row * 3 + 3).forEach((spec, i) => grid.append(keyButton(spec, i === 2 ? "side split" : "side")));
-    for (const spec of PAD.slice(row * 5, row * 5 + 5)) grid.append(keyButton(spec));
-  }
-  keys.replaceChildren(tabs, grid);
+
+  const menu = menus()[touch.page];
+  const pages = Math.ceil(menu.length / SOFT_KEYS);
+  touch.softPage %= pages;
+  const soft = el("div", "soft");
+  for (const spec of menu.slice(touch.softPage * SOFT_KEYS, (touch.softPage + 1) * SOFT_KEYS)) soft.append(keyButton(spec));
+  soft.append(keyButton({ label: `${touch.softPage + 1}/${pages} ▸`, kind: "next", tip: "The menu's next page (or swipe the row)", action: () => turnPage(1) }));
+
+  const top = el("div", "top");
+  for (const spec of TOP) top.append(keyButton(spec));
+  const pad = el("div", "pad");
+  for (const spec of PAD) pad.append(keyButton(spec));
+  keys.replaceChildren(tabs, soft, top, pad);
 }
 
+// A menu opens on its first page
 function setPage(name) {
   touch.page = name;
+  touch.softPage = 0;
+  renderKeys();
+}
+
+function turnPage(delta) {
+  const pages = Math.ceil(menus()[touch.page].length / SOFT_KEYS);
+  touch.softPage = (touch.softPage + delta + pages) % pages;
   renderKeys();
 }
 
@@ -307,7 +328,7 @@ function onPointerDown(e) {
   const spec = keySpecs.get(key);
   key.setPointerCapture?.(e.pointerId);
   key.classList.add("down");
-  const press = { key, spec, id: e.pointerId, held: false, cell: null, timer: null };
+  const press = { key, spec, id: e.pointerId, held: false, cell: null, timer: null, x: e.clientX, y: e.clientY };
   touch.press = press;
   if (inPopup) return;
   if (spec.repeat) {
@@ -330,7 +351,20 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
   const press = touch.press;
-  if (!press || e.pointerId !== press.id || !touch.popup) return;
+  if (!press || e.pointerId !== press.id) return;
+  if (!touch.popup && !press.held && press.key.closest(".soft")) {
+    // a sideways drag on the soft keys turns the menu's page, instead of pressing a key
+    const dx = e.clientX - press.x;
+    if (Math.abs(dx) > SWIPE_PX && Math.abs(dx) > 1.5 * Math.abs(e.clientY - press.y)) {
+      clearTimeout(press.timer);
+      press.key.classList.remove("down");
+      press.held = true; // so letting go does nothing more
+      touch.press = null;
+      turnPage(dx < 0 ? 1 : -1);
+    }
+    return;
+  }
+  if (!touch.popup) return;
   const under = document.elementFromPoint(e.clientX, e.clientY)?.closest(".key");
   press.cell = under && touch.popup.contains(under) ? under : null;
   touch.popup.querySelectorAll(".key").forEach((k) => k.classList.toggle("hot", k === press.cell));
