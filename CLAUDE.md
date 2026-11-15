@@ -9,7 +9,7 @@ server, published at https://jmelis.github.io/calc/.
 
 ```bash
 make serve        # builds the bundle if needed, then serves http://127.0.0.1:8000 (file:// doesn't work)
-make test         # uv run pytest; test_latex.py also needs node, test_bundle.py the bundle, test_keypad.py node's Playwright
+make test         # uv run pytest; test_latex.py and test_roundtrip_fuzz.py (random expressions typeset and read back) also need node, test_bundle.py the bundle, test_keypad.py node's Playwright
 make bundle       # sympy-bytecode.zip, plot-bytecode.zip: precompiled for the browser (tools/build_bundle.py)
 uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pytest
 ```

@@ -53,10 +53,10 @@ class _Renderer:
         return _paren(s) if prec < min_prec else s
 
     def right(self, node, min_prec):
-        """Right operand of a binary operator: also parenthesize negatives (x - (-3))."""
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-            return _paren(self.tex(node))
-        return self.tex(node, min_prec)
+        """Right operand of a binary operator: also parenthesize whatever starts with a minus
+        sign (x - (-3), and a * (-b c), which would read a - b c)."""
+        text = self.tex(node, min_prec)
+        return _paren(text) if text.startswith("-") else text
 
     # --- atoms ---
 
@@ -149,6 +149,8 @@ class _Renderer:
 
     def _UnaryOp(self, node):
         if isinstance(node.op, ast.USub):
+            if isinstance(node.operand, ast.UnaryOp) and isinstance(node.operand.op, ast.USub):
+                return f"-{_paren(self.tex(node.operand))}", PREC_NEG  # not --x
             return f"-{self.tex(node.operand, PREC_NEG)}", PREC_NEG
         if isinstance(node.op, ast.UAdd):
             return self.render(node.operand)

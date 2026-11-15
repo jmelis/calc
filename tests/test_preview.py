@@ -15,6 +15,10 @@ from calc.preview import preview
         ("x - (1 + 2)", r"x - \left(1 + 2\right)"),
         ("2x + 3y", "2 x + 3 y"),
         ("x*-3", r"x \left(-3\right)"),
+        ("sin(pi) (-0.5 x)", r"\sin\left(\pi\right) \left(-0.5 x\right)"),  # not sin π - 0.5 x
+        ("x + (-1.5 - y)", r"x + \left(-1.5 - y\right)"),
+        ("x - (-2 y)", r"x - \left(-2 y\right)"),
+        ("-(-x)", r"-\left(-x\right)"),
         ("3*0.45^2", r"3 \cdot {0.45}^{2}"),  # not 30.45^2
         ("3*(5!)^2", r"3 \cdot {5!}^{2}"),
         ("0.45*(1/2)", r"0.45 \cdot \frac{1}{2}"),
