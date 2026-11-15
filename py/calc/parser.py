@@ -129,10 +129,23 @@ def implicit_application(tokens, local_dict, global_dict):
     return _flatten(res3)
 
 
+# 1E3 is a thousand, not 1000.0: E notation without a decimal point or a negative
+# exponent is a whole number, as 1000 is (1E-3, like 0.001, stays a float)
+E_NOTATION_RE = re.compile(r"(\d+)[eE]\+?(\d+)")
+
+
+def exact_e_notation(tokens, local_dict, global_dict):
+    out = []
+    for num, value in tokens:
+        match = E_NOTATION_RE.fullmatch(value) if num == tokenize.NUMBER else None
+        out.append((num, str(int(match[1]) * 10 ** int(match[2]))) if match else (num, value))
+    return out
+
+
 # Names are whole words, defined or not: xy is the name xy, never x*y (write x y or
 # x*y), so a name's meaning doesn't change when something gets defined. sympy's
 # split_symbols is deliberately left out.
-TRANSFORMATIONS = standard_transformations + (
+TRANSFORMATIONS = (exact_e_notation,) + standard_transformations + (
     convert_xor,
     reject_unknown_calls,
     hide_keywords,

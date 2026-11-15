@@ -94,7 +94,7 @@ const KEYPAD = [
   op("÷", "/", { letter: "h", second: fn("\\pi", "pi", "\\pi", "", { legend: "π" }) }),
 
   fn("x^2", "^2", "^2", "Squares what's before the cursor (on an empty line, the last result)", { letter: "i", second: fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}", "", { legend: "√" }) }),
-  typed(",", ",", { letter: "j", second: fn("EE", "*10^(|)", "\\cdot 10^{#0}", "", { legend: "EE" }) }),
+  typed(",", ",", { letter: "j", second: fn("E", "E", "\\cdot 10^{#0}", "A power of ten: 1E3 is 1000, 6.02E23 a float", { legend: "E" }) }),
   typed("(", "(", { letter: "k", second: typed("[", "[", { legend: "[" }) }),
   typed(")", ")", { letter: "l", second: typed("]", "]", { legend: "]" }) }),
   op("×", "*", { letter: "m", second: fn("e", "e", "e", "", { legend: "e" }) }),

@@ -1,5 +1,5 @@
 import pytest
-from sympy import Eq, Integer, Lambda, Rational, Symbol, pi, sin, sqrt, symbols
+from sympy import Eq, Float, Integer, Lambda, Rational, Symbol, pi, sin, sqrt, symbols
 
 from calc.parser import _GLOBALS, UnknownFunctionError, classify, parse, rewrite_degrees, rewrite_inner_equations
 
@@ -35,10 +35,19 @@ def ns():
         ("sin(30º)", Rational(1, 2)),  # º, the look-alike on Option+0
         ("atan(1)/1°", Integer(45)),  # ° binds tighter than /
         ("cos(60°) + -30°", Rational(1, 2) - pi / 6),
+        ("1E3", Integer(1000)),  # a whole number, as 1000 is
+        ("1E3/3", Rational(1000, 3)),
+        ("3E2x", 300 * x),
+        ("2E", 2 * sympy_E),  # E alone is still Euler's number
     ],
 )
 def test_parse(ns, src, expected):
     assert parse(src, ns) == expected
+
+
+def test_e_notation_with_a_point_or_a_negative_exponent_is_a_float(ns):
+    assert parse("6.02E23", ns) == Float("6.02E23")
+    assert parse("5E-3", ns) == Float("0.005")
 
 
 @pytest.mark.parametrize(

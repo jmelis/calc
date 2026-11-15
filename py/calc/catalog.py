@@ -11,6 +11,7 @@ SYMPY = {
         ("ans", "", "The last result", "ans^2"),
         ("x y", "", "A space or * multiplies; xy is a single name, like velocity or x2", "x y"),
         ("$n", "", "The result of tape entry n (insert one by picking it with ↑)", "$3 + 1"),
+        ("1E3", "", "A power of ten: 1E3 is 1000 exactly, 6.02E23 a decimal", "1E3"),
         ("a = …", "", "Assign a variable", "a = 3/7"),
         ("f(x) = …", "", "Define a function", "f(x) = x^2 + 1"),
         ("lhs = rhs", "", "Anything else with = is an equation", "x^2 = 4"),

@@ -273,6 +273,7 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `x^2 = 4`, `solve(x^2 = 2, x)` | Other `=` is an equation, also inside calls (keyword arguments excepted) |
 | `ans`, `$3` | Last result; result of entry 3. A leading `+ * / ^ -` continues from `ans` (`--5` types `-5`) |
 | `sin(30°)` | Degrees |
+| `1E3`, `6.02E23` | A power of ten (2nd `,` on the keypad). With no decimal point or negative exponent it stays exact: `1E3` is 1000, `6.02E23` a float (`exact_e_notation`) |
 | `e`, `I`, `pi`, `oo` | Constants (`e` is `E`) |
 | `M[1, 2]`, `M[[1, 2], [3, 4]]`, `V[1, 2]` | A matrix row, a matrix from rows, a column vector (`matrices.py`) |
 | `A[0, 1] = 5`, `A[1, :] = M[7, 8]`, `v[0] = 9` | Change part of a defined value (shows the whole value; earlier `$n` keep theirs) |
