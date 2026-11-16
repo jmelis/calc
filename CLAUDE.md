@@ -16,7 +16,7 @@ uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pyte
 
 Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundles and runs the
 tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
-`py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`). A new top-level file the page needs
+`apple-touch-icon.png`, `py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`). A new top-level file the page needs
 must be added to that workflow's copy step (`tests/test_site.py` fails until it is).
 
 GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `src`/`href` with

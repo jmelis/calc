@@ -11,7 +11,7 @@ LOCAL = [ref for ref in re.findall(r'(?:src|href)="([^"]+)"', INDEX) if not re.m
 
 
 def test_index_loads_local_files():
-    assert {"app.js", "app.css", "keypad.js", "touch.css"} <= set(LOCAL)
+    assert {"app.js", "app.css", "keypad.js", "touch.css", "apple-touch-icon.png"} <= set(LOCAL)
 
 
 def test_deploy_copies_what_index_loads():
@@ -24,4 +24,6 @@ def test_deploy_stamps_what_index_loads():
     pattern, replacement = re.search(r"sed -i -E 's/(.+?)/(.+?)/' _site/index.html", WORKFLOW).groups()
     stamped = re.sub(pattern, replacement.replace("\\1", r"\g<1>").replace("\\2", r"\g<2>"), INDEX)
     for name in LOCAL:
+        if not name.endswith((".js", ".css")):
+            continue  # the icon is copied, not stamped
         assert f'"{name}?v=${{{{ github.sha }}}}"' in stamped, name
