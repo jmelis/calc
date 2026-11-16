@@ -121,6 +121,11 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Setting parts** (`A[0, 1] = 5`, `A[1, :] = M[7, 8]`, `v[0] = 9`): an indexed left side of `=`
   is an assignment (`setitem` in `classify`), done on a deep copy that then replaces the variable,
   so earlier `$n` keep their values.
+- **Brackets** (`bracketKey`, app.js): in the text input `(`, `[` and `{` add their closing bracket
+  (a selection is wrapped), typing the closing one steps over it, ⌫ inside an empty pair takes both.
+  Nothing is added in front of a name or number (`(|2x`), as in a code editor. The keypad gets it
+  for free (`typeText` sends the keydown first), MathLive's math input closes its own fences, and
+  `tests/keypad.mjs` checks both layouts' typing.
 - **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
   Python directly; any other line that isn't calculator syntax falls back to Python. One line, with
   `;` between statements. They're plain Python: `^` is XOR and nothing is implied (Help says so).

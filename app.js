@@ -529,6 +529,47 @@ function insertAtCursor(text, replaceFrom = null) {
   schedulePreview();
 }
 
+// Brackets: typing ( [ { adds the closing one with the cursor between, typing the closing one
+// where it already stands steps over it, and ⌫ inside an empty pair takes both. A selection
+// is wrapped (and stays selected). Nothing is added in front of a name or number
+// (|2x), where the closing bracket belongs further on, as in a code editor. Text input
+// only: MathLive's math input closes its own fences. Returns whether it took the key.
+const BRACKETS = new Map([["(", ")"], ["[", "]"], ["{", "}"]]);
+
+function hasUnclosed(text, open, close) {
+  let depth = 0;
+  for (const c of text) {
+    if (c === open) depth++;
+    else if (c === close && depth > 0) depth--;
+  }
+  return depth > 0;
+}
+
+function bracketKey(e) {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return false;
+  const { value, selectionStart: start, selectionEnd: end } = input;
+  const next = value[end] ?? "";
+  if (BRACKETS.has(e.key)) {
+    const close = BRACKETS.get(e.key);
+    if (start !== end) {
+      input.setRangeText(e.key + value.slice(start, end) + close, start, end, "end");
+      input.setSelectionRange(start + 1, end + 1);
+    } else if (/^[\s)\]},]?$/.test(next)) {
+      input.setRangeText(e.key + close, start, end, "end");
+      input.setSelectionRange(start + 1, start + 1);
+    } else return false;
+  } else if ([...BRACKETS.values()].includes(e.key) && start === end && next === e.key) {
+    const open = [...BRACKETS].find(([, close]) => close === e.key)[0];
+    if (!hasUnclosed(value.slice(0, start), open, e.key)) return false;
+    input.setSelectionRange(start + 1, start + 1); // step over it
+  } else if (e.key === "Backspace" && start === end && BRACKETS.get(value[start - 1]) === next && next) {
+    input.setRangeText("", start - 1, start + 1, "end");
+  } else return false;
+  e.preventDefault();
+  schedulePreview();
+  return true;
+}
+
 // --- the palette: keys.js's menus --------------------------------------------------
 //
 // Tabs pick a menu (the touch keypad's, same order), and its keys fill one row. A key's
@@ -774,6 +815,7 @@ input.addEventListener("keydown", (e) => {
     return;
   }
   if (state.selected) return browseKey(e);
+  if (bracketKey(e)) return;
 
   if (e.key === "ArrowUp") {
     e.preventDefault();
@@ -825,6 +867,7 @@ function browseKey(e) {
   } else {
     // anything else goes back to typing (and still reaches the input)
     select(null);
+    bracketKey(e);
   }
 }
 

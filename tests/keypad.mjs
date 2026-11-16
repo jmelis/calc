@@ -161,6 +161,25 @@ await page.keyboard.press("Escape");
 s = await now();
 check(s.view === null && s.input === "", "keyboard: then Esc goes back", s);
 
+// brackets close themselves: ( adds ), typing ) steps over it, ⌫ inside an empty pair takes both
+const caret = () => page.evaluate(() => [input.selectionStart, input.selectionEnd].join());
+await key("(");
+s = await now();
+check(s.input === "()" && (await caret()) === "1,1", "( adds its closing bracket", [s.input, await caret()]);
+await keys("7", ")", "+");
+s = await now();
+check(s.input === "(7)+" && (await caret()) === "4,4", "typing ) steps over the closing bracket", [s.input, await caret()]);
+await keys("2nd", "(", "⌫");
+s = await now();
+check(s.input === "(7)+" && (await caret()) === "4,4", "2nd ( is [ and ⌫ inside the empty pair takes both", [s.input, await caret()]);
+await keys("clear", "2nd", "−");
+s = await now();
+check(s.input === "{}", "2nd − is { and closes too", s);
+await page.keyboard.press("Escape");
+await page.keyboard.type("f(x, [1, 2])");
+s = await now();
+check(s.input === "f(x, [1, 2])" && (await caret()) === "12,12", "a keyboard types through the closing brackets", [s.input, await caret()]);
+
 console.log(failures.join("\n"));
 await browser.close();
 process.exit(failures.length ? 1 : 0);
