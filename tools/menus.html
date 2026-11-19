@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu editor</title>
+<!-- menus.json by drag and drop. Not part of the site (the deploy doesn't copy it): run
+     `make serve` and open http://127.0.0.1:8000/tools/menus.html, which reads ../menus.json
+     and the catalog's functions (../py/calc/catalog.py). Save writes the file back where the
+     browser can (Chrome, Edge: the File System Access API), Download and Copy anywhere. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+  :root {
+    --page: #f3f1ec; --text: #1d1d1f; --muted: #6e6e73; --rule: #dcd8cf; --panel: #fff;
+    --body: #2a2c30; --lcd: #c9cdc0; --ink: #23281f; --soft-bg: #23281f; --soft-text: #c9cdc0;
+    --up: #9a3a0c; --up-bg: rgba(181, 71, 15, 0.12); --accent: #c2410c; --warn: #b7791f; --bad: #c0362c;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace; --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text); font: 14px var(--sans); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--page); border-bottom: 1px solid var(--rule); }
+  header h1 { margin: 0 12px 0 0; font-size: 17px; }
+  header .source { color: var(--muted); font-size: 12.5px; margin-right: auto; }
+  header .dirty { color: var(--accent); font-weight: 600; }
+  button { font: inherit; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.small { padding: 1px 7px; font-size: 12px; }
+  button.armed { background: var(--bad); border-color: var(--bad); color: #fff; }
+  input[type=text] { font: 13px var(--mono); padding: 4px 6px; border: 1px solid var(--rule); border-radius: 5px; background: #fff; min-width: 0; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; padding: 16px 20px 40px; align-items: start; }
+
+  /* the menus, as the calculator draws them: per page, shift's row over F1–F5's */
+  #menus { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+  .menu { background: var(--body); border-radius: 12px; padding: 10px; color: #ecedef; }
+  .menu.top { grid-column: 1 / -1; }
+  .menu-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .menu-head .name { width: 120px; background: #3b3e44; color: #fff; border-color: #50545b; font-weight: 600; }
+  .menu-head .title { font: 600 14px var(--mono); padding: 0 4px; }
+  .menu-head .opened { color: #b9bcc2; font-size: 12px; margin-right: auto; }
+  .menu-head .opened.orphan { color: #f0b46a; }
+  .menu-head button { background: #3b3e44; color: #ecedef; border-color: #50545b; }
+  .page { position: relative; background: var(--lcd); border-radius: 7px; padding: 6px 6px 18px; margin-top: 6px; }
+  .page .n { position: absolute; left: 8px; bottom: 3px; font: 10px var(--mono); color: #4c5446; }
+  .page .drop-page { position: absolute; right: 6px; bottom: 2px; font-size: 10.5px; padding: 0 5px; border: 0; background: none; color: #4c5446; }
+  .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .row + .row { margin-top: 4px; }
+  .row-label { font: 9.5px var(--mono); color: #4c5446; margin: 0 0 2px 2px; }
+  .slot { height: 30px; border-radius: 4px; border: 1.5px dashed rgba(35, 40, 31, 0.28); display: flex; }
+  .upper .slot { height: 26px; }
+  .slot.over { border-color: var(--accent); background: rgba(194, 65, 12, 0.15); }
+  .chip { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 3px; border-radius: 3px; cursor: grab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; }
+  .lower .chip { background: var(--soft-bg); color: var(--soft-text); font-size: 13px; }
+  .upper .chip { background: var(--up-bg); color: var(--up); font-size: 12px; font-weight: 600; }
+  .chip .katex { font-size: 1em; }
+  .chip.menu-link { box-shadow: inset 0 2px 0 currentColor; }
+  .chip.view { font-style: italic; }
+  .chip.unknown { outline: 2px dotted var(--warn); outline-offset: -2px; }
+  .chip.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .menu-foot { display: flex; gap: 6px; margin-top: 8px; }
+  .menu-foot button { background: #3b3e44; color: #ecedef; border-color: #50545b; }
+
+  /* the palette and the inspector */
+  aside { position: sticky; top: 60px; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 76px); overflow: auto; }
+  .box { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; }
+  .box h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .box p { margin: 0 0 8px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+  #search { width: 100%; margin-bottom: 8px; }
+  .group-title { font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+  .items { display: flex; flex-wrap: wrap; gap: 4px; }
+  .item { padding: 2px 7px; border-radius: 4px; background: #efece6; font: 12.5px var(--mono); cursor: grab; user-select: none; }
+  .item.menu-link { box-shadow: inset 0 2px 0 var(--ink); }
+  .item.view { font-style: italic; }
+  .item.selected { outline: 2px solid var(--accent); }
+  .add { display: flex; gap: 6px; margin-top: 8px; }
+  .add input { flex: 1; }
+  #trash { padding: 14px; border: 2px dashed var(--rule); border-radius: 10px; text-align: center; color: var(--muted); }
+  #trash.over { border-color: var(--bad); color: var(--bad); background: #fdecea; }
+  #inspector label { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 6px; margin: 5px 0; font-size: 12.5px; color: var(--muted); }
+  #inspector .what { font: 600 15px var(--mono); }
+  #inspector .kind { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  #problems li { margin: 3px 0; font-size: 12.5px; }
+  #problems .bad { color: var(--bad); }
+  #problems .warn { color: var(--warn); }
+  #json { max-height: 300px; overflow: auto; font: 11px var(--mono); background: #faf9f6; padding: 8px; border-radius: 6px; white-space: pre; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>menus.json</h1>
+  <span class="source" id="source">loading…</span>
+  <button id="undo" title="⌘Z / Ctrl+Z">Undo</button>
+  <button id="open">Open…</button>
+  <button id="download">Download</button>
+  <button id="copy">Copy JSON</button>
+  <button id="save" class="primary">Save</button>
+</header>
+<main>
+  <section id="menus"></section>
+  <aside>
+    <div class="box">
+      <h2>Drag into a menu</h2>
+      <p>Drop on a slot to put it there; drag a slot onto another to swap them (hold ⌥/Alt to copy). A menu dropped in a menu opens it.</p>
+      <input type="text" id="search" placeholder="Filter…" autocomplete="off" spellcheck="false">
+      <div id="palette"></div>
+      <div class="add"><input type="text" id="new-key" placeholder="new key name" spellcheck="false"><button id="add-key">Add key</button></div>
+      <div class="add"><input type="text" id="new-menu" placeholder="new menu name" spellcheck="false"><button id="add-menu">Add menu</button></div>
+    </div>
+    <div id="trash">Drop here to take it out</div>
+    <div class="box" id="inspector"><h2>Key</h2><p>Click a label to see and change what it inserts.</p></div>
+    <div class="box"><h2>Checks</h2><ul id="problems" style="margin:0;padding-left:18px"></ul></div>
+    <details class="box"><summary>JSON</summary><pre id="json"></pre></details>
+  </aside>
+</main>
+<script>
+// The model is menus.json itself, with every row padded to five; render() draws it, and
+// every change goes through change(), which keeps an undo history.
+
+const VIEWS = ["vars", "catalog", "help", "setup"]; // keypad.js's VIEW_ITEMS
+const BUILTINS = ["abs", "sum", "min", "max", "sorted", "len", "round", "list", "range", "set", "tuple", "zip", "map", "filter", "any", "all", "pow", "divmod", "reversed", "enumerate", "print"]; // Python's, in the namespace too
+const OPENED_BY = { top: "the menu key", trig: "the trig key", hyp: "shift trig", test: "shift =" }; // keypad.js's KEYPAD
+const KEY_FIELDS = [
+  ["label", "what the soft key shows (default: its name)"],
+  ["tex", "LaTeX to show instead of the label"],
+  ["insert", "what it types: | is the cursor (default: name(|))"],
+  ["math", "the same for math input, in LaTeX: #0 the cursor, #? a box"],
+];
+
+let data = null;
+let catalogFunctions = []; // catalog.py's functions, for the palette
+let selected = null; // the name shown in the inspector
+let fileHandle = null; // where Save writes (File System Access API)
+let history = [];
+let dirty = false;
+let resetArmed = null; // the menu whose delete button asks for a second click
+
+const $ = (sel) => document.querySelector(sel);
+const el = (tag, className, text) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+const pad = (row) => Array.from({ length: 5 }, (_, i) => row?.[i] ?? null);
+const menuNames = () => ["top", ...Object.keys(data.menus)];
+const rowsOf = (name) => (name === "top" ? data.top : data.menus[name]);
+
+// --- loading and saving ----------------------------------------------------------------
+
+function load(json, source) {
+  data = JSON.parse(json);
+  data.about ??= [];
+  data.top ??= [[]];
+  data.menus ??= {};
+  data.keys ??= {};
+  for (const name of menuNames()) normalize(name);
+  history = [];
+  dirty = false;
+  selected = null;
+  $("#source").textContent = source;
+  render();
+}
+
+// rows of five, an even number of them (each page a plain row and a shift row)
+function normalize(name) {
+  const rows = rowsOf(name).map(pad);
+  if (rows.length % 2) rows.push(pad([]));
+  if (!rows.length) rows.push(pad([]), pad([]));
+  if (name === "top") data.top = rows;
+  else data.menus[name] = rows;
+}
+
+// menus.json as it's written by hand: a row per line, a key per line, keys grouped by the
+// menu they first appear in
+function format() {
+  const q = JSON.stringify;
+  const rows = (rs, indent) => {
+    const kept = [...rs];
+    while (kept.length > 1 && kept.at(-1).every((x) => x === null)) kept.pop(); // a last empty row
+    return `[\n${kept.map((r) => `${indent}  [${r.map(q).join(", ")}]`).join(",\n")}\n${indent}]`;
+  };
+  const groups = [];
+  const seen = new Set();
+  for (const name of menuNames()) {
+    const group = rowsOf(name).flat().filter((n) => n !== null && data.keys[n] && !seen.has(n));
+    group.forEach((n) => seen.add(n));
+    if (group.length) groups.push([...new Set(group)]);
+  }
+  const unused = Object.keys(data.keys).filter((n) => !seen.has(n));
+  if (unused.length) groups.push(unused);
+  const key = (n) => `    ${q(n)}: { ${Object.entries(data.keys[n]).map(([f, v]) => `${q(f)}: ${q(v)}`).join(", ")} }`;
+  const keys = groups.map((g) => g.map(key).join(",\n")).join(",\n\n");
+  const menus = Object.keys(data.menus).map((n) => `    ${q(n)}: ${rows(data.menus[n], "    ")}`).join(",\n");
+  return `{
+  "about": [
+${data.about.map((line) => `    ${q(line)}`).join(",\n")}
+  ],
+
+  "top": ${rows(data.top, "  ")},
+
+  "menus": {
+${menus}
+  },
+
+  "keys": {
+${keys}
+  }
+}
+`;
+}
+
+async function fetchStart() {
+  try {
+    const response = await fetch("../menus.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(response.statusText);
+    load(await response.text(), "../menus.json (Save asks where to write it)");
+  } catch {
+    $("#source").textContent = "Open menus.json to start (or run make serve and open /tools/menus.html)";
+  }
+  try {
+    const py = await (await fetch("../py/calc/catalog.py", { cache: "no-store" })).text();
+    // ("solve", "(expr, x)", …): a function when its signature is an argument list; and the
+    // ones a summary names besides ("Sine; also cos, tan, cot, sec, csc")
+    catalogFunctions = [...py.matchAll(/^\s*\("(\w+)", "\(/gm)].map((m) => m[1]);
+    for (const m of py.matchAll(/also ((?:\w+, )*\w+)/g)) catalogFunctions.push(...m[1].split(", "));
+  } catch {}
+  if (data) render();
+}
+
+async function openFile() {
+  if (window.showOpenFilePicker) {
+    const [handle] = await showOpenFilePicker({ types: [{ description: "menus.json", accept: { "application/json": [".json"] } }] });
+    fileHandle = handle;
+    load(await (await handle.getFile()).text(), `${handle.name} (Save writes it back)`);
+    return;
+  }
+  const picker = Object.assign(el("input"), { type: "file", accept: ".json" });
+  picker.onchange = async () => load(await picker.files[0].text(), `${picker.files[0].name} (Download to keep the changes)`);
+  picker.click();
+}
+
+async function save() {
+  if (!data) return;
+  if (!fileHandle && window.showSaveFilePicker) {
+    fileHandle = await showSaveFilePicker({ suggestedName: "menus.json", types: [{ description: "menus.json", accept: { "application/json": [".json"] } }] });
+    $("#source").textContent = `${fileHandle.name} (Save writes it back)`;
+  }
+  if (!fileHandle) return download();
+  const writable = await fileHandle.createWritable();
+  await writable.write(format());
+  await writable.close();
+  dirty = false;
+  render();
+  toast(`Saved ${fileHandle.name}`);
+}
+
+function download() {
+  const a = Object.assign(el("a"), { href: URL.createObjectURL(new Blob([format()], { type: "application/json" })), download: "menus.json" });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function toast(text) {
+  const t = el("div", "toast", text);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 1600);
+}
+
+// --- changes -----------------------------------------------------------------------
+
+function change(fn) {
+  history.push(JSON.stringify(data));
+  fn();
+  dirty = true;
+  render();
+}
+
+function undo() {
+  if (!history.length) return;
+  data = JSON.parse(history.pop());
+  dirty = history.length > 0;
+  render();
+}
+
+function setSlot({ menu, row, col }, name) {
+  rowsOf(menu)[row][col] = name;
+}
+
+function getSlot({ menu, row, col }) {
+  return rowsOf(menu)[row][col];
+}
+
+function renameMenu(from, to) {
+  to = to.trim();
+  if (!to || to === from) return render();
+  if (!/^[\w-]+$/.test(to) || menuNames().includes(to) || VIEWS.includes(to)) {
+    toast(`Can't call it ${to}`);
+    return render();
+  }
+  change(() => {
+    data.menus = Object.fromEntries(Object.entries(data.menus).map(([n, rows]) => [n === from ? to : n, rows]));
+    for (const name of menuNames()) for (const row of rowsOf(name)) row.forEach((x, i) => x === from && (row[i] = to));
+  });
+}
+
+function deleteMenu(name) {
+  if (resetArmed !== name) {
+    resetArmed = name;
+    render();
+    setTimeout(() => resetArmed === name && ((resetArmed = null), render()), 3000);
+    return;
+  }
+  resetArmed = null;
+  change(() => {
+    delete data.menus[name];
+    for (const n of menuNames()) for (const row of rowsOf(n)) row.forEach((x, i) => x === name && (row[i] = null));
+  });
+}
+
+// --- what a name is ------------------------------------------------------------------
+
+function kind(name) {
+  if (name === "top" || data.menus[name]) return "menu";
+  if (VIEWS.includes(name)) return "view";
+  if (data.keys[name]) return "key";
+  if (catalogFunctions.includes(name) || BUILTINS.includes(name)) return "function";
+  return "unknown";
+}
+
+function insertOf(name) {
+  return data.keys[name]?.insert ?? `${name}(|)`;
+}
+
+function labelInto(node, name) {
+  const def = data.keys[name] ?? {};
+  if (def.tex && window.katex) {
+    try {
+      katex.render(def.tex, node, { throwOnError: true });
+      return;
+    } catch {}
+  }
+  node.textContent = def.label ?? def.tex ?? name;
+}
+
+function chipClass(name) {
+  const k = kind(name);
+  return { menu: "menu-link", view: "view", unknown: "unknown" }[k] ?? "";
+}
+
+function tooltip(name) {
+  const k = kind(name);
+  if (k === "menu") return `${name}: opens that menu`;
+  if (k === "view") return `${name}: opens the ${name} view`;
+  if (k === "unknown") return `${name}: inserts ${insertOf(name)} (not in the catalog: check SymPy has it)`;
+  return `${name}: inserts ${insertOf(name)}`;
+}
+
+// --- drag and drop ---------------------------------------------------------------------
+
+function dragFrom(node, payload) {
+  node.draggable = true;
+  node.addEventListener("dragstart", (e) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = "copyMove";
+  });
+}
+
+function dropOn(node, onDrop) {
+  node.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    node.classList.add("over");
+  });
+  node.addEventListener("dragleave", () => node.classList.remove("over"));
+  node.addEventListener("drop", (e) => {
+    e.preventDefault();
+    node.classList.remove("over");
+    const payload = JSON.parse(e.dataTransfer.getData("text/plain") || "null");
+    if (payload) onDrop(payload, e);
+  });
+}
+
+// a slot: a palette item lands there; another slot swaps with it (Alt: copies)
+function dropOnSlot(target) {
+  return (payload, e) => {
+    if (!payload.from) return change(() => setSlot(target, payload.name));
+    const same = ["menu", "row", "col"].every((k) => payload.from[k] === target[k]);
+    if (same) return;
+    change(() => {
+      const there = getSlot(target);
+      setSlot(target, payload.name);
+      if (!e.altKey) setSlot(payload.from, there);
+    });
+  };
+}
+
+// --- rendering ------------------------------------------------------------------------
+
+function render() {
+  if (!data) return;
+  renderMenus();
+  renderPalette();
+  renderInspector();
+  renderProblems();
+  $("#json").textContent = format();
+  $("#undo").disabled = !history.length;
+  const source = $("#source");
+  source.classList.toggle("dirty", dirty);
+  source.textContent = source.textContent.replace(/^• /, "");
+  if (dirty) source.textContent = `• ${source.textContent}`;
+}
+
+function linkedFrom(name) {
+  return menuNames().filter((n) => rowsOf(n).flat().includes(name));
+}
+
+function renderMenus() {
+  const box = $("#menus");
+  box.replaceChildren();
+  for (const name of menuNames()) {
+    const menu = el("div", `menu${name === "top" ? " top" : ""}`);
+    const head = el("div", "menu-head");
+    if (name === "top") head.append(el("span", "title", "top"));
+    else {
+      const input = Object.assign(el("input", "name"), { type: "text", value: name, spellcheck: false });
+      input.addEventListener("change", () => renameMenu(name, input.value));
+      input.addEventListener("keydown", (e) => e.key === "Enter" && input.blur());
+      head.append(input);
+    }
+    const from = linkedFrom(name).filter((n) => n !== name);
+    const opened = [OPENED_BY[name], ...from.map((n) => `${n}'s soft keys`)].filter(Boolean);
+    head.append(el("span", `opened${opened.length ? "" : " orphan"}`, opened.length ? `opened by ${opened.join(", ")}` : "not opened by anything"));
+    if (name !== "top") {
+      const del = el("button", `small${resetArmed === name ? " armed" : ""}`, resetArmed === name ? "delete: again" : "delete");
+      del.addEventListener("click", () => deleteMenu(name));
+      head.append(del);
+    }
+    menu.append(head);
+
+    const rows = rowsOf(name);
+    for (let p = 0; p < rows.length / 2; p++) {
+      const page = el("div", "page");
+      page.append(el("div", "row-label", "shift F1–F5"), renderRow(name, 2 * p + 1, "upper"), el("div", "row-label", "F1–F5"), renderRow(name, 2 * p, "lower"));
+      page.append(el("span", "n", `page ${p + 1}`));
+      if (rows.length > 2) {
+        const drop = el("button", "drop-page", "remove page");
+        drop.addEventListener("click", () => change(() => rows.splice(2 * p, 2)));
+        page.append(drop);
+      }
+      menu.append(page);
+    }
+    const foot = el("div", "menu-foot");
+    const addPage = el("button", "small", "+ page");
+    addPage.addEventListener("click", () => change(() => rows.push(pad([]), pad([]))));
+    foot.append(addPage);
+    menu.append(foot);
+    box.append(menu);
+  }
+}
+
+function renderRow(menu, row, className) {
+  const node = el("div", `row ${className}`);
+  rowsOf(menu)[row].forEach((name, col) => {
+    const at = { menu, row, col };
+    const slot = el("div", "slot");
+    Object.assign(slot.dataset, at);
+    dropOn(slot, dropOnSlot(at));
+    if (name !== null) {
+      const chip = el("div", `chip ${chipClass(name)}${selected === name ? " selected" : ""}`);
+      labelInto(chip, name);
+      chip.title = tooltip(name);
+      dragFrom(chip, { name, from: at });
+      chip.addEventListener("click", () => select(name));
+      slot.append(chip);
+    }
+    node.append(slot);
+  });
+  return node;
+}
+
+function renderPalette() {
+  const q = $("#search").value.trim().toLowerCase();
+  const used = new Set(menuNames().flatMap((n) => rowsOf(n).flat()).filter((n) => n !== null));
+  const groups = [
+    ["Menus (open one from another)", Object.keys(data.menus)],
+    ["Views", VIEWS],
+    ["Keys defined in menus.json", Object.keys(data.keys)],
+    ["Functions (inserted as name(…))", [...new Set([...catalogFunctions, ...[...used].filter((n) => kind(n) === "unknown")])].filter((n) => !data.keys[n] && !data.menus[n]).sort((a, b) => a.localeCompare(b))],
+  ];
+  const box = $("#palette");
+  box.replaceChildren();
+  for (const [title, names] of groups) {
+    const shown = names.filter((n) => !q || n.toLowerCase().includes(q));
+    if (!shown.length) continue;
+    box.append(el("div", "group-title", title));
+    const items = el("div", "items");
+    for (const name of shown) {
+      const item = el("span", `item ${chipClass(name)}${selected === name ? " selected" : ""}`, name);
+      item.title = tooltip(name) + (used.has(name) ? "" : " · in no menu yet");
+      if (!used.has(name)) item.style.opacity = 0.65;
+      dragFrom(item, { name });
+      item.addEventListener("click", () => select(name));
+      items.append(item);
+    }
+    box.append(items);
+  }
+}
+
+function select(name) {
+  selected = selected === name ? null : name;
+  render();
+}
+
+// the selected name: what it is, and for a key or a function, what it inserts (an empty
+// field means the default; clearing them all drops the key's entry)
+function renderInspector() {
+  const box = $("#inspector");
+  box.replaceChildren(el("h2", "", "Key"));
+  if (!selected) {
+    box.append(el("p", "", "Click a label (or a palette item) to see and change what it inserts."));
+    return;
+  }
+  const k = kind(selected);
+  box.append(el("div", "what", selected));
+  if (k === "menu" || k === "view") {
+    box.append(el("div", "kind", k === "menu" ? "a menu: on a soft key, it opens it" : "a view: on a soft key, it opens it"));
+    return;
+  }
+  box.append(el("div", "kind", { key: "a key defined in menus.json", function: "a catalog function: inserts its name(…)", unknown: "not in the catalog: check SymPy has it" }[k]));
+  for (const [field, hint] of KEY_FIELDS) {
+    const label = el("label", "", field);
+    const input = Object.assign(el("input"), { type: "text", spellcheck: false, value: fieldText(selected, field), placeholder: hint });
+    input.title = hint;
+    input.addEventListener("change", () => setField(selected, field, input.value));
+    label.append(input);
+    box.append(label);
+  }
+  const used = linkedFrom(selected);
+  box.append(el("p", "", used.length ? `In ${used.join(", ")}.` : "In no menu yet: drag it into one."));
+}
+
+function fieldText(name, field) {
+  const v = data.keys[name]?.[field];
+  return v === null ? "null" : v ?? "";
+}
+
+function setField(name, field, text) {
+  change(() => {
+    const def = { ...(data.keys[name] ?? {}) };
+    if (text === "") delete def[field];
+    else def[field] = field === "math" && text === "null" ? null : text;
+    if (Object.keys(def).length) data.keys[name] = def;
+    else delete data.keys[name];
+  });
+}
+
+// what tests/test_menus.py would say, and what would surprise on the calculator
+function renderProblems() {
+  const list = $("#problems");
+  list.replaceChildren();
+  const add = (cls, text) => list.append(el("li", cls, text));
+  for (const name of ["trig", "hyp", "test"]) if (!data.menus[name]) add("bad", `No menu "${name}": ${OPENED_BY[name]} opens it`);
+  for (const name of Object.keys(data.menus)) {
+    if (!linkedFrom(name).filter((n) => n !== name).length && !OPENED_BY[name]) add("warn", `Nothing opens "${name}": drop it in a menu`);
+  }
+  const unknown = [...new Set(menuNames().flatMap((n) => rowsOf(n).flat()).filter((n) => n !== null && kind(n) === "unknown"))];
+  if (unknown.length) add("warn", `Not in the catalog (fine if SymPy has them): ${unknown.join(", ")}`);
+  for (const [name, def] of Object.entries(data.keys)) {
+    if ((def.insert ?? "").split("|").length > 2) add("bad", `${name}: more than one | in insert`);
+  }
+  if (!list.children.length) add("", "All good");
+}
+
+// --- wiring ------------------------------------------------------------------------------
+
+dropOn($("#trash"), (payload) => payload.from && change(() => setSlot(payload.from, null)));
+dropOn($("#palette"), (payload) => payload.from && change(() => setSlot(payload.from, null)));
+$("#search").addEventListener("input", renderPalette);
+$("#undo").addEventListener("click", undo);
+$("#open").addEventListener("click", () => openFile().catch(() => {}));
+$("#save").addEventListener("click", () => save().catch((e) => e.name !== "AbortError" && toast(e.message)));
+$("#download").addEventListener("click", download);
+$("#copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(format());
+  toast("Copied menus.json");
+});
+$("#add-key").addEventListener("click", () => {
+  const name = $("#new-key").value.trim();
+  if (!name || data.keys[name]) return;
+  change(() => (data.keys[name] = { label: name }));
+  $("#new-key").value = "";
+  select(name);
+});
+$("#add-menu").addEventListener("click", () => {
+  const name = $("#new-menu").value.trim();
+  if (!/^[\w-]+$/.test(name) || menuNames().includes(name) || VIEWS.includes(name)) return toast(`Can't call it ${name || "that"}`);
+  change(() => (data.menus[name] = [pad([]), pad([])]));
+  $("#new-menu").value = "";
+});
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "z" && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    undo();
+  }
+});
+window.addEventListener("beforeunload", (e) => dirty && e.preventDefault());
+// KaTeX loads deferred: draw the LaTeX labels once it's there
+window.addEventListener("load", () => data && render());
+
+fetchStart();
+</script>
+</body>
+</html>
