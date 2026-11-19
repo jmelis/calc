@@ -136,7 +136,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   on the R47; a label can be tapped too), then 40 equal keys, five by eight:
   `F1–F5`, `shift alpha ▲ esc ⌫`, `trig ◀ ▼ ▶ menu`, `^ ( ) , ÷`, `ln 7 8 9 ×`, `π 4 5 6 −`,
   `= 1 2 3 +`, `x 0 . ans enter`. Each key prints its shift function (top left, `second`: √ [ ] :
-  eˣ i (−) ≤≠ ∞ E ≈, abc on alpha, setup on esc, undo on ⌫, hyp on trig, catalog on menu, vars on
+  eˣ i (−) ≤≠ ∞ E ≈, abc on alpha, clear (the tape) on esc, undo on ⌫, hyp on trig, catalog on menu, vars on
   x, pg/⇤/⇥ on the arrows) and its alpha letter (top right, `letter`): a–z run down five rows
   from trig, the arrows' row included, except x, whose own key types it (`ownLetter`); the soft
   keys never type letters, so completions show while typing in alpha. Shift and alpha apply to

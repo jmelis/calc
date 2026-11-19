@@ -10,7 +10,7 @@
 
   "top": [
     ["calc", "alg", "num", "matrix", "stat"],
-    ["trig", "test", "vars", "catalog", "help"]
+    ["trig", "vars", "catalog", "setup", "help"]
   ],
 
   "menus": {

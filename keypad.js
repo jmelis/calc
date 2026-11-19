@@ -158,7 +158,7 @@ const KEYPAD = [
   SHIFT,
   ALPHA,
   { label: "▲", kind: "nav", repeat: true, nav: "up", action: () => walkTape(-1), tip: "Earlier entries", second: second("pg", action("pg", () => turnPage(-1), { nav: "pgup" })) },
-  action("esc", escKey, { kind: "esc", nav: "clear", tip: "Back out: a view, a selection, alpha, or the line", second: second("setup", action("setup", () => openView("settings"), { anywhere: true })) }),
+  action("esc", escKey, { kind: "esc", nav: "clear", tip: "Back out: alpha, a view, a selection, or the line", second: second("clear", action("clear", clearTapeKey, { anywhere: true })) }),
   { label: "⌫", kind: "del", repeat: true, nav: "del", action: backspace, tip: "Delete before the cursor, or the selected entry", second: second("undo", action("undo", () => undo(), { anywhere: true })) }, // app.js
 
   action("trig", () => openMenu("trig"), { kind: "menu", letter: "a", anywhere: true, second: second("hyp", action("hyp", () => openMenu("hyp"), { anywhere: true })) }),
@@ -408,6 +408,13 @@ function escKey() {
   if (state.selected) return select(null);
   clearEditor();
   edited();
+}
+
+// shift esc: the whole tape (shift ⌫ brings it back, as the status line says)
+function clearTapeKey() {
+  closeView();
+  if (state.selected) select(null);
+  if (!COMMANDS.clear.run()) flash("Python is still loading"); // app.js
 }
 
 function enter() {
@@ -888,7 +895,7 @@ function settingsRows() {
     { label: "Variables", go: "shift x", run: () => openView("vars") },
     { label: "Catalog", go: "shift menu", run: openCatalog },
     { label: "Help", go: "menu", run: () => openView("help") },
-    { label: "Clear the tape", run: () => COMMANDS.clear.run() && closeView() },
+    { label: "Clear the tape", go: "shift esc", run: () => COMMANDS.clear.run() && closeView() },
     { label: armed ? "Reset: once more to forget all variables too" : "Reset…", danger: armed, run: reset },
     { label: "Desktop layout", run: () => (location.search = "?layout=desktop") },
   ];

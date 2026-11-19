@@ -165,12 +165,19 @@ check((await page.evaluate(() => touch.view?.section)) === 1, "help: ▶ the nex
 await key("F1");
 check((await page.evaluate(() => touch.view?.section)) === 0, "help: F1 its first section", null);
 
-// setup (shift esc), from help; its key again goes back
-await keys("shift", "esc");
+// setup (menu, shift F4), from help; esc goes back
+await keys("menu", "shift", "F4");
 s = await now();
 check(s.view === "settings" && s.row === "Input", "setup opens", s);
+await key("esc");
+check((await now()).view === null, "setup: esc goes back", await now());
+
+// shift esc clears the tape, shift ⌫ brings it back
+const entries = await page.evaluate(() => state.entries.length);
 await keys("shift", "esc");
-check((await now()).view === null, "setup: its key again goes back", await now());
+await settle(() => state.entries.length === 0);
+await keys("shift", "⌫");
+await settle((n) => state.entries.length === n, entries);
 
 // anything that would type into the line behind a view does nothing
 await keys("shift", "x", "7", "ln", "esc");
