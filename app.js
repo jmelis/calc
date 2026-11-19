@@ -33,6 +33,7 @@ const state = {
   status: null, // what's loading or failing, shown in the hint line (startup has a bar)
   flash: null,
   mode: "text", // or "math"
+  approxNext: false, // the next entry shows its result as a decimal (submit)
 };
 
 let mathField = null; // the <math-field>, created on first switch to math mode
@@ -529,15 +530,12 @@ function insertAtCursor(text, replaceFrom = null) {
   schedulePreview();
 }
 
-// --- the palette: keys.js's menus --------------------------------------------------
+// --- function keys: the touch keypad's (keypad.js, menus.json) ------------------------
 //
-// Tabs pick a menu (the touch keypad's, same order), and its keys fill one row. A key's
-// template marks the cursor with "|"; selected text in the input lands there, so selecting
-// x+1 and clicking √ gives sqrt(x+1). Clicking never moves focus away from the input.
+// A key's template marks the cursor with "|"; selected text in the input lands there, so
+// selecting x+1 and pressing √ gives sqrt(x+1).
 
-let paletteMenu = savedMenu("desktop"); // keys.js
-
-// A key from keys.js that inserts something (a template, or text), in either input
+// A key that inserts something (a template, or text), in either input
 function insertKey(spec) {
   if (state.mode === "math" && spec.math === null) {
     flash("Only in text input: ⌃M");
@@ -638,41 +636,6 @@ function commandButton(name) {
   return b;
 }
 
-function renderPalette() {
-  if (TOUCH) return; // the keypad has the menus (keypad.js)
-  const button = (className, tip, onClick) => {
-    const b = el("button", className);
-    b.type = "button";
-    b.tabIndex = -1;
-    setTip(b, tip);
-    b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
-    b.addEventListener("click", onClick);
-    return b;
-  };
-  const tabs = el("div", "tabs");
-  for (const menu of layoutMenus("desktop")) {
-    const b = button(menu.name === paletteMenu ? "tab active" : "tab", menu.tip, () => {
-      paletteMenu = menu.name;
-      saveMenu("desktop", menu.name);
-      renderPalette();
-    });
-    if (/^[a-z]+$/.test(menu.label)) b.textContent = menu.label; // math, calc: words, not math
-    else tex(b, menu.label, false);
-    tabs.append(b);
-  }
-  const keys = el("div", "keys");
-  for (const spec of menuKeys(paletteMenu, "desktop")) {
-    const b = button(spec.word ? "word" : "", spec.tip, () => {
-      select(null);
-      insertKey(spec);
-    });
-    if (spec.word) b.textContent = spec.word;
-    else tex(b, spec.label, false);
-    keys.append(b);
-  }
-  document.getElementById("palette").replaceChildren(tabs, keys);
-}
-
 function renderCommands() {
   const commands = document.getElementById("commands");
   for (const name of Object.keys(COMMANDS)) commands.append(commandButton(name));
@@ -717,6 +680,19 @@ function complete() {
   panels.catalog(prefix, prefix ? start : null);
 }
 
+// shift enter (Shift+⏎ on a keyboard): evaluate, showing the result as a decimal; with
+// nothing typed, the selected result (or the last one) as a decimal, or exact again
+function submitApprox() {
+  const empty = state.mode === "math" ? !mathField?.value : !input.value.trim();
+  if (!empty) return submit({ approx: true });
+  const id = state.selected?.part === "result" ? state.selected.id : state.entries.findLast((e) => e.result)?.id;
+  const entry = id && entryById(id);
+  if (!entry) return;
+  if (!entry.result.float && entry.view !== "float") return flash("This one has no other decimal form");
+  entry.view = entry.view === "float" ? "exact" : "float";
+  replaceEntryNode(entry);
+}
+
 function editorSource() {
   if (state.mode === "text") return input.value.trim();
   return latexToCalc(mathField.value).trim(); // throws LatexError for incomplete input
@@ -728,7 +704,8 @@ function clearEditor() {
   clearPreview();
 }
 
-function submit() {
+// approx: show the result as a decimal (shift enter, Shift+⏎), when it has one
+function submit({ approx = false } = {}) {
   let src;
   try {
     src = editorSource();
@@ -749,8 +726,12 @@ function submit() {
       return;
     }
     sent = command.run();
-  } else sent = send({ type: "eval", src });
+  } else {
+    state.approxNext = approx; // the entry it starts (pending) remembers it
+    sent = send({ type: "eval", src });
+  }
   if (!sent) {
+    state.approxNext = false;
     flash("Python is still loading, so nothing was sent");
     return; // keep what was typed
   }
@@ -780,7 +761,8 @@ input.addEventListener("keydown", (e) => {
     moveSelection(-1);
   } else if (e.key === "Enter") {
     e.preventDefault();
-    submit();
+    if (e.shiftKey) submitApprox();
+    else submit();
   } else if (e.key === "Escape") {
     input.value = "";
     clearPreview();
@@ -1000,12 +982,18 @@ function renderCatalogDetail() {
   const entry = catalogState.items[catalogState.index];
   catalogDetail.innerHTML = "";
   if (!entry) catalogDetail.append(el("p", "summary", "Nothing matches."));
-  else renderCatalogEntry(catalogDetail, entry);
+  else renderCatalogEntry(catalogDetail, entry, showRelated);
+}
+
+// A see-also link: that entry, found by its name
+function showRelated(name) {
+  catalogSearch.value = name;
+  filterCatalog();
 }
 
 // An entry's details into node: signature, summary, its example (typeset by the preview,
-// when it comes back) and its docs
-function renderCatalogEntry(node, entry) {
+// when it comes back), its docs and its related entries (onSee(name) follows one)
+function renderCatalogEntry(node, entry, onSee) {
   node.append(el("h2", "", entry.name));
   if (entry.signature) node.append(el("div", "sig", entry.signature));
   if (entry.summary) node.append(el("p", "summary", entry.summary));
@@ -1020,6 +1008,20 @@ function renderCatalogEntry(node, entry) {
     }
   }
   if (entry.doc && entry.doc !== entry.summary) node.append(el("pre", "", entry.doc));
+  const names = new Set(catalogEntries().map((e) => e.name));
+  const related = (entry.see ?? []).filter((name) => names.has(name));
+  if (!related.length) return;
+  const see = el("p", "see", "See also ");
+  related.forEach((name, i) => {
+    if (i) see.append(" · ");
+    const link = el("button", "", name);
+    link.type = "button";
+    link.tabIndex = -1;
+    link.addEventListener("mousedown", (e) => e.preventDefault()); // keep the focus where it is
+    link.addEventListener("click", () => onSee(name));
+    see.append(link);
+  });
+  node.append(see);
 }
 
 function catalogMath(entry) {
@@ -1534,13 +1536,15 @@ function onMessage(msg) {
     state.selected = null;
     renderTape();
   } else if (msg.type === "pending") {
-    const entry = { id: msg.id, input: msg.input, input_latex: msg.input_latex, pending: true };
+    const entry = { id: msg.id, input: msg.input, input_latex: msg.input_latex, pending: true, approx: state.approxNext };
+    state.approxNext = false;
     state.entries.push(entry);
     replaceEntryNode(entry);
     scrollToBottom();
   } else if (msg.type === "entry") {
     state.names = msg.names;
     const i = state.entries.findIndex((e) => e.id === msg.entry.id);
+    if (state.entries[i]?.approx && msg.entry.result?.float) msg.entry.view = "float";
     if (i === -1) state.entries.push(msg.entry);
     else state.entries[i] = msg.entry;
     scrollToBottomAfterImages(replaceEntryNode(msg.entry));
@@ -1557,7 +1561,6 @@ function onMessage(msg) {
   }
 }
 
-renderPalette();
 renderCommands();
 renderAbout();
 renderHints();

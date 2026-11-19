@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script>
     // Touch-only devices (phones, tablets without a mouse) get the touch layout: keypad.js,
     // touch.css. ?layout=touch or ?layout=desktop chooses one and is remembered; ?layout=auto
-    // forgets. Decided here, before anything renders, so the other layout never flashes; so
-    // is the touch layout's theme (calculator, or classic), chosen in its mode menu.
+    // forgets. Decided here, before anything renders, so the other layout never flashes.
     (() => {
       let layout = new URLSearchParams(location.search).get("layout");
       try {
@@ -15,14 +17,15 @@
         else if (layout === "auto") localStorage.removeItem("calc.layout");
         else layout = localStorage.getItem("calc.layout");
       } catch {}
-      try {
-        if (localStorage.getItem("calc.theme") === "calculator") document.documentElement.classList.add("theme-calc");
-      } catch {}
       if (layout !== "touch" && (layout === "desktop" || !matchMedia("(hover: none) and (pointer: coarse)").matches)) return;
       document.documentElement.classList.add("touch");
       // under the notch and the home indicator (touch.css pads with the safe areas), and on
       // Android the system keyboard shrinks the page instead of covering it
       document.querySelector('meta[name="viewport"]').content += ", viewport-fit=cover, interactive-widget=resizes-content";
+      // the browser's bars in the calculator's graphite (touch.css's --body), and an
+      // installed app's status bar over it (main pads for it)
+      for (const meta of document.querySelectorAll('meta[name="theme-color"]')) meta.content = "#2a2c30";
+      document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = "black-translucent";
     })();
   </script>
   <title>SymPy Calc</title>
@@ -33,11 +36,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Calc">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <link rel="stylesheet" href="app.css">
@@ -45,7 +45,6 @@
   <script defer src="latex.js"></script>
   <script defer src="backend.js"></script>
   <script defer src="graph.js"></script>
-  <script defer src="keys.js"></script>
   <script defer src="keypad.js"></script>
   <script defer src="app.js"></script>
 </head>
@@ -58,7 +57,6 @@
         <div class="bar" role="progressbar" aria-label="Loading Python" aria-valuemin="0" aria-valuemax="100"><div class="fill"></div></div>
         <div class="label"></div>
       </div>
-      <div id="palette" role="toolbar" aria-label="Functions"></div>
       <div id="prompt">
         <span class="caret">›</span>
         <input id="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus aria-label="Expression">
@@ -86,18 +84,19 @@
     <div class="panel" role="dialog" aria-label="Help">
       <div class="title">Help</div>
       <div class="body" tabindex="-1">
-        <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <span class="desktop-only"><kbd>?</kbd></span><span class="touch-only"><kbd>catalog</kbd></span> lists the common functions.</p>
+        <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <span class="desktop-only"><kbd>?</kbd></span><span class="touch-only"><kbd>shift</kbd> <kbd>menu</kbd></span> lists the common functions.</p>
         <section class="touch-only" data-tab="keypad">
           <h2>The keypad</h2>
           <dl class="keys">
-            <dt>soft keys</dt><dd>The labels on the screen's bottom edge: tap one, or the <kbd>f1</kbd>–<kbd>f5</kbd> key under it. They show a menu (<kbd>math</kbd> <kbd>calc</kbd> <kbd>matrix</kbd> <kbd>stat</kbd>; dots under the labels mean more pages: press the menu's key again, or swipe the labels), what you can do with a selected result, or completions of the name you're typing</dd>
-            <dt><kbd>settings</kbd> <kbd>vars</kbd> <kbd>catalog</kbd></dt><dd>Take over the screen: the settings (math input, the theme, clearing the tape), your variables (insert one, or forget it), all the functions (also <kbd>2nd</kbd> <kbd>0</kbd>, or <kbd>?</kbd> on an empty line); <kbd>2nd</kbd> <kbd>settings</kbd> is this help. <kbd>▲</kbd> <kbd>▼</kbd> move, <kbd>◀</kbd> <kbd>▶</kbd> change a setting, the catalog's group or help's section, <kbd>enter</kbd> picks, <kbd>clear</kbd> goes back. The catalog opens with the letters on (A-LOCK): type a few to jump to a function, and its groups are on the soft keys (all of it, sorted by name, first). A keyboard's arrows, <kbd>⏎</kbd>, <kbd>Esc</kbd> and <kbd>⌫</kbd> do the same</dd>
-            <dt><kbd>2nd</kbd></dt><dd>Then a key: what's printed above it on the left (<code>sin⁻¹ √ π e ans</code>, <kbd>2nd</kbd> <kbd>=</kbd> <code>&lt; ≤ ≠</code>, <kbd>2nd</kbd> <kbd>⌫</kbd> undo). Holding a key does the same, and so does shift-clicking it with a mouse</dd>
-            <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right; <kbd>alpha</kbd> twice (or <kbd>2nd</kbd> <kbd>alpha</kbd>) keeps typing letters until <kbd>alpha</kbd> again, and option-click types one with a mouse. <kbd>abc</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
-            <dt><kbd>‹›</kbd></dt><dd>The selected result, or the last one, as a decimal or exact; <kbd>2nd</kbd> <kbd>‹›</kbd> in degrees</dd>
-            <dt><kbd>1/x</kbd> &nbsp; <kbd>(−)</kbd></dt><dd>One over what comes next, or what's selected (on an empty line, the last result); a minus sign (<kbd>−</kbd> subtracts: on an empty line, from the last result)</dd>
-            <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries; <kbd>enter</kbd> inserts one (or tap it; tap again to let go). <kbd>2nd</kbd> <kbd>enter</kbd> brings back the last line typed</dd>
-            <dt><kbd>clear</kbd> <kbd>⌫</kbd></dt><dd>Clear the line; delete before the cursor (or the selected entry)</dd>
+            <dt>soft keys</dt><dd>The labels on the screen's bottom edge, in two rows: the blank keys under the screen do the lower ones, <kbd>shift</kbd> and the key the upper ones (or tap a label). They show a menu, what you can do with a selected result, or the names that start with what you're typing. Dots under them mean more pages: <kbd>shift</kbd> <kbd>▲</kbd> <kbd>▼</kbd>, or a swipe on the labels, turns them</dd>
+            <dt><kbd>menu</kbd> <kbd>trig</kbd></dt><dd><kbd>menu</kbd> lists the menus (calc, alg, num, matrix, stat; with <kbd>shift</kbd>: trig, test, vars, catalog, help); again, it goes back to the one you were in. <kbd>trig</kbd> has a key of its own (<kbd>shift</kbd> <kbd>trig</kbd>: the hyperbolic ones), and <kbd>shift</kbd> <kbd>=</kbd> the comparisons. All of them come from <code>menus.json</code></dd>
+            <dt><kbd>shift</kbd></dt><dd>Then a key: what's printed above it on the left (<code>√ eˣ [ ] : i (−) ∞ E</code>; undo on <kbd>⌫</kbd>, your variables on <kbd>x</kbd>, the catalog on <kbd>menu</kbd>, setup on <kbd>esc</kbd>). Holding a key does the same, and so does shift-clicking it with a mouse</dd>
+            <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right (a–z run down from <kbd>trig</kbd>; <kbd>x</kbd> has its own key), a capital with <kbd>shift</kbd> too. Twice keeps typing letters until <kbd>alpha</kbd> again (A-LOCK), ◀ ▼ ▶ included. Option-click types one with a mouse. <kbd>shift</kbd> <kbd>alpha</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
+            <dt><kbd>shift</kbd> <kbd>enter</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
+            <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries. Then <kbd>◀</kbd> <kbd>▶</kbd> show a result exact, as a decimal or in degrees, <kbd>enter</kbd> inserts it (or tap it; tap again to let go), <kbd>⌫</kbd> deletes it</dd>
+            <dt><kbd>esc</kbd> <kbd>⌫</kbd></dt><dd>Back out one step (alpha, then a view or a selection, then the line); delete before the cursor</dd>
+            <dt>catalog</dt><dd>All the functions (<kbd>shift</kbd> <kbd>menu</kbd>, or <kbd>?</kbd> on an empty line; after a name half typed, it opens there). <kbd>▲</kbd> <kbd>▼</kbd> move, the soft keys pick a group, <kbd>enter</kbd> inserts, <kbd>▶</kbd> opens the function's help, where the soft keys go to related ones and <kbd>◀</kbd> comes back. With <kbd>alpha</kbd>, letters jump to a name</dd>
+            <dt>setup, vars, help</dt><dd>Take over the screen too: <kbd>▲</kbd> <kbd>▼</kbd> move, <kbd>◀</kbd> <kbd>▶</kbd> change a setting or help's section, <kbd>enter</kbd> picks, <kbd>esc</kbd> goes back. A keyboard's arrows, <kbd>⏎</kbd>, <kbd>Esc</kbd> and <kbd>⌫</kbd> do the same</dd>
             <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
             <dt>home screen</dt><dd>Share → Add to Home Screen on iOS (Install on Android) keeps it a tap away and runs it without the browser around it. It still loads Python from the network the first time</dd>
           </dl>
@@ -110,7 +109,7 @@
             <dt>e &nbsp; pi &nbsp; I &nbsp; oo</dt><dd>Constants: 2.718…, π, √−1, ∞</dd>
             <dt>x &nbsp; velocity</dt><dd>A name that isn't defined is a symbol; <code>k m n</code> are integers, <code>f g h</code> functions</dd>
             <dt>sin(30°)</dt><dd>Degrees</dd>
-            <dt>1E3 &nbsp; 6.02E23</dt><dd>A power of ten: <code>1E3</code> is 1000 exactly, <code>6.02E23</code> a decimal<span class="touch-only"> (<kbd>2nd</kbd> <kbd>,</kbd> types the E)</span></dd>
+            <dt>1E3 &nbsp; 6.02E23</dt><dd>A power of ten: <code>1E3</code> is 1000 exactly, <code>6.02E23</code> a decimal<span class="touch-only"> (<kbd>shift</kbd> <kbd>ans</kbd> types the E)</span></dd>
             <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. Typing <code>+ - * / ^</code> first continues from <code>ans</code> (<code>--</code> for a negative number)</dd>
           </dl>
         </section>
@@ -178,6 +177,7 @@
           <h2>Keys</h2>
           <dl class="keys">
             <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
+            <dt><kbd>⇧⏎</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
             <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select tape items, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>⌫</kbd> delete</dd>
             <dt><kbd>⇧</kbd><kbd>↑</kbd> <kbd>⇧</kbd><kbd>↓</kbd></dt><dd>Select several cells (or Shift+click)</dd>
             <dt><kbd>c</kbd> &nbsp; <kbd>⇧C</kbd></dt><dd>Copy the selected cells as text (<code>sqrt(8)</code> and <code>= 2*sqrt(2)</code>); copy the selected item's LaTeX</dd>
@@ -197,7 +197,7 @@
             <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
             <dt>:reset</dt><dd>Empty the tape and forget everything</dd>
           </dl>
-          <p class="note">Phones and tablets without a mouse get a keypad instead of this layout; the <kbd>keypad</kbd> button below switches to it anywhere, and its settings switch back. Adding <code>?layout=touch</code> or <code>?layout=desktop</code> to the address does the same (<code>?layout=auto</code> to let the device decide).</p>
+          <p class="note">Phones and tablets without a mouse get a keypad instead of this layout; the <kbd>keypad</kbd> button below switches to it anywhere, and its setup switches back. Adding <code>?layout=touch</code> or <code>?layout=desktop</code> to the address does the same (<code>?layout=auto</code> to let the device decide).</p>
         </section>
       </div>
       <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> scroll · <kbd>Esc</kbd> close</div>

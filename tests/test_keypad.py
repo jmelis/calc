@@ -1,4 +1,4 @@
-"""The touch layout worked by its keys alone (keypad.mjs): settings, vars, the catalog and
+"""The touch layout worked by its keys alone (keypad.mjs): the menus, setup, vars, the catalog and
 help on the screen, as they'd have to work on a calculator with no touch screen. Needs
 node with Playwright and its Chromium, and Pyodide from the CDN; skipped without them."""
 import functools

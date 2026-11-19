@@ -1,6 +1,6 @@
 """The deploy (.github/workflows/pages.yml) copies only the files it names and stamps
 index.html's local scripts and stylesheets with the commit: a file the browser loads
-(index.html's own, and the manifest's icons) must be copied, and code stamped, or the
+(index.html's own, the manifest's icons, menus.json) must be copied, and code stamped, or the
 site breaks (or serves it stale) only once it's published."""
 import json
 import re
@@ -12,6 +12,7 @@ INDEX = (ROOT / "index.html").read_text()
 LOCAL = [ref for ref in re.findall(r'(?:src|href)="([^"]+)"', INDEX) if not re.match(r"[a-z]+:", ref)]
 CODE = [ref for ref in LOCAL if ref.endswith((".js", ".css"))]
 ICONS = [icon["src"] for icon in json.loads((ROOT / "manifest.webmanifest").read_text())["icons"]]
+FETCHED = ["menus.json"]  # what the scripts fetch themselves (keypad.js)
 
 
 def test_index_loads_local_files():
@@ -20,7 +21,7 @@ def test_index_loads_local_files():
 
 def test_deploy_copies_what_the_browser_loads():
     copied = re.search(r"^\s*cp (index\.html .*) _site/$", WORKFLOW, re.M)[1].split()
-    assert sorted(set(LOCAL + ICONS) - set(copied)) == []
+    assert sorted(set(LOCAL + ICONS + FETCHED) - set(copied)) == []
     assert all((ROOT / name).exists() for name in copied)
 
 

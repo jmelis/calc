@@ -16,7 +16,8 @@ uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pyte
 
 Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundles and runs the
 tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
-`py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`, `manifest.webmanifest`, `icon-*.png`).
+`menus.json`, `py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`, `manifest.webmanifest`,
+`icon-*.png`).
 A new top-level file the page needs must be added to that workflow's copy step
 (`tests/test_site.py` fails until it is).
 
@@ -26,7 +27,7 @@ Add to Home Screen (iOS, Android) runs it as an app of its own: `manifest.webman
 
 GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `src`/`href` with
 the commit (`app.js?v=<sha>`); `backend.js` passes its own `?v=` on to `worker.js`, and the worker
-to `py/calc/*.py`. The bundles are stamped with `PYODIDE_VERSION` instead, so they stay cached
+to `py/calc/*.py`; keypad.js fetches `menus.json` with it too. The bundles are stamped with `PYODIDE_VERSION` instead, so they stay cached
 across deploys. A new local script or stylesheet in `index.html` is stamped automatically if it's
 named `name.js` or `name.css`. The footer shows the stamp's commit, linked to it on GitHub
 (`renderAbout`; "local" without a stamp), next to a link to the source.
@@ -38,17 +39,17 @@ index.html ─ app.js ──messages──▶ backend.js ──postMessage──
    (UI)        ▲                  (tape, IndexedDB,               (loads Pyodide,             (evaluates in one
                └──messages─────── worker lifecycle)                SymPy, py/calc/*)            namespace)
 latex.js: math input's LaTeX → calculator text (page side)
-keys.js: the functions both layouts offer, by menu (the palette, the keypad's soft keys)
 keypad.js + touch.css: the touch layout, on top of app.js (only with <html class="touch">); its views take app.js's `panels`
+menus.json: the keypad's soft menus (data only, fetched by keypad.js)
 ```
 
 | File | Role |
 | --- | --- |
-| `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), palette (keys.js's menus: tabs, then one row of keys), hint line, hover tips, keyboard handling, and the panels: catalog, Memory (`:vars`), Help. `panels` holds their openers, which the touch layout replaces with its views; what they list and do is shared (`catalogItems`, `renderCatalogEntry`, `insertCatalogEntry`, `memoryState`, `requestVariables`, `forgetVariable`, `insertName`) |
-| `keys.js` | `MENUS`: the functions both layouts offer, with their templates and tips: `math`, `calc`, `matrix`, `stat` (a TI-84's menus) and the desktop's own `f(x)` (on the keypad those have keys). The desktop palette shows a menu's keys in one row, the keypad five at a time as soft keys. `layoutMenus(layout)` and `menuKeys(name, layout)` drop what one layout doesn't need (`only`); each layout remembers its menu (`calc.menu.touch`, `calc.menu.desktop`) |
+| `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), hint line, hover tips, keyboard handling, `insertKey` (the keypad's function keys), and the panels: catalog, Memory (`:vars`), Help. `panels` holds their openers, which the touch layout replaces with its views; what they list and do is shared (`catalogItems`, `renderCatalogEntry`, `insertCatalogEntry`, `memoryState`, `requestVariables`, `forgetVariable`, `insertName`) |
+| `menus.json` | The keypad's soft menus, meant to be edited by hand (its `about` says how): `top` (what the menu key shows), `menus` by name (rows of five: F1–F5, then shift F1–F5, more rows for more pages; `null` an empty slot) and `keys` (what a name inserts: `label` or `tex`, `insert` with `\|` the cursor, `math`; a function needs no entry). A name is a menu, a view (`vars`, `catalog`, `help`, `setup`) or a key. The trig key opens `trig`, shift trig `hyp`, shift = `test`. `tests/test_menus.py` checks every name resolves |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
-| `keypad.js` | The touch layout: a screen (status line, tape, input, soft keys) over a TI-84-style keypad (`KEYPAD`, `ARROWS`) with 2nd and alpha, the f1–f5 row, `abc` (system keyboard), and the views that take the screen over (`VIEWS`: settings, vars, catalog, help) in place of app.js's panels. Drives app.js's own functions; does nothing without `html.touch` |
-| `touch.css` | The touch layout's styles and its two themes (classic; calculator: graphite and an LCD, `html.theme-calc`), every rule under `html.touch` (or `#keypad`, `.screen`, which only exist there) |
+| `keypad.js` | The touch layout: a screen (status line, tape, input, two rows of soft key labels) over 40 equal keys (`KEYPAD`, five by eight, the soft keys F1–F5 its first row) with shift and alpha, the soft menus read from `menus.json`, `abc` (system keyboard), and the views that take the screen over (`VIEWS`: setup, vars, the catalog with its help pages, help) in place of app.js's panels. Drives app.js's own functions; does nothing without `html.touch` |
+| `touch.css` | The touch layout's styles, one look (graphite keys, an LCD, the same by day and by night), every rule under `html.touch` (or `#keypad`, `.screen`, which only exist there) |
 | `graph.js` | `iplot` graphs on the tape: draws Python's samples with uPlot (fetched on the first graph), asks for new samples when zoomed or panned, keys for a selected graph, x = 0 and y = 0 drawn under the curves (`drawAxisLines`) |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
@@ -58,7 +59,7 @@ keypad.js + touch.css: the touch layout, on top of app.js (only with <html class
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs. `plt` is matplotlib's pyplot for plotting data, a `_LazyModule` so nothing is imported until it's used |
 | `py/calc/graphs.py` | `iplot`: samples expressions with numpy (mpmath for what numpy lacks), gaps at poles, a y range that ignores spikes; `sample_text` resamples for the page. A range is `(x, a, b)` or `[x, a, b]` (`_is_range`: a list is otherwise several expressions) |
 | `py/calc/matrices.py` | `M[…]` and `V[…]`: matrices and column vectors, and how they print back as text |
-| `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev` |
+| `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy), each entry with its related ones (`SEE_ALSO`: the help pages' links); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev` |
 
 ### Messages
 
@@ -79,7 +80,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   headers that GitHub Pages can't send.
 - **Startup**: the saved tape shows immediately; input submitted before Python is ready queues as
   "computing". An empty tape shows nothing: the hint line (and the footer's `:help`), or on touch the
-  status line's "2nd settings: help", say where to start.
+  status line's "menu: the menus, and help", say where to start.
   Importing SymPy from source took ~2 s of a ~3 s warm reload, compiling it every time, hence the
   precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
   xz, which would need a decompressor in the browser and time on every load).
@@ -93,7 +94,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   soon as `plot` appears in the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
   `plot-bytecode.zip`, and `warm_up_plotting` draws a throwaway plot so the first real one costs
   what any other does (~0.1 s, against ~2 s of compiling and first-time setup before).
-- **Preview** (above the palette): takes no room while the input is empty; its room opens with
+- **Preview** (above the input): takes no room while the input is empty; its room opens with
   a line's first keystroke and stays until ⏎ or Esc, so the composer moves once per line, not per
   keystroke. An unfinished line (`1/100+`) keeps the last preview, dimmed.
 - **"computing"** only appears after 300 ms (a CSS animation delay), so fast results don't flash it.
@@ -128,58 +129,59 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `class="touch"` to `<html>` before anything renders, on `(hover: none) and (pointer: coarse)`
   (phones, tablets without a mouse; an iPad with a trackpad gets the keyboard layout), or with
   `?layout=touch` / `?layout=desktop` (remembered in `localStorage` as `calc.layout`; `?layout=auto`
-  forgets). The page is a calculator: a screen, holding a status line (2nd/alpha, messages
-  with *stop* and *undo* links, the soft keys' menu), the tape, the input and the soft keys'
-  labels on its bottom edge; then f1–f5 (as on a physical device, where those labels are drawn
-  on the display; on the phone a label can be tapped too) and a TI-84's keys, five columns:
-  `2nd settings`/`alpha x` left of the arrow rocker and `stat catalog`/`1/x clear` right of it,
-  `math calc matrix vars ⌫`, `xⁿ sin cos tan ÷`, `x² , ( ) ×`, `log 7 8 9 −`, `ln 4 5 6 +`,
-  `= 1 2 3 ‹›`, `abc 0 . (−) enter` (`abc` where the TI has ON). Each key prints its 2nd
-  function (top left, `second`) and its alpha letter (top right, `letter`); 2nd and alpha
-  apply to the next key, 2nd alpha (or alpha twice) locks letters, and holding a key does
-  its 2nd. With a mouse, which the layout also gets on a computer (`?layout=touch`),
-  shift-click is 2nd and option-click alpha (`clickMod`, the `mod` keyPressed takes). The soft
-  keys show, first that applies: the view's own, the selected entry's actions
-  (`selectionActions`), completions of the name being typed (2+ letters), or the menu last
-  opened (keys.js's, or `test` from 2nd =), five at a time (`SOFT_KEYS`), with arrows and a
-  dot per page under the labels when there are more: pressing the menu's key again, or
-  swiping the labels, turns the page. `▲ ▼` are the keyboard's ↑ ↓ (walk the tape), `‹›`
-  shows the selected or last result as a decimal or exact again (2nd `‹›` in degrees),
-  `(−)` types a minus without ans continuation, 2nd enter recalls the last line.
-  **Views** (`VIEWS`): `settings`, `vars`, `catalog` (also 2nd 0) and help (2nd settings)
-  take the screen over, between the status line and the soft keys, as a TI-84's menus do,
-  and are worked by keys alone, so they'd work on a device without a touch screen
-  (`tests/keypad.mjs` checks): ▲ ▼ move (round from the end), ◀ ▶ change a setting, the
-  catalog's group or help's section, enter picks, clear (or the view's key again) goes
-  back, and the soft keys do the rest (insert, forget, undo, the catalog's groups and info,
-  help's sections). The catalog opens in A-LOCK so the letters jump to an entry (the first
-  whose name starts with them, in this group or else in all of it), and its groups are the
-  soft keys, four to a page with info fifth: all of it sorted by name, then catalog.py's
-  categories and your own definitions. Keys that would type into the line
-  behind do nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, f1–f5) work as
-  ever. A keyboard (`?layout=touch` on a computer) types into the line as in the keyboard
-  layout, and while a view shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc as
-  clear, ⌫, letters, ⌃Z). Taps are extra: a tap selects a row, a tap on the selected row picks it (settings act
-  on the first). They are app.js's panels, shown differently: `setupTouch` puts `openView`
-  into `panels`, so `:help`, `:vars`, `:catalog` and `?` open them (alpha's `?` is sent as a
-  keydown, `typeLetter`, so an empty line's `?` is the catalog here too), and help reads the Help
-  panel's sections (`#help section`, `data-tab` naming their soft keys). Themes: classic, or
-  calculator (`html.theme-calc`, set from `calc.theme` by the head script, switched in
-  settings);
-  the calculator theme ignores the system's dark mode, and re-themes the screen's content by
-  overriding the page's tokens (`--text`, `--muted`, …) on `.screen`. The keyboard layout must look and behave exactly as without it: touch styles live
-  under `html.touch` only, and app.js only branches on `TOUCH` in `renderHints` (the status line and
-  soft keys replace the hint line) and `renderPalette` (the keypad has the menus); graph.js fits graphs to the short
-  tape on `TOUCH`. The keys reuse the keyboard's logic: a
-  character key dispatches a synthetic `keydown` on the editor first and types only if app.js
-  didn't `preventDefault` it, so `ans` continuation, `--`, ⏎ / ⌫ on a selection and ← → on a
-  graph all apply unchanged; function keys go through `insertKey`, as the palette's do, so they
-  work in text and math input. The input has `inputmode="none"`
-  (caret, no system keyboard); `abc` sets `inputmode="text"` and re-focuses inside the tap, which
-  is what makes iOS raise its keyboard; when the editor loses focus, the keypad comes back. `main`
-  follows `visualViewport` (`--app-height`, `--app-top`), since iOS covers the page with its
-  keyboard instead of resizing it. Short screens (a phone on its side) put the keypad beside the
-  screen, without legends. Key handling is pointer events on `#keypad`, acting on release; `touchstart` is
+  forgets), and turns the browser's bars graphite. The page is a calculator meant to be buildable
+  as it is: a screen, holding a status line (shift/alpha, messages with *stop* and *undo* links,
+  what the soft keys show), the tape, the input and two rows of soft key labels on its bottom edge
+  (in the keys' columns: F1–F5 do the lower row, shift F1–F5 or holding the key the upper one, as
+  on the R47; a label can be tapped too), then 40 equal keys, five by eight:
+  `F1–F5`, `shift alpha ▲ esc ⌫`, `trig ◀ ▼ ▶ menu`, `^ ( ) , ÷`, `ln 7 8 9 ×`, `π 4 5 6 −`,
+  `= 1 2 3 +`, `x 0 . ans enter`. Each key prints its shift function (top left, `second`: √ [ ] :
+  eˣ i (−) ≤≠ ∞ E ≈, abc on alpha, setup on esc, undo on ⌫, hyp on trig, catalog on menu, vars on
+  x, pg/⇤/⇥ on the arrows) and its alpha letter (top right, `letter`): a–z run down five rows
+  from trig, the arrows' row included, except x, whose own key types it (`ownLetter`); the soft
+  keys never type letters, so completions show while typing in alpha. Shift and alpha apply to
+  the next key (both: a capital), alpha twice locks letters, esc lets go of alpha first, and
+  holding a key does its shift function. With a mouse, which the layout also gets on a computer
+  (`?layout=touch`), shift-click is shift and option-click alpha (`clickMod`, the `mods`
+  keyPressed takes). The soft keys show, first that applies: the view's own, the selected entry's
+  actions (`selectionKeys`, from `selectionActions`), completions of the name being typed (2+
+  letters; until a menu is asked for, `menuShown`), or the menu last opened (`touch.path`: the
+  menu key goes up a level, and from the top back to where it was; a menu opened from another
+  pushes onto it), ten to a page (`PAGE`), with a dot per page when there are more: shift ▲ ▼,
+  the menu's key again, or a swipe turns the page. `▲ ▼` are the keyboard's ↑ ↓ (walk the tape);
+  `◀ ▶` on a selected result flip it between exact, decimal and degrees (`cycleView`; on a
+  graph they pan); shift enter evaluates to a decimal (app.js's `submitApprox`, also Shift+⏎ on a
+  keyboard: the `pending` entry carries `approx`), or on an empty line flips the last result.
+  **Views** (`VIEWS`): setup (`settings`), `vars`, `catalog` and help take the screen over,
+  between the status line and the soft keys, as a TI-84's menus do, and are worked by keys alone,
+  so they'd work on a device without a touch screen (`tests/keypad.mjs` checks): ▲ ▼ move (round
+  from the end; shift: a page), ◀ ▶ change a setting or help's section, enter picks, esc (or the
+  view's key again) goes back, and the soft keys do the rest (insert, forget, undo, help's
+  sections). The catalog is a list (▲ ▼, its groups on the soft keys, enter inserts; alpha's
+  letters jump to the first name that starts with them, in this group or else in all of it) and
+  help pages (▶ from the list: the entry in full, its `see` entries on the soft keys and as links;
+  ◀ or esc back the way it came, `view.pages`). Keys that would type into the line behind do
+  nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, F1–F5) work as ever. A keyboard
+  (`?layout=touch` on a computer) types into the line as in the keyboard layout, and while a view
+  shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc, ⌫, Page Up/Down, letters,
+  ⌃Z). Taps are extra: a tap selects a row, a tap on the selected row picks it (setup acts on the
+  first). They are app.js's panels, shown differently: `setupTouch` puts `openView` into
+  `panels`, so `:help`, `:vars`, `:catalog` and `?` open them (alpha's `?` is sent as a keydown,
+  `typeLetter`, so an empty line's `?` is the catalog here too), and help reads the Help panel's
+  sections (`#help section`, `data-tab` naming their soft keys). The look re-themes the screen's
+  content by overriding the page's tokens (`--text`, `--muted`, …) on `.screen`. The keyboard
+  layout must look and behave exactly as without it: touch styles live under `html.touch` only,
+  and app.js only branches on `TOUCH` in `renderHints` (the status line and soft keys replace the
+  hint line); graph.js fits graphs to the short tape on `TOUCH`. The keys reuse the keyboard's
+  logic: a character key dispatches a synthetic `keydown` on the editor first and types only if
+  app.js didn't `preventDefault` it, so `ans` continuation, `--`, ⏎ / ⌫ on a selection and ← → on
+  a graph all apply unchanged; function keys go through `insertKey`, so they work in text and
+  math input. The input has `inputmode="none"` (caret, no system keyboard); `abc` sets
+  `inputmode="text"` and re-focuses inside the tap, which is what makes iOS raise its keyboard;
+  when the editor loses focus, the keypad comes back. `main` follows `visualViewport`
+  (`--app-height`, `--app-top`), since iOS covers the page with its keyboard instead of resizing
+  it. Short screens (a phone on its side) put the keypad beside the screen, without legends. Key
+  handling is pointer events on `#keypad` and the labels, acting on release; `touchstart` is
   `preventDefault`ed on keys (no double-tap zoom, no focus change). `iplot` graphs pan with one
   finger and pinch with two (`touchToMove` in graph.js, touch pointers only).
 - **The hint line's actions** (a selection's Insert, Decimal, Copy…, Undo after a delete, Stop
@@ -203,7 +205,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - No build step, no framework, no npm dependencies: plain scripts loaded by `index.html`.
   Third-party code comes from jsDelivr with exact versions: Pyodide in `worker.js`, KaTeX in
   `index.html`, MathLive in `app.js`, uPlot in `graph.js`.
-- **Keyboard first.** Every feature must work without the mouse; mouse controls (palette, buttons)
+- **Keyboard first.** Every feature must work without the mouse; mouse controls (buttons)
   never take focus from the input (`mousedown` → `preventDefault`). Keep the number of shortcuts
   small: in the tape, single letters act on the selection (`f`, `d`, `c`); everything else types.
 - **Touch second, never at the keyboard layout's expense.** A feature reachable by keyboard gets a
@@ -212,11 +214,13 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   only way). Nothing in `touch.css` may match without `html.touch`.
 - **Tips** (`setTip`): say what a control does, with an example when it helps. Don't repeat its
   label or the text it inserts (not "Factor: factor(…)").
-- Keys (keys.js) are `{label (LaTeX) or word, template, math, tip, only}`: in the template `|`
-  marks the cursor (or wraps the selection), in `math` `#0` does and `#?` is an empty MathLive box;
-  `math: null` means text input only. A key that wraps what comes next (`1/x`) gives `ans` the
-  text to insert on an empty line instead (`1/ans`), as `method: true` appends to `ans`. A new function goes in `MENUS` once and shows in both
-  layouts. The keypad's own keys (keypad.js) add `second`, `letter`, `repeat`, `modifier`, `nav` (what the key is to a view) and `anywhere` (works while a view shows). Commands live in the `COMMANDS` table.
+- A new function for the keypad goes in `menus.json` (a soft menu), not in keypad.js. Keys in
+  keypad.js are `{label (LaTeX with tex) or word, template, math}` (as in menus.json: in the
+  template `|` marks the cursor or wraps the selection, in `math` `#0` does and `#?` is an empty
+  MathLive box, `math: null` means text input only, `method: true` applies to `ans` on an empty
+  line) or `type` (characters) or `action`, plus `second`, `letter`, `repeat`, `modifier`, `nav`
+  (what the key is to a view) and `anywhere` (works while a view shows). Commands live in the
+  `COMMANDS` table.
 - `py/calc/` stays plain Python with no browser dependencies; test it natively. Anything Pyodide-
   specific belongs in `worker.js`.
 - Every user-visible feature gets a line in the catalog (`catalog.py`) or the hint line, so it can
@@ -278,7 +282,7 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `x^2 = 4`, `solve(x^2 = 2, x)` | Other `=` is an equation, also inside calls (keyword arguments excepted) |
 | `ans`, `$3` | Last result; result of entry 3. A leading `+ * / ^ -` continues from `ans` (`--5` types `-5`) |
 | `sin(30°)` | Degrees |
-| `1E3`, `6.02E23` | A power of ten (2nd `,` on the keypad). With no decimal point or negative exponent it stays exact: `1E3` is 1000, `6.02E23` a float (`exact_e_notation`) |
+| `1E3`, `6.02E23` | A power of ten (shift `ans` on the keypad). With no decimal point or negative exponent it stays exact: `1E3` is 1000, `6.02E23` a float (`exact_e_notation`) |
 | `e`, `I`, `pi`, `oo` | Constants (`e` is `E`) |
 | `M[1, 2]`, `M[[1, 2], [3, 4]]`, `V[1, 2]` | A matrix row, a matrix from rows, a column vector (`matrices.py`) |
 | `A[0, 1] = 5`, `A[1, :] = M[7, 8]`, `v[0] = 9` | Change part of a defined value (shows the whole value; earlier `$n` keep theirs) |
@@ -286,7 +290,7 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `:help`, `:catalog`, `:vars`, `:clear`, `:reset` | Help panel; the function catalog; Memory panel; empty the tape; also forget all variables |
 | `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |
 
-Keys: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>↑</kbd>/<kbd>↓</kbd>
+Keys: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>⇧⏎</kbd> evaluate to a decimal, <kbd>↑</kbd>/<kbd>↓</kbd>
 select tape items (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> or Shift+click: a range), <kbd>⏎</kbd> insert
 the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy the cells as text
 (`cellText`), <kbd>Shift</kbd>+<kbd>C</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entries (one undo), <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>

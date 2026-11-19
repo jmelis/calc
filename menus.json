@@ -1,0 +1,100 @@
+{
+  "about": [
+    "The keypad's soft menus. 'top' is what the menu key shows; 'menus' holds every other menu by name; 'keys' says what the names in them insert.",
+    "A menu is rows of up to five names: the first row is F1-F5, the second shift F1-F5 (drawn above it on the screen); a third and fourth row make a second page (shift up/down turns it). null leaves a slot empty.",
+    "A name is, first that applies: another menu (opens it; the menu key goes back up), one of the views vars, catalog, help or setup, or a key.",
+    "A key needs no entry in 'keys' if it's a function: 'factor' alone shows factor and inserts factor(). An entry changes that: label (the text shown) or tex (LaTeX shown instead), insert (what's typed; | is where the cursor goes, around the selection if there's one; one starting with . applies to the last result on an empty line), math (the same for the math input, in LaTeX: #0 is the cursor, #? an empty box; null if it only works as text).",
+    "The trig key opens 'trig', shift trig 'hyp', shift = 'test'."
+  ],
+
+  "top": [
+    ["calc", "alg", "num", "matrix", "stat"],
+    ["trig", "test", "vars", "catalog", "help"]
+  ],
+
+  "menus": {
+    "trig": [
+      ["sin", "cos", "tan", "degree", "deg"],
+      ["asin", "acos", "atan", "atan2", "trigsimp"]
+    ],
+    "hyp": [
+      ["sinh", "cosh", "tanh", "sec", "csc"],
+      ["asinh", "acosh", "atanh", "cot", null]
+    ],
+    "calc": [
+      ["diff", "integrate", "integrate_ab", "limit", "summation"],
+      ["series", "product", "dsolve", "iplot", "plot"]
+    ],
+    "alg": [
+      ["solve", "factor", "expand", "simplify", "subs"],
+      ["nsolve", "apart", "together", "cancel", "linsolve"]
+    ],
+    "num": [
+      ["abs", "log10", "factorial", "binomial", "mod"],
+      ["gcd", "lcm", "floor", "ceiling", "isprime"]
+    ],
+    "matrix": [
+      ["M", "V", "det", "inverse", "transpose"],
+      ["eye", "dot", "cross", "eigenvals", "rref"]
+    ],
+    "stat": [
+      ["mean", "median", "stdev", "variance", "sum"],
+      ["min", "max", "pstdev", "pvariance", "sorted"]
+    ],
+    "test": [
+      ["<", ">", "<=", ">=", "!="],
+      ["==", null, null, null, null]
+    ]
+  },
+
+  "keys": {
+    "degree": { "label": "°", "insert": "°", "math": "\\degree" },
+    "asin": { "tex": "\\sin^{-1}", "insert": "asin(|)", "math": "\\arcsin\\left(#0\\right)" },
+    "acos": { "tex": "\\cos^{-1}", "insert": "acos(|)", "math": "\\arccos\\left(#0\\right)" },
+    "atan": { "tex": "\\tan^{-1}", "insert": "atan(|)", "math": "\\arctan\\left(#0\\right)" },
+    "atan2": { "insert": "atan2(|, )", "math": "\\operatorname{atan2}\\left(#0, #?\\right)" },
+    "asinh": { "tex": "\\sinh^{-1}" },
+    "acosh": { "tex": "\\cosh^{-1}" },
+    "atanh": { "tex": "\\tanh^{-1}" },
+
+    "diff": { "tex": "\\frac{d}{dx}", "insert": "diff(|, x)", "math": "\\frac{d}{dx}\\left(#0\\right)" },
+    "integrate": { "tex": "\\int", "insert": "integrate(|, x)", "math": "\\int #0\\,dx" },
+    "integrate_ab": { "tex": "\\int_a^b", "insert": "integrate(|, (x, 0, 1))", "math": "\\int_{#?}^{#?} #0\\,dx" },
+    "limit": { "tex": "\\lim", "insert": "limit(|, x, 0)", "math": "\\lim_{x\\to #?} #0" },
+    "summation": { "tex": "\\sum", "insert": "summation(|, (k, 1, n))", "math": "\\sum_{k=#?}^{#?} #0" },
+    "product": { "tex": "\\prod", "insert": "product(|, (k, 1, n))", "math": "\\prod_{k=#?}^{#?} #0" },
+    "series": { "insert": "series(|, x, 0, 6)", "math": "\\operatorname{series}\\left(#0, x, 0, 6\\right)" },
+    "dsolve": { "insert": "dsolve(|, f(x))", "math": null },
+    "plot": { "insert": "plot(|, (x, -5, 5))", "math": "\\operatorname{plot}\\left(#0, \\left(x, -5, 5\\right)\\right)" },
+
+    "solve": { "insert": "solve(|, x)", "math": "\\operatorname{solve}\\left(#0, x\\right)" },
+    "nsolve": { "insert": "nsolve(|, x, 1)", "math": "\\operatorname{nsolve}\\left(#0, x, 1\\right)" },
+    "subs": { "insert": ".subs(x, |)" },
+    "linsolve": { "insert": "linsolve([|], [x, y])", "math": null },
+
+    "abs": { "tex": "|x|", "insert": "abs(|)", "math": "\\left|#0\\right|" },
+    "log10": { "tex": "\\log_{10}", "insert": "log(|, 10)", "math": "\\log_{10}\\left(#0\\right)" },
+    "factorial": { "label": "n!", "insert": "!", "math": "!" },
+    "binomial": { "label": "nCr", "insert": "binomial(|, )", "math": "\\binom{#0}{#?}" },
+    "mod": { "insert": "Mod(|, )", "math": "\\operatorname{Mod}\\left(#0, #?\\right)" },
+    "gcd": { "insert": "gcd(|, )", "math": "\\gcd\\left(#0, #?\\right)" },
+    "lcm": { "insert": "lcm(|, )", "math": "\\operatorname{lcm}\\left(#0, #?\\right)" },
+    "ceiling": { "label": "ceil" },
+
+    "M": { "label": "M[ ]", "insert": "M[|]", "math": "\\begin{bmatrix}#0 & #?\\\\ #? & #?\\end{bmatrix}" },
+    "V": { "label": "V[ ]", "insert": "V[|]", "math": "\\begin{bmatrix}#0\\\\ #?\\end{bmatrix}" },
+    "inverse": { "tex": "A^{-1}", "insert": "^-1", "math": "^{-1}" },
+    "transpose": { "tex": "A^{T}", "insert": ".T" },
+    "dot": { "tex": "u\\cdot v", "insert": ".dot(|)" },
+    "cross": { "tex": "u\\times v", "insert": ".cross(|)" },
+    "eigenvals": { "label": "eigen", "insert": ".eigenvals()" },
+    "rref": { "insert": ".rref()" },
+
+    "<": { "insert": "<" },
+    ">": { "insert": ">" },
+    "<=": { "tex": "\\le", "insert": "<=", "math": "\\le" },
+    ">=": { "tex": "\\ge", "insert": ">=", "math": "\\ge" },
+    "!=": { "tex": "\\ne", "insert": "!=", "math": "\\ne" },
+    "==": { "insert": "==", "math": null }
+  }
+}
