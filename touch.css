@@ -1,10 +1,9 @@
-/* Touch layout (keypad.js): everything here is under html.touch, which index.html sets on
-   touch-only devices (or ?layout=touch), so the keyboard layout never sees any of it. The
-   page is a screen (status line, tape, input, soft keys' labels) over 40 equal keys. */
+/* The calculator (keypad.js): a screen (status line, tape, input, soft keys' labels) over
+   40 equal keys, and the views that take the screen over. app.css styles what's on it. */
 
 /* --- the look: a graphite face and an LCD, the same by day and by night ----------------- */
 
-html.touch {
+:root {
   --key-h: clamp(30px, 5.3dvh, 46px);
   --gap: 8px;
   --edge: 10px; /* the keypad's sides, and the screen's: the labels line up with the keys */
@@ -45,7 +44,7 @@ html.touch {
   -webkit-tap-highlight-color: transparent;
 }
 /* the screen's content in the LCD's ink, whatever the system's scheme */
-html.touch .screen {
+.screen {
   --text: var(--ink);
   --muted: var(--ink-soft);
   --faint: var(--rule);
@@ -57,22 +56,20 @@ html.touch .screen {
 
 /* the page doesn't scroll or bounce; main follows the visual viewport (fitViewport), so
    the input stays above the system keyboard */
-html.touch body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; background: var(--body); }
-html.touch main {
+body { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; background: var(--body); }
+main {
   position: fixed;
   left: 0;
   right: 0;
   top: var(--app-top, 0px);
   height: var(--app-height, 100dvh);
-  max-width: 720px;
+  max-width: 480px; /* a calculator's proportions on a big screen */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   background: var(--body);
 }
-
-html.touch .tip,
-html.touch .desktop-only,
-html.touch #hints,
-html.touch #mode-toggle { display: none; }
 
 /* --- the screen ---------------------------------------------------------------------- */
 
@@ -120,36 +117,6 @@ html.touch #mode-toggle { display: none; }
   text-decoration: underline;
 }
 .screen .status .ind { flex: none; }
-
-html.touch #tape {
-  padding: 2px 0 4px;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-html.touch .entry { border-color: var(--rule); }
-html.touch .item { padding: 4px 6px; }
-html.touch .outputs { padding: 0 6px 0 calc(6px + 2.2em + 10px); }
-html.touch .err { padding: 4px 6px 4px calc(6px + 2.2em + 10px); }
-/* a sideways drag pans an iplot graph (graph.js), an upright one still scrolls the tape */
-html.touch .outputs .graph .u-over { touch-action: pan-y; }
-html.touch .outputs .graph { min-height: 0; }
-
-html.touch #preview { padding: 0 4px; }
-html.touch #loading { padding: 0 2px 6px; }
-/* the input: a line on the screen, not a box */
-html.touch #prompt {
-  min-height: 40px;
-  padding: 4px 4px;
-  border: 0;
-  border-top: 1px solid var(--rule);
-  border-radius: 0;
-  background: transparent;
-}
-html.touch #prompt.browsing { opacity: 0.6; }
-html.touch #prompt .caret { color: var(--ink); }
-html.touch #input { font-size: 20px; min-width: 0; color: var(--ink); caret-color: var(--ink); } /* 16px at least, or iOS zooms in */
-html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
 
 /* bottom: the soft keys' labels, two rows over F1–F5 (the keypad's first row), in its
    columns. The row F1–F5 do now is lit (dark labels), the other dim (gray): the lower one,
@@ -215,8 +182,8 @@ html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
 
 /* --- the keypad: 40 equal keys, five by eight ------------------------------------------ */
 
-html.touch #composer { padding: 6px var(--edge) calc(8px + env(safe-area-inset-bottom)); background: transparent; border: 0; }
-html.touch.typing #composer { padding-bottom: 6px; }
+#composer { padding: 6px var(--edge) calc(8px + env(safe-area-inset-bottom)); }
+html.typing #composer { padding-bottom: 6px; }
 
 #keypad {
   position: relative;
@@ -282,12 +249,12 @@ html.mod-alpha #keypad .key .la { font-size: 12.5px; text-decoration: underline;
   gap: var(--gap);
 }
 #keypad .bar .key { height: 40px; padding: 0; align-items: center; font-family: var(--mono); font-size: 18px; }
-html.touch.typing #keypad .bar { display: grid; }
-html.touch.typing #keypad .grid { display: none; }
+html.typing #keypad .bar { display: grid; }
+html.typing #keypad .grid { display: none; }
 
 /* a narrow phone (the first iPhone SE): smaller labels */
 @media (max-width: 350px) {
-  html.touch { --gap: 6px; }
+  :root { --gap: 6px; }
   #keypad .key { font-size: 17px; }
   #keypad .key.word { font-size: 13px; }
   #keypad .key .l2, #keypad .key .la { font-size: 9.5px; }
@@ -299,14 +266,14 @@ html.touch.typing #keypad .grid { display: none; }
 
 /* a phone on its side: the screen beside the keypad, both the full height */
 @media (orientation: landscape) and (max-height: 500px) {
-  html.touch main {
+  main {
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     padding-bottom: env(safe-area-inset-bottom);
   }
   .screen { margin: 8px 4px 8px 8px; }
-  html.touch #composer { display: flex; flex-direction: column; padding: 6px 8px 6px 4px; min-height: 0; }
+  #composer { display: flex; flex-direction: column; padding: 6px 8px 6px 4px; min-height: 0; }
   #keypad { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   #keypad .grid { flex: 1; min-height: 0; grid-template-rows: repeat(8, minmax(0, 1fr)); gap: 4px 6px; }
   #keypad .key .l2, #keypad .key .la { display: none; }

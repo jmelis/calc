@@ -2,32 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <script>
-    // Touch-only devices (phones, tablets without a mouse) get the touch layout: keypad.js,
-    // touch.css. ?layout=touch or ?layout=desktop chooses one and is remembered; ?layout=auto
-    // forgets. Decided here, before anything renders, so the other layout never flashes.
-    (() => {
-      let layout = new URLSearchParams(location.search).get("layout");
-      try {
-        if (layout === "touch" || layout === "desktop") localStorage.setItem("calc.layout", layout);
-        else if (layout === "auto") localStorage.removeItem("calc.layout");
-        else layout = localStorage.getItem("calc.layout");
-      } catch {}
-      if (layout !== "touch" && (layout === "desktop" || !matchMedia("(hover: none) and (pointer: coarse)").matches)) return;
-      document.documentElement.classList.add("touch");
-      // under the notch and the home indicator (touch.css pads with the safe areas), and on
-      // Android the system keyboard shrinks the page instead of covering it
-      document.querySelector('meta[name="viewport"]').content += ", viewport-fit=cover, interactive-widget=resizes-content";
-      // the browser's bars in the calculator's graphite (touch.css's --body), and an
-      // installed app's status bar over it (main pads for it)
-      for (const meta of document.querySelectorAll('meta[name="theme-color"]')) meta.content = "#2a2c30";
-      document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = "black-translucent";
-    })();
-  </script>
+  <!-- under the notch and the home indicator (touch.css pads with the safe areas); on
+       Android the system keyboard shrinks the page instead of covering it -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <!-- the browser's bars in the calculator's graphite (touch.css's --body), and an
+       installed app's status bar over it (main pads for it) -->
+  <meta name="theme-color" content="#2a2c30">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>SymPy Calc</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23c2410c'/><text x='32' y='46' text-anchor='middle' font-family='Georgia,serif' font-size='38' fill='white'>2π</text></svg>">
   <!-- Add to Home Screen (iOS, Android): the app then runs on its own, without the
@@ -60,159 +41,128 @@
       <div id="prompt">
         <span class="caret">›</span>
         <input id="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus aria-label="Expression">
-        <button id="mode-toggle" type="button" tabindex="-1"></button>
-      </div>
-      <div id="hints">
-        <span id="hint-text"></span>
-        <span id="footer-right">
-          <span id="commands"></span>
-          <span id="about"><a id="revision" target="_blank" rel="noopener">local</a> · <a href="https://github.com/jmelis/calc" target="_blank" rel="noopener">source</a></span>
-        </span>
       </div>
     </div>
   </main>
 
-  <div id="memory" hidden>
-    <div class="panel" role="dialog" aria-label="Memory" tabindex="-1">
-      <div class="title">Memory</div>
-      <ul id="memory-list" role="listbox"></ul>
-      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>⏎</kbd> insert · <kbd>⌫</kbd> forget · <kbd>⌃Z</kbd> undo · <kbd>Esc</kbd> close</div>
-    </div>
-  </div>
-
+  <!-- the manual: the help view shows it a section at a time, each section's data-tab
+       its soft key (keypad.js) -->
   <div id="help" hidden>
-    <div class="panel" role="dialog" aria-label="Help">
-      <div class="title">Help</div>
-      <div class="body" tabindex="-1">
-        <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <span class="desktop-only"><kbd>?</kbd></span><span class="touch-only"><kbd>shift</kbd> <kbd>menu</kbd></span> lists the common functions.</p>
-        <section class="touch-only" data-tab="keypad">
-          <h2>The keypad</h2>
-          <dl class="keys">
-            <dt>soft keys</dt><dd>The labels on the screen's bottom edge, in two rows: the blank keys under the screen do the lower ones, <kbd>shift</kbd> and the key the upper ones (or tap a label). They show a menu, what you can do with a selected result, or the names that start with what you're typing. Dots under them mean more pages: <kbd>shift</kbd> <kbd>▲</kbd> <kbd>▼</kbd>, or a swipe on the labels, turns them</dd>
-            <dt><kbd>menu</kbd> <kbd>trig</kbd></dt><dd><kbd>menu</kbd> lists the menus (calc, alg, num, matrix, stat; with <kbd>shift</kbd>: trig, vars, catalog, setup, help); again, it goes back to the one you were in. <kbd>trig</kbd> has a key of its own (<kbd>shift</kbd> <kbd>trig</kbd>: the hyperbolic ones), and <kbd>shift</kbd> <kbd>=</kbd> the comparisons. All of them come from <code>menus.json</code></dd>
-            <dt><kbd>shift</kbd></dt><dd>Then a key: what's printed above it on the left (<code>√ eˣ [ ] : i (−) ∞ E</code>; undo on <kbd>⌫</kbd>, your variables on <kbd>x</kbd>, the catalog on <kbd>menu</kbd>, clearing the tape on <kbd>esc</kbd>). Holding a key does the same, and so does shift-clicking it with a mouse</dd>
-            <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right (a–d on <kbd>trig</kbd> and the arrows, then down the rows to y; z on <kbd>0</kbd>, a space on <kbd>.</kbd>; <kbd>x</kbd> has its own key), a capital with <kbd>shift</kbd> too. Twice keeps typing letters until <kbd>alpha</kbd> again (A-LOCK), ◀ ▼ ▶ included. Option-click types one with a mouse. <kbd>shift</kbd> <kbd>alpha</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
-            <dt><kbd>shift</kbd> <kbd>enter</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
-            <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries. Then <kbd>◀</kbd> <kbd>▶</kbd> show a result exact, as a decimal or in degrees, <kbd>enter</kbd> inserts it (or tap it; tap again to let go), <kbd>⌫</kbd> deletes it</dd>
-            <dt><kbd>esc</kbd> <kbd>⌫</kbd></dt><dd>Back out one step (alpha, then a view or a selection, then the line); delete before the cursor. <kbd>shift</kbd> <kbd>esc</kbd> clears the whole tape, and <kbd>shift</kbd> <kbd>⌫</kbd> brings it back</dd>
-            <dt>catalog</dt><dd>All the functions (<kbd>shift</kbd> <kbd>menu</kbd>; after a name half typed, it opens there). <kbd>▲</kbd> <kbd>▼</kbd> move, the soft keys pick a group, <kbd>enter</kbd> inserts, <kbd>▶</kbd> opens the function's help, where the soft keys go to related ones and <kbd>◀</kbd> comes back. With <kbd>alpha</kbd>, letters jump to a name</dd>
-            <dt>setup, vars, help</dt><dd>Take over the screen too: <kbd>▲</kbd> <kbd>▼</kbd> move, <kbd>◀</kbd> <kbd>▶</kbd> change a setting or help's section, <kbd>enter</kbd> picks, <kbd>esc</kbd> goes back. A keyboard's arrows, <kbd>⏎</kbd>, <kbd>Esc</kbd> and <kbd>⌫</kbd> do the same</dd>
-            <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
-            <dt>home screen</dt><dd>Share → Add to Home Screen on iOS (Install on Android) keeps it a tap away and runs it without the browser around it. It still loads Python from the network the first time</dd>
-          </dl>
-        </section>
-        <section data-tab="typing">
-          <h2>Typing math</h2>
-          <dl>
-            <dt>2x &nbsp; sin x &nbsp; x^2 &nbsp; 5!</dt><dd>Multiplication and function calls can be implied; <code>^</code> is a power</dd>
-            <dt>xy &nbsp; velocity</dt><dd>One name each. <code>x y</code> or <code>x*y</code> multiplies</dd>
-            <dt>e &nbsp; pi &nbsp; I &nbsp; oo</dt><dd>Constants: 2.718…, π, √−1, ∞</dd>
-            <dt>x &nbsp; velocity</dt><dd>A name that isn't defined is a symbol; <code>k m n</code> are integers, <code>f g h</code> functions</dd>
-            <dt>sin(30°)</dt><dd>Degrees</dd>
-            <dt>1E3 &nbsp; 6.02E23</dt><dd>A power of ten: <code>1E3</code> is 1000 exactly, <code>6.02E23</code> a decimal<span class="touch-only"> (<kbd>shift</kbd> <kbd>ans</kbd> types the E)</span></dd>
-            <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. Typing <code>+ - * / ^</code> first continues from <code>ans</code> (<code>--</code> for a negative number)</dd>
-          </dl>
-        </section>
-        <section data-tab="assign">
-          <h2>Assignment and equations</h2>
-          <p>What's left of <code>=</code> decides what it means:</p>
-          <dl>
-            <dt>a = 3/7</dt><dd>A name: assign a variable (<code>a := 3/7</code> too)</dd>
-            <dt>a, b = 1, 2</dt><dd>Several names: assign each</dd>
-            <dt>f(x) = x^2 + 1</dt><dd>A name with arguments: define a function</dd>
-            <dt>A[0, 1] = 5</dt><dd>A name with an index: change part of a variable; earlier results keep their values</dd>
-            <dt>x^2 = 4</dt><dd>Anything else: an equation</dd>
-            <dt>solve(x^2 = 4, x)</dt><dd>Inside brackets, <code>=</code> is an equation too…</dd>
-            <dt>solve(x^2 - 4, x, dict=True)</dt><dd>…except after a bare name, which is a keyword argument</dd>
-            <dt>x == 2</dt><dd>Asks whether both sides are the same expression: True or False</dd>
-          </dl>
-          <p class="note">Variables and functions defined this way are kept when you reload; Python definitions (<code>def</code>) are not. <code>:vars</code> lists them.</p>
-        </section>
-        <section data-tab="matrix">
-          <h2>Matrices and vectors</h2>
-          <dl>
-            <dt>M[1, 2, 3]</dt><dd>A matrix with one row</dd>
-            <dt>A = M[[1, 2], [3, 4]]</dt><dd>A matrix from its rows</dd>
-            <dt>v = V[1, 2]</dt><dd>A column vector</dd>
-            <dt>A^-1 &nbsp; A*A &nbsp; A*v &nbsp; 2v</dt><dd>Inverse, products, scaling</dd>
-            <dt>det(A) &nbsp; A.T &nbsp; A.eigenvals()</dt><dd>Any SymPy matrix function or method</dd>
-            <dt>v.dot(w) &nbsp; v.cross(w)</dt><dd>Products of two vectors</dd>
-            <dt>A[0, 1] &nbsp; A[1, :] &nbsp; A[:, 0]</dt><dd>An element, a row, a column (counting from 0)</dd>
-            <dt>A[0, 1] = 5 &nbsp; A[1, :] = M[7, 8]</dt><dd>Change an element or a row; earlier results keep their values</dd>
-          </dl>
-          <p class="note"><code>[1, 2, 3]</code> is a Python list: <code>2*[1, 2]</code> is <code>[1, 2, 1, 2]</code>. <code>M</code> and <code>V</code> are names like any other: <code>M = 3</code> replaces them until you forget it in <code>:vars</code>.</p>
-        </section>
-        <section data-tab="graphs">
-          <h2>Graphs</h2>
-          <dl>
-            <dt>iplot(sin(x)/x)</dt><dd>An interactive graph (of several functions: <code>iplot(f, g, (x, 0, 2pi))</code>). A range takes brackets too: <code>iplot(x, [x, -10, 10])</code></dd>
-            <dt>drag &nbsp; pinch &nbsp; double-click</dt><dd>Pan (or swipe sideways); zoom; back to the start. Shift+drag zooms into a range</dd>
-            <dt><kbd>↑</kbd> then <kbd>←</kbd> <kbd>→</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>With the graph selected: pan, zoom, back to the start</dd>
-            <dt>plot(sin(x), (x, -5, 5))</dt><dd>A picture (matplotlib), with all of its options; also <code>plot_parametric</code>, <code>plot_implicit</code></dd>
-            <dt>plt.plot(xs, ys)</dt><dd>Data rather than expressions: <code>plt</code> is matplotlib's pyplot, ready to use (<code>plt.scatter</code>, <code>plt.bar</code>, <code>plt.hist</code>…)</dd>
-          </dl>
-        </section>
-        <section data-tab="sympy">
-          <h2>All of SymPy</h2>
-          <dl>
-            <dt>Sum(1/n^2, (n, 1, oo))</dt><dd>Some objects stay unevaluated…</dd>
-            <dt>ans.doit() &nbsp; ans.evalf()</dt><dd>…until you ask: exactly (π²/6) or as a number</dd>
-            <dt>pi.evalf(50)</dt><dd>Any number of digits</dd>
-            <dt>(x^2 + 1).subs(x, 3)</dt><dd>Methods work as in SymPy</dd>
-            <dt>a = symbols("a", positive=True)</dt><dd>Symbols with assumptions: then <code>sqrt(a^2)</code> is <code>a</code></dd>
-            <dt>series(sin x, x, 0, 6) &nbsp; isprime(97)</dt><dd>And every other SymPy function</dd>
-          </dl>
-        </section>
-        <section data-tab="python">
-          <h2>Python</h2>
-          <p>Underneath, this is Python with SymPy, running in your browser. A line that starts with <code>def</code>, <code>for</code>, <code>import</code>… or isn't calculator syntax runs as Python, where <code>=</code> is Python's assignment. One line at a time: separate statements with <code>;</code>.</p>
-          <dl>
-            <dt>def g(x): y = x + 1; return 2*y</dt><dd>A Python function</dd>
-            <dt>for i in range(3): print(i)</dt><dd>Loops; printed output shows on the tape</dd>
-            <dt>import math</dt><dd>Imports</dd>
-            <dt>def sq(n): return n**2</dt><dd><strong>Python lines are plain Python:</strong> <code>**</code> is a power and <code>^</code> is XOR, and nothing is implied (<code>2*x</code>, not <code>2x</code>)</dd>
-          </dl>
-        </section>
-        <section class="desktop-only" data-tab="keys">
-          <h2>Keys</h2>
-          <dl class="keys">
-            <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
-            <dt><kbd>⇧⏎</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
-            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select tape items, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>⌫</kbd> delete</dd>
-            <dt><kbd>⇧</kbd><kbd>↑</kbd> <kbd>⇧</kbd><kbd>↓</kbd></dt><dd>Select several cells (or Shift+click)</dd>
-            <dt><kbd>c</kbd> &nbsp; <kbd>⇧C</kbd></dt><dd>Copy the selected cells as text (<code>sqrt(8)</code> and <code>= 2*sqrt(2)</code>); copy the selected item's LaTeX</dd>
-            <dt><kbd>⌃Z</kbd></dt><dd>On an empty line: undo deleting an entry, forgetting a variable, or <code>:clear</code> (not <code>:reset</code>)</dd>
-            <dt><kbd>Tab</kbd></dt><dd>Complete a name</dd>
-            <dt><kbd>?</kbd></dt><dd>On an empty line: the function catalog</dd>
-            <dt><kbd>⌃M</kbd></dt><dd>Math input</dd>
-            <dt><kbd>⌃C</kbd></dt><dd>Stop a long computation</dd>
-          </dl>
-        </section>
-        <section data-tab="cmds">
-          <h2>Commands</h2>
-          <dl>
-            <dt>:help</dt><dd>This</dd>
-            <dt>:catalog</dt><dd>The functions, searchable, with examples (<kbd>?</kbd> on an empty line)</dd>
-            <dt>:vars</dt><dd>What you've defined; <kbd>⌫</kbd> forgets one</dd>
-            <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
-            <dt>:reset</dt><dd>Empty the tape and forget everything</dd>
-          </dl>
-          <p class="note">Phones and tablets without a mouse get a keypad instead of this layout; the <kbd>keypad</kbd> button below switches to it anywhere, and its setup switches back. Adding <code>?layout=touch</code> or <code>?layout=desktop</code> to the address does the same (<code>?layout=auto</code> to let the device decide).</p>
-        </section>
-      </div>
-      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> scroll · <kbd>Esc</kbd> close</div>
-    </div>
-  </div>
-
-  <div id="catalog" hidden>
-    <div class="panel" role="dialog" aria-label="Function catalog">
-      <input id="catalog-search" autocomplete="off" spellcheck="false" placeholder="Search functions…" aria-label="Search functions">
-      <div class="body">
-        <ul id="catalog-list" role="listbox"></ul>
-        <div id="catalog-detail"></div>
-      </div>
-      <div class="footer"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>⏎</kbd> insert · <kbd>Esc</kbd> close</div>
-    </div>
+    <p class="intro">SymPy Calc is <a href="https://docs.sympy.org/latest/" target="_blank" rel="noopener">SymPy</a> with a calculator's syntax on top: everything below is a shortcut, and anything SymPy or Python can do works as written. <kbd>shift</kbd> <kbd>menu</kbd> lists the common functions.</p>
+    <section data-tab="keypad">
+      <h2>The keypad</h2>
+      <dl class="keys">
+        <dt>soft keys</dt><dd>The labels on the screen's bottom edge, in two rows: the blank keys under the screen do the lower ones, <kbd>shift</kbd> and the key the upper ones (or tap a label). They show a menu, what you can do with a selected result, or the names that start with what you're typing. Dots under them mean more pages: <kbd>shift</kbd> <kbd>▲</kbd> <kbd>▼</kbd>, or a swipe on the labels, turns them</dd>
+        <dt><kbd>menu</kbd> <kbd>trig</kbd></dt><dd><kbd>menu</kbd> lists the menus (calc, alg, num, matrix, stat; with <kbd>shift</kbd>: trig, vars, catalog, setup, help); again, it goes back to the one you were in. <kbd>trig</kbd> has a key of its own (<kbd>shift</kbd> <kbd>trig</kbd>: the hyperbolic ones), and <kbd>shift</kbd> <kbd>=</kbd> the comparisons. All of them come from <code>menus.json</code></dd>
+        <dt><kbd>shift</kbd></dt><dd>Then a key: what's printed above it on the left (<code>√ eˣ [ ] : i (−) ∞ E</code>; undo on <kbd>⌫</kbd>, your variables on <kbd>x</kbd>, the catalog on <kbd>menu</kbd>, clearing the tape on <kbd>esc</kbd>). Holding a key does the same, and so does shift-clicking it with a mouse</dd>
+        <dt><kbd>alpha</kbd></dt><dd>Then a key: its letter, on the right (a–d on <kbd>trig</kbd> and the arrows, then down the rows to y; z on <kbd>0</kbd>, a space on <kbd>.</kbd>; <kbd>x</kbd> has its own key), a capital with <kbd>shift</kbd> too. Twice keeps typing letters until <kbd>alpha</kbd> again (A-LOCK), ◀ ▼ ▶ included. Option-click types one with a mouse. <kbd>shift</kbd> <kbd>alpha</kbd> brings up the system keyboard instead (<kbd>123</kbd> puts it away)</dd>
+        <dt><kbd>shift</kbd> <kbd>enter</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
+        <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries. Then <kbd>◀</kbd> <kbd>▶</kbd> show a result exact, as a decimal or in degrees, <kbd>enter</kbd> inserts it (or tap it; tap again to let go), <kbd>⌫</kbd> deletes it</dd>
+        <dt><kbd>esc</kbd> <kbd>⌫</kbd></dt><dd>Back out one step (alpha, then a view or a selection, then the line); delete before the cursor. <kbd>shift</kbd> <kbd>esc</kbd> clears the whole tape, and <kbd>shift</kbd> <kbd>⌫</kbd> brings it back</dd>
+        <dt>catalog</dt><dd>All the functions (<kbd>shift</kbd> <kbd>menu</kbd>; after a name half typed, it opens there). <kbd>▲</kbd> <kbd>▼</kbd> move, the soft keys pick a group, <kbd>enter</kbd> inserts, <kbd>▶</kbd> opens the function's help, where the soft keys go to related ones and <kbd>◀</kbd> comes back. With <kbd>alpha</kbd>, letters jump to a name</dd>
+        <dt>setup, vars, help</dt><dd>Take over the screen too: <kbd>▲</kbd> <kbd>▼</kbd> move, <kbd>◀</kbd> <kbd>▶</kbd> change a setting or help's section, <kbd>enter</kbd> picks, <kbd>esc</kbd> goes back. A keyboard's arrows, <kbd>⏎</kbd>, <kbd>Esc</kbd> and <kbd>⌫</kbd> do the same</dd>
+        <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
+        <dt>home screen</dt><dd>Share → Add to Home Screen on iOS (Install on Android) keeps it a tap away and runs it without the browser around it. It still loads Python from the network the first time</dd>
+      </dl>
+    </section>
+    <section data-tab="typing">
+      <h2>Typing math</h2>
+      <dl>
+        <dt>2x &nbsp; sin x &nbsp; x^2 &nbsp; 5!</dt><dd>Multiplication and function calls can be implied; <code>^</code> is a power</dd>
+        <dt>xy &nbsp; velocity</dt><dd>One name each. <code>x y</code> or <code>x*y</code> multiplies</dd>
+        <dt>e &nbsp; pi &nbsp; I &nbsp; oo</dt><dd>Constants: 2.718…, π, √−1, ∞</dd>
+        <dt>x &nbsp; velocity</dt><dd>A name that isn't defined is a symbol; <code>k m n</code> are integers, <code>f g h</code> functions</dd>
+        <dt>sin(30°)</dt><dd>Degrees</dd>
+        <dt>1E3 &nbsp; 6.02E23</dt><dd>A power of ten: <code>1E3</code> is 1000 exactly, <code>6.02E23</code> a decimal (<kbd>shift</kbd> <kbd>ans</kbd> types the E)</dd>
+        <dt>ans &nbsp; $3</dt><dd>The last result; the result of entry 3. Typing <code>+ - * / ^</code> first continues from <code>ans</code> (<code>--</code> for a negative number)</dd>
+      </dl>
+    </section>
+    <section data-tab="assign">
+      <h2>Assignment and equations</h2>
+      <p>What's left of <code>=</code> decides what it means:</p>
+      <dl>
+        <dt>a = 3/7</dt><dd>A name: assign a variable (<code>a := 3/7</code> too)</dd>
+        <dt>a, b = 1, 2</dt><dd>Several names: assign each</dd>
+        <dt>f(x) = x^2 + 1</dt><dd>A name with arguments: define a function</dd>
+        <dt>A[0, 1] = 5</dt><dd>A name with an index: change part of a variable; earlier results keep their values</dd>
+        <dt>x^2 = 4</dt><dd>Anything else: an equation</dd>
+        <dt>solve(x^2 = 4, x)</dt><dd>Inside brackets, <code>=</code> is an equation too…</dd>
+        <dt>solve(x^2 - 4, x, dict=True)</dt><dd>…except after a bare name, which is a keyword argument</dd>
+        <dt>x == 2</dt><dd>Asks whether both sides are the same expression: True or False</dd>
+      </dl>
+      <p class="note">Variables and functions defined this way are kept when you reload; Python definitions (<code>def</code>) are not. <code>:vars</code> lists them.</p>
+    </section>
+    <section data-tab="matrix">
+      <h2>Matrices and vectors</h2>
+      <dl>
+        <dt>M[1, 2, 3]</dt><dd>A matrix with one row</dd>
+        <dt>A = M[[1, 2], [3, 4]]</dt><dd>A matrix from its rows</dd>
+        <dt>v = V[1, 2]</dt><dd>A column vector</dd>
+        <dt>A^-1 &nbsp; A*A &nbsp; A*v &nbsp; 2v</dt><dd>Inverse, products, scaling</dd>
+        <dt>det(A) &nbsp; A.T &nbsp; A.eigenvals()</dt><dd>Any SymPy matrix function or method</dd>
+        <dt>v.dot(w) &nbsp; v.cross(w)</dt><dd>Products of two vectors</dd>
+        <dt>A[0, 1] &nbsp; A[1, :] &nbsp; A[:, 0]</dt><dd>An element, a row, a column (counting from 0)</dd>
+        <dt>A[0, 1] = 5 &nbsp; A[1, :] = M[7, 8]</dt><dd>Change an element or a row; earlier results keep their values</dd>
+      </dl>
+      <p class="note"><code>[1, 2, 3]</code> is a Python list: <code>2*[1, 2]</code> is <code>[1, 2, 1, 2]</code>. <code>M</code> and <code>V</code> are names like any other: <code>M = 3</code> replaces them until you forget it in <code>:vars</code>.</p>
+    </section>
+    <section data-tab="graphs">
+      <h2>Graphs</h2>
+      <dl>
+        <dt>iplot(sin(x)/x)</dt><dd>An interactive graph (of several functions: <code>iplot(f, g, (x, 0, 2pi))</code>). A range takes brackets too: <code>iplot(x, [x, -10, 10])</code></dd>
+        <dt>drag &nbsp; pinch &nbsp; double-click</dt><dd>Pan (or swipe sideways); zoom; back to the start. Shift+drag zooms into a range</dd>
+        <dt><kbd>↑</kbd> then <kbd>←</kbd> <kbd>→</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>With the graph selected: pan, zoom, back to the start</dd>
+        <dt>plot(sin(x), (x, -5, 5))</dt><dd>A picture (matplotlib), with all of its options; also <code>plot_parametric</code>, <code>plot_implicit</code></dd>
+        <dt>plt.plot(xs, ys)</dt><dd>Data rather than expressions: <code>plt</code> is matplotlib's pyplot, ready to use (<code>plt.scatter</code>, <code>plt.bar</code>, <code>plt.hist</code>…)</dd>
+      </dl>
+    </section>
+    <section data-tab="sympy">
+      <h2>All of SymPy</h2>
+      <dl>
+        <dt>Sum(1/n^2, (n, 1, oo))</dt><dd>Some objects stay unevaluated…</dd>
+        <dt>ans.doit() &nbsp; ans.evalf()</dt><dd>…until you ask: exactly (π²/6) or as a number</dd>
+        <dt>pi.evalf(50)</dt><dd>Any number of digits</dd>
+        <dt>(x^2 + 1).subs(x, 3)</dt><dd>Methods work as in SymPy</dd>
+        <dt>a = symbols("a", positive=True)</dt><dd>Symbols with assumptions: then <code>sqrt(a^2)</code> is <code>a</code></dd>
+        <dt>series(sin x, x, 0, 6) &nbsp; isprime(97)</dt><dd>And every other SymPy function</dd>
+      </dl>
+    </section>
+    <section data-tab="python">
+      <h2>Python</h2>
+      <p>Underneath, this is Python with SymPy, running in your browser. A line that starts with <code>def</code>, <code>for</code>, <code>import</code>… or isn't calculator syntax runs as Python, where <code>=</code> is Python's assignment. One line at a time: separate statements with <code>;</code>.</p>
+      <dl>
+        <dt>def g(x): y = x + 1; return 2*y</dt><dd>A Python function</dd>
+        <dt>for i in range(3): print(i)</dt><dd>Loops; printed output shows on the tape</dd>
+        <dt>import math</dt><dd>Imports</dd>
+        <dt>def sq(n): return n**2</dt><dd><strong>Python lines are plain Python:</strong> <code>**</code> is a power and <code>^</code> is XOR, and nothing is implied (<code>2*x</code>, not <code>2x</code>)</dd>
+      </dl>
+    </section>
+    <section data-tab="keyboard">
+      <h2>With a keyboard</h2>
+      <p>A computer's keyboard types into the line, and works the views as the keypad does.</p>
+      <dl class="keys">
+        <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
+        <dt><kbd>⇧⏎</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select tape items, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>⌫</kbd> delete</dd>
+        <dt><kbd>⇧</kbd><kbd>↑</kbd> <kbd>⇧</kbd><kbd>↓</kbd></dt><dd>Select several cells (or Shift+click)</dd>
+        <dt><kbd>c</kbd> &nbsp; <kbd>⇧C</kbd></dt><dd>Copy the selected cells as text (<code>sqrt(8)</code> and <code>= 2*sqrt(2)</code>); copy the selected item's LaTeX</dd>
+        <dt><kbd>⌃Z</kbd></dt><dd>On an empty line: undo deleting an entry, forgetting a variable, or <code>:clear</code> (not <code>:reset</code>)</dd>
+        <dt><kbd>Tab</kbd></dt><dd>Complete a name</dd>
+        <dt><kbd>?</kbd></dt><dd>On an empty line: the function catalog</dd>
+        <dt><kbd>⌃M</kbd></dt><dd>Math input</dd>
+        <dt><kbd>⌃C</kbd></dt><dd>Stop a long computation</dd>
+      </dl>
+    </section>
+    <section data-tab="cmds">
+      <h2>Commands</h2>
+      <dl>
+        <dt>:help</dt><dd>This</dd>
+        <dt>:catalog</dt><dd>The functions, with examples (<kbd>shift</kbd> <kbd>menu</kbd>)</dd>
+        <dt>:vars</dt><dd>What you've defined; <kbd>⌫</kbd> forgets one</dd>
+        <dt>:clear</dt><dd>Empty the tape; variables are kept</dd>
+        <dt>:reset</dt><dd>Empty the tape and forget everything</dd>
+      </dl>
+    </section>
   </div>
 </body>
 </html>

@@ -1,9 +1,10 @@
 # CLAUDE.md
 
-A keyboard-driven SymPy calculator that runs entirely in the browser: SymPy in Pyodide (CPython
-compiled to WebAssembly) in a Web Worker, results typeset with KaTeX, optional math input with
-MathLive, and a calculator keypad on phones and tablets. A static site with no build step and no
-server, published at https://jmelis.github.io/calc/.
+A SymPy calculator that runs entirely in the browser, as a calculator: a screen over a keypad
+of 40 keys, laid out to be built as a physical device, on phones, tablets and computers alike.
+SymPy runs in Pyodide (CPython compiled to WebAssembly) in a Web Worker, results are typeset with
+KaTeX, math input is optional with MathLive. A static site with no build step and no server,
+published at https://jmelis.github.io/calc/.
 
 ## Commands
 
@@ -29,8 +30,8 @@ GitHub Pages caches for 10 minutes, so the deploy stamps `index.html`'s local `s
 the commit (`app.js?v=<sha>`); `backend.js` passes its own `?v=` on to `worker.js`, and the worker
 to `py/calc/*.py`; keypad.js fetches `menus.json` with it too. The bundles are stamped with `PYODIDE_VERSION` instead, so they stay cached
 across deploys. A new local script or stylesheet in `index.html` is stamped automatically if it's
-named `name.js` or `name.css`. The footer shows the stamp's commit, linked to it on GitHub
-(`renderAbout`; "local" without a stamp), next to a link to the source.
+named `name.js` or `name.css`. Setup shows the stamp's commit, linked to it on GitHub
+(keypad.js's `about`; "local" without a stamp), next to a link to the source.
 
 ## Architecture
 
@@ -39,17 +40,17 @@ index.html ─ app.js ──messages──▶ backend.js ──postMessage──
    (UI)        ▲                  (tape, IndexedDB,               (loads Pyodide,             (evaluates in one
                └──messages─────── worker lifecycle)                SymPy, py/calc/*)            namespace)
 latex.js: math input's LaTeX → calculator text (page side)
-keypad.js + touch.css: the touch layout, on top of app.js (only with <html class="touch">); its views take app.js's `panels`
+keypad.js + touch.css: the keypad and its screen, on top of app.js; its views are app.js's `panels`
 menus.json: the keypad's soft menus (data only, fetched by keypad.js)
 ```
 
 | File | Role |
 | --- | --- |
-| `app.js` | All UI: tape, input (text `<input>` or MathLive `<math-field>`), hint line, hover tips, keyboard handling, `insertKey` (the keypad's function keys), and the panels: catalog, Memory (`:vars`), Help. `panels` holds their openers, which the touch layout replaces with its views; what they list and do is shared (`catalogItems`, `renderCatalogEntry`, `insertCatalogEntry`, `memoryState`, `requestVariables`, `forgetVariable`, `insertName`) |
+| `app.js` | The content: the tape (rendering, selection, copy), the input (text `<input>` or MathLive `<math-field>`), its keyboard handling (which the keypad's keys go through too), the preview, commands, `insertKey` (the keypad's function keys), and what the views list and do (`catalogEntries`, `renderCatalogEntry`, `insertCatalogEntry`, `memoryState`, `requestVariables`, `forgetVariable`, `insertName`; `panels` holds the views' openers, set by keypad.js) |
 | `menus.json` | The keypad's soft menus, meant to be edited by hand (its `about` says how): `top` (what the menu key shows), `menus` by name (rows of five: F1–F5, then shift F1–F5, more rows for more pages; `null` an empty slot) and `keys` (what a name inserts: `label` or `tex`, `insert` with `\|` the cursor, `math`; a function needs no entry). A name is a menu, a view (`vars`, `catalog`, `help`, `setup`) or a key. The trig key opens `trig`, shift trig `hyp`, shift = `test`. `tests/test_menus.py` checks every name resolves. `tools/menus.html` edits it by drag and drop (under `make serve`; not deployed), and writes it in the same layout (`format`) |
 | `latex.js` | LaTeX → calculator syntax, for the math input. Reads three dialects: what MathLive writes (`\frac37`, letters run together), what `preview.py` writes (when switching text → math), and what SymPy prints (results inserted from the tape) |
-| `keypad.js` | The touch layout: a screen (status line, tape, input, two rows of soft key labels) over 40 equal keys (`KEYPAD`, five by eight, the soft keys F1–F5 its first row) with shift and alpha, the soft menus read from `menus.json`, `abc` (system keyboard), and the views that take the screen over (`VIEWS`: setup, vars, the catalog with its help pages, help) in place of app.js's panels. Drives app.js's own functions; does nothing without `html.touch` |
-| `touch.css` | The touch layout's styles, one look (graphite keys, an LCD, the same by day and by night), every rule under `html.touch` (or `#keypad`, `.screen`, which only exist there) |
+| `keypad.js` | The calculator: a screen (status line, tape, input, two rows of soft key labels) over 40 equal keys (`KEYPAD`, five by eight, the soft keys F1–F5 its first row) with shift and alpha, the soft menus read from `menus.json`, `abc` (system keyboard), and the views that take the screen over (`VIEWS`: setup, vars, the catalog with its help pages, help) as app.js's panels. Drives app.js's own functions |
+| `app.css`, `touch.css` | The content (tape, results, preview, input line), and what holds it: the screen, the soft keys' labels, the keys and the views. One look: graphite keys and an LCD, the same by day and by night; `.screen` sets the content's colour tokens (`--text`, `--muted`, …) to the LCD's ink |
 | `graph.js` | `iplot` graphs on the tape: draws Python's samples with uPlot (fetched on the first graph), asks for new samples when zoomed or panned, keys for a selected graph, x = 0 and y = 0 drawn under the curves (`drawAxisLines`) |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
 | `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
@@ -79,8 +80,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   last result. Interrupting Python in place needs SharedArrayBuffer, i.e. cross-origin isolation
   headers that GitHub Pages can't send.
 - **Startup**: the saved tape shows immediately; input submitted before Python is ready queues as
-  "computing". An empty tape shows nothing: the hint line (and the footer's `:help`), or on touch the
-  status line's "menu: the menus, and help", say where to start.
+  "computing". An empty tape shows nothing: the status line's "menu: the menus, and help" says
+  where to start.
   Importing SymPy from source took ~2 s of a ~3 s warm reload, compiling it every time, hence the
   precompiled bundle (~5x faster import for ~3 MB more download: plain zip deflate was chosen over
   xz, which would need a decompressor in the browser and time on every load).
@@ -125,12 +126,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - **Python lines**: a line starting with a statement keyword (`def`, `for`, `import`, …) runs as
   Python directly; any other line that isn't calculator syntax falls back to Python. One line, with
   `;` between statements. They're plain Python: `^` is XOR and nothing is implied (Help says so).
-- **Touch layout** (`keypad.js`, `touch.css`): an inline script in `index.html`'s `<head>` adds
-  `class="touch"` to `<html>` before anything renders, on `(hover: none) and (pointer: coarse)`
-  (phones, tablets without a mouse; an iPad with a trackpad gets the keyboard layout), or with
-  `?layout=touch` / `?layout=desktop` (remembered in `localStorage` as `calc.layout`; `?layout=auto`
-  forgets), and turns the browser's bars graphite. The page is a calculator meant to be buildable
-  as it is: a screen, holding a status line (shift/alpha, messages with *stop* and *undo* links,
+- **The keypad** (`keypad.js`, `touch.css`): the only layout, on every device (on a big screen,
+  a 480px column). The page is a calculator meant to be buildable as it is: a
+  screen, holding a status line (shift/alpha, messages with *stop* and *undo* links,
   what the soft keys show), the tape, the input and two rows of soft key labels on its bottom edge
   (in the keys' columns: F1–F5 do the lower row, shift F1–F5 or holding the key the upper one, as
   on the R47; a label can be tapped too), then 40 equal keys, five by eight:
@@ -141,8 +139,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   arrows, then e–y five to a row (x has its own key, `ownLetter`), z on 0, a space on .; the soft
   keys never type letters, so completions show while typing in alpha. Shift and alpha apply to
   the next key (both: a capital), alpha twice locks letters, esc lets go of alpha first, and
-  holding a key does its shift function. With a mouse, which the layout also gets on a computer
-  (`?layout=touch`), shift-click is shift and option-click alpha (`clickMod`, the `mods`
+  holding a key does its shift function. With a mouse, shift-click is shift and option-click alpha (`clickMod`, the `mods`
   keyPressed takes). The soft keys show, first that applies: the view's own, the selected entry's
   actions (`selectionKeys`, from `selectionActions`), completions of the name being typed (2+
   letters; until a menu is asked for, `menuShown`), or the menu last opened (`touch.path`: the
@@ -161,17 +158,14 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   letters jump to the first name that starts with them, in this group or else in all of it) and
   help pages (▶ from the list: the entry in full, its `see` entries on the soft keys and as links;
   ◀ or esc back the way it came, `view.pages`). Keys that would type into the line behind do
-  nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, F1–F5) work as ever. A keyboard
-  (`?layout=touch` on a computer) types into the line as in the keyboard layout, and while a view
-  shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc, ⌫, Page Up/Down, letters,
+  nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, F1–F5) work as ever. A
+  computer's keyboard types into the line (app.js's keydown handling: the keys in the syntax
+  reference below), and while a view shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc, ⌫, Page Up/Down, letters,
   ⌃Z). Taps are extra: a tap selects a row, a tap on the selected row picks it (setup acts on the
-  first). They are app.js's panels, shown differently: `setupTouch` puts `openView` into
-  `panels`, so `:help`, `:vars`, `:catalog` and `?` (a keyboard's) open them, and help reads the Help panel's
-  sections (`#help section`, `data-tab` naming their soft keys). The look re-themes the screen's
-  content by overriding the page's tokens (`--text`, `--muted`, …) on `.screen`. The keyboard
-  layout must look and behave exactly as without it: touch styles live under `html.touch` only,
-  and app.js only branches on `TOUCH` in `renderHints` (the status line and soft keys replace the
-  hint line); graph.js fits graphs to the short tape on `TOUCH`. The keys reuse the keyboard's
+  first). They are app.js's panels: `setupKeypad` puts `openView` into `panels`, so
+  `:help`, `:vars`, `:catalog` and `?` (a keyboard's) open them, and help reads `#help`'s
+  sections (`data-tab` naming their soft keys). app.js's `renderHints` is the status line and
+  soft keys (`renderStrip`); graph.js fits graphs to the short tape. The keys reuse the keyboard's
   logic: a character key dispatches a synthetic `keydown` on the editor first and types only if
   app.js didn't `preventDefault` it, so `ans` continuation, `--`, ⏎ / ⌫ on a selection and ← → on
   a graph all apply unchanged; function keys go through `insertKey`, so they work in text and
@@ -183,15 +177,13 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   handling is pointer events on `#keypad` and the labels, acting on release; `touchstart` is
   `preventDefault`ed on keys (no double-tap zoom, no focus change). `iplot` graphs pan with one
   finger and pinch with two (`touchToMove` in graph.js, touch pointers only).
-- **The hint line's actions** (a selection's Insert, Decimal, Copy…, Undo after a delete, Stop
-  while computing) are buttons labelled with the key that does the same, so they teach the keys
-  and work with a mouse. The touch layout shows the same actions on its soft keys: both come from
-  `selectionActions()`, and flash messages ending in "· ⌃Z undo" (`UNDO_HINT`) get an Undo button
-  (an *undo* link on the touch status line) and stay 5 s instead of 1.5.
-- **Help** (`:help`, also a footer button) is static HTML in `index.html` (`#help`). It's the
-  user's manual: keep it in step with the syntax, short and with examples. The touch layout
-  shows it a section at a time, so keep it in `<section data-tab="…">`s, each with its `<h2>`;
-  `touch-only` and `desktop-only` sections (and spans) show in one layout only.
+- **A selection's actions** (Insert, Decimal, Copy…) come from `selectionActions()`, each with
+  the key that does the same on a keyboard; the soft keys show them. Flash messages ending in
+  "· ⌃Z undo" (`UNDO_HINT`) get an *undo* link on the status line and stay 5 s instead of 1.5.
+- **Help** (`:help`, menu then shift F5) is static HTML in `index.html` (`#help`, hidden). It's
+  the user's manual: keep it in step with the syntax, short and with examples. The help view
+  shows it a section at a time, so keep it in `<section data-tab="…">`s, each with its `<h2>`, ten
+  at most (the soft keys).
 - **Results** carry `latex`, `text` (single-line source, so picking a result can paste it back),
   optional `float` and `degrees` views, and a `label` for assignments. Objects that can't round-trip
   as text are inserted as `$n`.
@@ -204,15 +196,10 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 - No build step, no framework, no npm dependencies: plain scripts loaded by `index.html`.
   Third-party code comes from jsDelivr with exact versions: Pyodide in `worker.js`, KaTeX in
   `index.html`, MathLive in `app.js`, uPlot in `graph.js`.
-- **Keyboard first.** Every feature must work without the mouse; mouse controls (buttons)
-  never take focus from the input (`mousedown` → `preventDefault`). Keep the number of shortcuts
-  small: in the tape, single letters act on the selection (`f`, `d`, `c`); everything else types.
-- **Touch second, never at the keyboard layout's expense.** A feature reachable by keyboard gets a
-  touch path too, usually a key, a soft key or a settings entry calling the same function (or sending
-  the same key, as `sendKey` does), reachable with the keys alone (taps are a shortcut, not the
-  only way). Nothing in `touch.css` may match without `html.touch`.
-- **Tips** (`setTip`): say what a control does, with an example when it helps. Don't repeat its
-  label or the text it inserts (not "Factor: factor(…)").
+- **Keys first.** Every feature works with the keypad's keys alone (a physical build has
+  nothing else): taps on the screen are a shortcut, not the only way. A computer's keyboard works
+  too, through the same code (the keys send the keydowns a keyboard would, `sendKey`). Buttons
+  never take focus from the input (`mousedown` → `preventDefault`).
 - A new function for the keypad goes in `menus.json` (a soft menu), not in keypad.js. Keys in
   keypad.js are `{label (LaTeX with tex) or word, template, math}` (as in menus.json: in the
   template `|` marks the cursor or wraps the selection, in `math` `#0` does and `#?` is an empty
@@ -222,8 +209,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   `COMMANDS` table.
 - `py/calc/` stays plain Python with no browser dependencies; test it natively. Anything Pyodide-
   specific belongs in `worker.js`.
-- Every user-visible feature gets a line in the catalog (`catalog.py`) or the hint line, so it can
-  be discovered, and syntax goes in the Help panel (`#help` in `index.html`).
+- Every user-visible feature gets a line in the catalog (`catalog.py`) or the help, so it can be
+  discovered, and syntax goes in the help (`#help` in `index.html`).
 
 ## Versions
 
@@ -250,7 +237,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   they're replaced by a curated set plus the catalog's function names (MathLive upgrades to the
   longest match, so `sin` → `sinh` works). `mathModeSpace` keeps spaces; `:=` and `\coloneqq` mean
   `=`.
-- Focus: hiding the focused element (catalog search, text input on mode switch) makes Chrome move
+- Focus: hiding the focused element (the text input, on a switch to math input) makes Chrome move
   focus to `<body>` *after* our `focus()` call. Blur first and focus in `requestAnimationFrame`.
 - KaTeX text copies badly (hidden MathML duplicates), so a `copy` handler swaps in a tape row's
   source text.
@@ -261,12 +248,10 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 ## Testing in a browser
 
 Run `make serve` (or `python3 -m http.server <port>` for a second instance) and drive it with
-Claude in Chrome. For the touch layout, emulate a phone (Playwright's `devices["iPhone 13"]`, which
-matches `pointer: coarse`) or add `?layout=touch`; taps go through `page.touchscreen`, long presses
-through CDP's `Input.dispatchTouchEvent`. Emulation has no system keyboard, so `abc` (and iOS's
-keyboard covering the page) can only really be checked on a phone. The arrows are clip-path wedges
-of one rocker: tap inside a wedge, not the middle of its box (`tests/keypad.mjs` has a `key(name)`
-helper that does). The tape and variables live in that origin's IndexedDB, so testing on the same
+Claude in Chrome, or Playwright emulating a phone (`devices["iPhone 13"]`); taps go through
+`page.touchscreen`, long presses through CDP's `Input.dispatchTouchEvent`. Emulation has no system
+keyboard, so `abc` (and iOS's keyboard covering the page) can only really be checked on a phone.
+`tests/keypad.mjs` has a `key(name)` helper that taps a key by its label. The tape and variables live in that origin's IndexedDB, so testing on the same
 host and port as the user's own session changes *their* tape: use a different port. To start
 clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 
@@ -286,10 +271,10 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `M[1, 2]`, `M[[1, 2], [3, 4]]`, `V[1, 2]` | A matrix row, a matrix from rows, a column vector (`matrices.py`) |
 | `A[0, 1] = 5`, `A[1, :] = M[7, 8]`, `v[0] = 9` | Change part of a defined value (shows the whole value; earlier `$n` keep theirs) |
 | `[k^2 for k in range(5)]` | Comprehensions are calculator syntax too (`^` is power) |
-| `:help`, `:catalog`, `:vars`, `:clear`, `:reset` | Help panel; the function catalog; Memory panel; empty the tape; also forget all variables |
+| `:help`, `:catalog`, `:vars`, `:clear`, `:reset` | The help, catalog and vars views; empty the tape; also forget all variables |
 | `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |
 
-Keys: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>⇧⏎</kbd> evaluate to a decimal, <kbd>↑</kbd>/<kbd>↓</kbd>
+With a keyboard: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>⇧⏎</kbd> evaluate to a decimal, <kbd>↑</kbd>/<kbd>↓</kbd>
 select tape items (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> or Shift+click: a range), <kbd>⏎</kbd> insert
 the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy the cells as text
 (`cellText`), <kbd>Shift</kbd>+<kbd>C</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entries (one undo), <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>

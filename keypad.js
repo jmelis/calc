@@ -1,9 +1,7 @@
-// Touch layout: a calculator for phones and tablets without a mouse. A script in
-// index.html's <head> marks <html class="touch"> before anything renders (a touch-only
-// device, or ?layout=touch); without it nothing here runs and the page is the keyboard
-// one. touch.css styles all of it.
+// The calculator: the page is a keypad and its screen, on phones and tablets and on a
+// computer alike (where a mouse clicks the keys and a keyboard types). touch.css styles it.
 //
-// The page becomes a screen over 40 equal keys, five by eight, laid out so they could be
+// The page is a screen over 40 equal keys, five by eight, laid out so they could be
 // built as they are. The screen holds a status line (shift, alpha, messages, what the soft
 // keys show), the tape, the input and, on its bottom edge, the soft keys' labels in two
 // rows, as on the SwissMicros R47: F1–F5 (the keypad's blank top row) do the lower label,
@@ -19,7 +17,6 @@
 // selected graph), and types the character only if app.js left it alone. Function keys
 // go through insertKey, in text and math input alike.
 
-const TOUCH = document.documentElement.classList.contains("touch");
 const HOLD_MS = 450; // a long press: the key's shift function
 const REPEAT_MS = [400, 70]; // ⌫ and the arrows held: the first repeat, then every
 const SOFT_KEYS = 5; // one label above each of F1–F5, in each of two rows
@@ -811,8 +808,8 @@ function scrollKey(nav) {
 // A key held down, repeating: the keypad's or a keyboard's
 const repeating = () => touch.press?.held || touch.keyRepeat;
 
-// A keyboard (?layout=touch on a computer, or a device whose keys arrive as key events)
-// types into the line as in the keyboard layout. While a view shows, the line is behind it,
+// A keyboard (a computer's, or a device whose keys arrive as key events) types into the
+// line (app.js's keydown handling). While a view shows, the line is behind it,
 // so the keys work the view as the keypad's do: the arrows, ⏎ (enter), Esc, ⌫, Page Up/Down,
 // letters and digits (the catalog's jump) and ⌃Z (undo).
 const KEYBOARD_NAV = {
@@ -895,7 +892,6 @@ function settingsRows() {
     { label: "Help", go: "menu", run: () => openView("help") },
     { label: "Clear the tape", go: "shift esc", run: () => COMMANDS.clear.run() && closeView() },
     { label: armed ? "Reset: once more to forget all variables too" : "Reset…", danger: armed, run: reset },
-    { label: "Desktop layout", run: () => (location.search = "?layout=desktop") },
   ];
 }
 
@@ -916,12 +912,13 @@ function reset() {
   closeView();
 }
 
-// The version (the deploy's commit, linked) and the source, under setup
+// The version and the source, under setup: the deploy's commit (its ?v= stamp, backend.js's
+// VERSION) linked to it on GitHub; running locally there's no stamp, and it says "local"
 function about() {
   const line = el("div", "about");
-  const revision = document.getElementById("revision"); // app.js's renderAbout
-  const version = revision.href ? el("a", "", revision.textContent) : el("span", "", revision.textContent);
-  if (revision.href) Object.assign(version, { href: revision.href, target: "_blank", rel: "noopener" });
+  const sha = new URLSearchParams(VERSION).get("v");
+  const version = sha ? el("a", "", sha.slice(0, 7)) : el("span", "", "local");
+  if (sha) Object.assign(version, { href: `https://github.com/jmelis/calc/commit/${sha}`, target: "_blank", rel: "noopener" });
   const source = Object.assign(el("a", "", "source"), { href: "https://github.com/jmelis/calc", target: "_blank", rel: "noopener" });
   line.append("Version ", version, " · ", source);
   return line;
@@ -1078,7 +1075,7 @@ function findEntry(items, q) {
 
 // help: the Help panel's sections (index.html), one at a time; their tabs are the soft keys
 function helpSections() {
-  return [...document.querySelectorAll("#help .body > section")].filter((s) => !s.classList.contains("desktop-only"));
+  return [...document.querySelectorAll("#help > section")];
 }
 
 function showSection(view, i) {
@@ -1142,8 +1139,7 @@ function statusHint() {
   return hint;
 }
 
-// Called by app.js's renderHints: on a touch screen the status line and the soft keys say
-// what the hint line would
+// The status line and the soft keys, as things change (app.js's renderHints calls it too)
 function renderStrip() {
   if (touch.view) VIEWS[touch.view.name].refresh?.(touch.view);
   renderStatus();
@@ -1273,16 +1269,7 @@ function fitViewport() {
 
 // --- setup -----------------------------------------------------------------------------
 
-function panelButton(text, onClick, className = "") {
-  const b = el("button", className, text);
-  b.type = "button";
-  b.tabIndex = -1;
-  b.addEventListener("mousedown", (e) => e.preventDefault());
-  b.addEventListener("click", onClick);
-  return b;
-}
-
-function setupTouch() {
+function setupKeypad() {
   input.inputMode = "none";
   input.enterKeyHint = "go";
 
@@ -1354,13 +1341,5 @@ function setupTouch() {
   );
 }
 
-// The keyboard layout's way to the keypad, on any device: a touch one showing
-// ?layout=desktop, and a computer whose owner prefers the keypad (an installed app has no
-// address bar to type ?layout= into, and the keypad's setup has "Desktop layout")
-function offerKeypad() {
-  const b = panelButton("keypad", () => (location.search = "?layout=touch"), "command");
-  document.getElementById("commands").append(b);
-}
-
 // after app.js (all deferred scripts run before DOMContentLoaded)
-document.addEventListener("DOMContentLoaded", () => (TOUCH ? setupTouch() : offerKeypad()));
+document.addEventListener("DOMContentLoaded", setupKeypad);

@@ -5,7 +5,7 @@
 import { createRequire } from "module";
 
 const { chromium, devices } = createRequire(import.meta.url)("playwright");
-const url = `${process.argv[2]}?layout=touch`;
+const url = process.argv[2];
 const failures = [];
 const check = (ok, what, got) => ok || failures.push(`${what}: got ${JSON.stringify(got)}`);
 

@@ -1,22 +1,19 @@
-// Calculator frontend: a tape of entries, one input line, a catalog popup.
+// Calculator frontend: a tape of entries and one input line. The keypad, its screen and
+// its views (keypad.js) are built on top of this, and drive it through the same keys a
+// keyboard would send.
 //
-// Focus never leaves the input (except for the catalog). "Browsing" the tape is
-// just a selection: while something is selected, ↑/↓/⏎/f/c/Esc act on it and any
-// other key drops the selection and types normally.
+// Focus never leaves the input. "Browsing" the tape is just a selection: while something
+// is selected, ↑/↓/⏎/f/c/Esc act on it and any other key drops the selection and types
+// normally.
 //
-// The input line is either a text <input> or, after Ctrl+M, a MathLive math field
-// (loaded on first use). The math field's LaTeX is turned back into calculator
+// The input line is either a text <input> or, after Ctrl+M (or setup's Input), a MathLive
+// math field (loaded on first use). The math field's LaTeX is turned back into calculator
 // syntax by latex.js, so both modes send Python the same thing.
 
 const tapeEl = document.getElementById("tape");
 const input = document.getElementById("input");
 const promptEl = document.getElementById("prompt");
 const previewEl = document.getElementById("preview");
-const hintsEl = document.getElementById("hint-text");
-const catalogEl = document.getElementById("catalog");
-const catalogSearch = document.getElementById("catalog-search");
-const catalogList = document.getElementById("catalog-list");
-const catalogDetail = document.getElementById("catalog-detail");
 
 const LONG_TEXT = 80; // longer exact results are inserted as $n instead of their text
 const CONTINUE_OPS = ["+", "-", "*", "/", "^"]; // typed first, these continue from ans
@@ -30,7 +27,7 @@ const state = {
   selected: null, // {id, part: "input" | "graph" | "result"}: where ↑ ↓ are, and what ⏎ f d act on
   anchor: null, // where a Shift+↑/↓ range started; c copies and ⌫ deletes the whole range
   ready: false, // Python loaded
-  status: null, // what's loading or failing, shown in the hint line (startup has a bar)
+  status: null, // what's loading or failing, shown on the status line (startup has a bar)
   flash: null,
   mode: "text", // or "math"
   approxNext: false, // the next entry shows its result as a decimal (submit)
@@ -149,7 +146,7 @@ function renderEntry(entry) {
   const inRow = el("div", "item in");
   inRow.dataset.id = entry.id;
   inRow.dataset.part = "input";
-  inRow.append(setTip(el("span", "num", `$${entry.id}`), `Type $${entry.id} to use this result`));
+  inRow.append(el("span", "num", `$${entry.id}`));
   if (entry.input_latex) {
     // typeset, with the raw text shown when selected (it's what ⏎ inserts in text mode)
     const math = el("div", "math");
@@ -224,8 +221,8 @@ function busy() {
   return state.entries.some((e) => e.pending);
 }
 
-// What can be done with the selection, and the key that does it: buttons in the hint line,
-// chips in the touch layout's strip (keypad.js: chip is its label there, touch only there)
+// What can be done with the selection, and the key that does it on a keyboard: the
+// keypad's soft keys show them (keypad.js's selectionKeys; chip is the label there)
 function selectionActions() {
   const entries = selectedEntries();
   const { id, part } = state.selected;
@@ -249,48 +246,16 @@ function selectionActions() {
     add("⌫", "Delete", deleteSelected, { danger: true });
   }
   add("⇧↑", "More", () => extendSelection(-1), { chip: "More ↑" });
-  add("⇧↓", "More", () => extendSelection(1), { chip: "More ↓", touch: true }); // a keyboard has ⇧↓ next to ⇧↑
+  add("⇧↓", "More", () => extendSelection(1), { chip: "More ↓" });
   add("Esc", "Back", () => select(null), { chip: "✕" });
   return actions;
 }
 
-// A hint-line button: an action, labelled with the key that does the same
-function hintButton(key, label, run, danger = false) {
-  const b = el("button", danger ? "act danger" : "act");
-  b.type = "button";
-  b.tabIndex = -1;
-  b.append(el("kbd", "", key), label);
-  b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
-  b.addEventListener("click", run);
-  return b;
-}
+const UNDO_HINT = /\s*·\s*<kbd>⌃Z<\/kbd> undo/; // in flash messages: an undo link instead
 
-const UNDO_HINT = /\s*·\s*<kbd>⌃Z<\/kbd> undo/; // in flash messages: a button instead (or a chip)
-
+// The status line and the soft keys (keypad.js) say what's going on
 function renderHints() {
-  if (TOUCH) return renderStrip(); // keypad.js: the strip above the keys says it instead
-  const html = (text) => {
-    const span = el("span");
-    span.innerHTML = text;
-    return span;
-  };
-  const parts = [];
-  if (state.status) parts.push(html(`<span class="status">${state.status}</span>`));
-  else if (busy()) parts.push(html('<span class="status">computing…</span>'), hintButton("⌃C", "Stop", () => send({ type: "interrupt" })));
-
-  if (state.flash) {
-    parts.push(html(`<span class="flash">${state.flash.replace(UNDO_HINT, "")}</span>`));
-    if (UNDO_HINT.test(state.flash)) parts.push(hintButton("⌃Z", "Undo", undo));
-  } else if (state.selected) {
-    if (state.selected.part === "graph" && selectedEntries().length === 1) parts.push(html("<kbd>←</kbd><kbd>→</kbd> pan"));
-    for (const a of selectionActions()) if (!a.touch) parts.push(hintButton(a.key, a.label, a.run, a.danger));
-  } else {
-    const keys = state.mode === "math"
-      ? ["<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>→</kbd> leave a box", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> text input"]
-      : ["<kbd>⏎</kbd> evaluate", "<kbd>↑</kbd> history", "<kbd>Tab</kbd> complete", "<kbd>?</kbd> catalog", "<kbd>⌃M</kbd> math input"];
-    parts.push(html((parts.length ? "· " : "") + keys.join(" · ")));
-  }
-  hintsEl.replaceChildren(...parts);
+  renderStrip();
 }
 
 function flash(message) {
@@ -300,51 +265,8 @@ function flash(message) {
   flash.timer = setTimeout(() => {
     state.flash = null;
     renderHints();
-  }, UNDO_HINT.test(message) ? 5000 : 1500); // time to click (or tap) Undo
+  }, UNDO_HINT.test(message) ? 5000 : 1500); // time to tap undo
 }
-
-// --- hover tips ------------------------------------------------------------------
-//
-// Quicker and better-looking than title="": one floating element, shown above
-// whatever [data-tip] the mouse rests on.
-
-const tipEl = el("div", "tip");
-tipEl.hidden = true;
-tipEl.setAttribute("role", "tooltip");
-document.body.append(tipEl);
-let tipTimer = null;
-
-function setTip(node, text) {
-  node.dataset.tip = text;
-  node.setAttribute("aria-label", text);
-  return node;
-}
-
-function showTip(target) {
-  tipEl.textContent = target.dataset.tip;
-  tipEl.hidden = false;
-  const r = target.getBoundingClientRect();
-  const w = tipEl.offsetWidth;
-  const h = tipEl.offsetHeight;
-  const left = Math.min(Math.max(4, r.left + r.width / 2 - w / 2), window.innerWidth - w - 4);
-  const top = r.top - h - 6 >= 4 ? r.top - h - 6 : r.bottom + 6;
-  tipEl.style.left = `${left}px`;
-  tipEl.style.top = `${top}px`;
-}
-
-function hideTip() {
-  clearTimeout(tipTimer);
-  tipEl.hidden = true;
-}
-
-document.addEventListener("mouseover", (e) => {
-  const target = e.target.closest?.("[data-tip]");
-  if (!target) return hideTip();
-  clearTimeout(tipTimer);
-  tipTimer = setTimeout(() => showTip(target), tipEl.hidden ? 300 : 0);
-});
-document.addEventListener("mousedown", hideTip, true);
-document.addEventListener("keydown", hideTip, true);
 
 // --- tape selection ----------------------------------------------------------
 
@@ -574,16 +496,10 @@ function insertTemplate(template, mathTemplate) {
 
 // --- commands (:help, :catalog, :vars, :clear, :reset) ---------------------------------
 
-// The catalog, :vars and :help are popups here. The touch layout shows them on its
-// calculator screen instead and puts its own openers in these places (keypad.js); what they
-// list and do is shared (catalogItems, renderCatalogEntry, insertCatalogEntry, memoryState,
-// forgetVariable, insertName).
-const panels = {
-  catalog: (query = "", replaceFrom = null) => openCatalog(query, replaceFrom),
-  vars: () => openMemory(),
-  help: () => openHelp(),
-  varsChanged: (error) => showVariables(error), // the variables arrived: memoryState.items
-};
+// The catalog, :vars and :help are the keypad's views, which put their openers here
+// (keypad.js's setupKeypad): catalog(query, replaceFrom), vars(), help(), and varsChanged(error)
+// for when the variables arrive (memoryState.items)
+const panels = {};
 
 const COMMANDS = {
   help: { help: "how to type things: syntax, vectors and matrices, Python, keys", run: () => panels.help() },
@@ -610,50 +526,6 @@ function undo() {
 // item selected); with text, it undoes typing (Windows, Linux; on a Mac that's ⌘Z)
 function isUndoKey(e, empty) {
   return e.key === "z" && e.ctrlKey && !e.metaKey && !e.altKey && (empty || state.selected);
-}
-
-// Reset from a button asks for a second click; typing :reset is deliberate enough
-let resetArmedUntil = 0;
-
-function commandButton(name) {
-  const command = COMMANDS[name];
-  const b = el("button", "command", `:${name}`);
-  b.type = "button";
-  b.tabIndex = -1;
-  const tip = command.help[0].toUpperCase() + command.help.slice(1);
-  setTip(b, name === "reset" ? `${tip} (asks you to click twice)` : tip);
-  b.addEventListener("mousedown", (e) => e.preventDefault()); // keep the input focused
-  b.addEventListener("click", () => {
-    select(null);
-    if (name === "reset" && Date.now() > resetArmedUntil) {
-      resetArmedUntil = Date.now() + 4000;
-      flash("Click :reset again to forget all variables and clear the tape");
-      return;
-    }
-    resetArmedUntil = 0;
-    if (!command.run()) flash("Python is still loading");
-  });
-  return b;
-}
-
-function renderCommands() {
-  const commands = document.getElementById("commands");
-  for (const name of Object.keys(COMMANDS)) commands.append(commandButton(name));
-}
-
-// The revision this page was deployed from (the deploy's ?v= stamp, see backend.js),
-// linking to that commit; running locally there's no stamp and it says "local"
-function renderAbout() {
-  const sha = new URLSearchParams(VERSION).get("v");
-  const revision = document.getElementById("revision");
-  if (sha) {
-    revision.textContent = sha.slice(0, 7);
-    revision.href = `https://github.com/jmelis/calc/commit/${sha}`;
-    setTip(revision, "The version you're running: what changed in it, on GitHub");
-  }
-  const links = document.querySelectorAll("#about a");
-  links.forEach((a) => a.addEventListener("mousedown", (e) => e.preventDefault())); // keep the input focused
-  setTip(links[1], "This calculator's code, on GitHub");
 }
 
 function wordBeforeCursor() {
@@ -884,7 +756,8 @@ function onPreview(msg) {
 
 // --- catalog -----------------------------------------------------------------
 
-const catalogState = { items: [], index: 0, replaceFrom: null, exampleSeq: 0, exampleNode: null };
+// An entry's example is typeset by the preview: the reply lands in exampleNode
+const catalogState = { exampleSeq: 0, exampleNode: null };
 
 function catalogEntries() {
   const defined = state.names.defined.map((name) => ({
@@ -898,97 +771,6 @@ function catalogEntries() {
     insert: state.names.functions.includes(name) ? `${name}(` : name,
   }));
   return [...defined, ...state.catalog];
-}
-
-function score(entry, q) {
-  if (!q) return 1;
-  const name = entry.name.toLowerCase();
-  if (name === q) return 100;
-  if (name.startsWith(q)) return 50 - name.length / 100;
-  if (name.includes(q)) return 30 - name.length / 100;
-  let i = 0;
-  for (const ch of name) if (ch === q[i]) i++;
-  if (i === q.length) return 10 - name.length / 100;
-  if (entry.summary.toLowerCase().includes(q)) return 5;
-  return 0;
-}
-
-// The entries a search finds, best first; without one, all of them in their groups
-function catalogItems(query) {
-  const q = query.trim().toLowerCase();
-  const all = catalogEntries();
-  if (!q) return all;
-  return all.map((e) => [score(e, q), e]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).map(([, e]) => e);
-}
-
-function openCatalog(query, replaceFrom = null) {
-  catalogState.replaceFrom = replaceFrom;
-  catalogEl.hidden = false;
-  catalogSearch.value = query;
-  catalogSearch.focus();
-  filterCatalog();
-  return true;
-}
-
-function hideCatalog() {
-  // blur first: hiding the focused search box makes Chrome drop focus to <body> later
-  catalogSearch.blur();
-  catalogEl.hidden = true;
-}
-
-function closeCatalog() {
-  hideCatalog();
-  requestAnimationFrame(focusEditor);
-}
-
-function filterCatalog() {
-  catalogState.items = catalogItems(catalogSearch.value);
-  catalogState.index = 0;
-  renderCatalog(!catalogSearch.value.trim());
-}
-
-function renderCatalog(grouped) {
-  catalogList.innerHTML = "";
-  let category = null;
-  catalogState.items.forEach((entry, i) => {
-    if (grouped && entry.category !== category) {
-      category = entry.category;
-      catalogList.append(el("li", "category", category));
-    }
-    const li = el("li", "fn" + (i === catalogState.index ? " active" : ""));
-    li.dataset.index = i;
-    li.append(el("span", "", entry.name), el("span", "src", grouped ? "" : entry.category));
-    li.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      catalogState.index = i;
-      updateCatalogActive();
-    });
-    li.addEventListener("dblclick", insertFromCatalog);
-    catalogList.append(li);
-  });
-  renderCatalogDetail();
-}
-
-function updateCatalogActive() {
-  catalogList.querySelectorAll(".fn").forEach((li) => {
-    const active = Number(li.dataset.index) === catalogState.index;
-    li.classList.toggle("active", active);
-    if (active) li.scrollIntoView({ block: "nearest" });
-  });
-  renderCatalogDetail();
-}
-
-function renderCatalogDetail() {
-  const entry = catalogState.items[catalogState.index];
-  catalogDetail.innerHTML = "";
-  if (!entry) catalogDetail.append(el("p", "summary", "Nothing matches."));
-  else renderCatalogEntry(catalogDetail, entry, showRelated);
-}
-
-// A see-also link: that entry, found by its name
-function showRelated(name) {
-  catalogSearch.value = name;
-  filterCatalog();
 }
 
 // An entry's details into node: signature, summary, its example (typeset by the preview,
@@ -1032,15 +814,6 @@ function catalogMath(entry) {
   return null; // methods (.subs), commands (:clear), syntax notes
 }
 
-function insertFromCatalog() {
-  const entry = catalogState.items[catalogState.index];
-  if (!entry) return;
-  hideCatalog();
-  // in math input, after the catalog's search box is hidden, or focus falls back to <body>
-  if (state.mode === "math") requestAnimationFrame(() => insertCatalogEntry(entry));
-  else insertCatalogEntry(entry, catalogState.replaceFrom);
-}
-
 // An entry into the line: its text (replacing the word being completed, from replaceFrom)
 // or, in math input, its LaTeX
 function insertCatalogEntry(entry, replaceFrom = null) {
@@ -1057,38 +830,9 @@ function insertCatalogEntry(entry, replaceFrom = null) {
   insertAtCursor(entry.insert, replaceFrom);
 }
 
-catalogSearch.addEventListener("input", filterCatalog);
-catalogSearch.addEventListener("keydown", (e) => {
-  const n = catalogState.items.length;
-  if (e.key === "ArrowDown" && n) {
-    e.preventDefault();
-    catalogState.index = (catalogState.index + 1) % n;
-    updateCatalogActive();
-  } else if (e.key === "ArrowUp" && n) {
-    e.preventDefault();
-    catalogState.index = (catalogState.index - 1 + n) % n;
-    updateCatalogActive();
-  } else if (e.key === "Enter" || e.key === "Tab") {
-    e.preventDefault();
-    insertFromCatalog();
-  } else if (e.key === "Escape") {
-    e.preventDefault();
-    closeCatalog();
-  }
-});
-catalogEl.addEventListener("mousedown", (e) => {
-  if (e.target === catalogEl) {
-    e.preventDefault();
-    closeCatalog();
-  }
-});
-
 // --- memory: what's defined, with values (:vars) -------------------------------
 
-const memoryEl = document.getElementById("memory");
-const memoryPanel = memoryEl.querySelector(".panel");
-const memoryList = document.getElementById("memory-list");
-const memoryState = { items: [], index: 0 };
+const memoryState = { items: [] };
 
 // Python sends what's defined, with values: they arrive in memoryState.items
 // (panels.varsChanged), as they do again after a forget and its undo
@@ -1096,32 +840,9 @@ function requestVariables() {
   return send({ type: "vars" });
 }
 
-function openMemory() {
-  if (!requestVariables()) return false;
-  memoryState.items = [];
-  memoryList.innerHTML = "";
-  memoryList.append(el("li", "empty", "Loading…"));
-  memoryEl.hidden = false;
-  memoryPanel.focus();
-  return true;
-}
-
-function closeMemory() {
-  memoryPanel.blur(); // see hideCatalog
-  memoryEl.hidden = true;
-  requestAnimationFrame(focusEditor);
-}
-
 function onVariables(msg) {
   memoryState.items = msg.items;
-  memoryState.index = Math.min(memoryState.index, Math.max(0, msg.items.length - 1));
   panels.varsChanged(msg.error);
-}
-
-function showVariables(error) {
-  if (memoryEl.hidden) return;
-  renderMemory();
-  if (error) flash(error);
 }
 
 // Forgets a name defined in the calculator (not ans); the list comes back without it
@@ -1139,87 +860,7 @@ function insertName(name, fn = false, replaceFrom = null) {
   } else insertAtCursor(fn ? `${name}(` : name, replaceFrom);
 }
 
-function renderMemory() {
-  memoryList.innerHTML = "";
-  if (memoryState.items.length <= 1) {
-    memoryList.append(el("li", "empty", "Nothing defined yet: a = 3/7 or f(x) = x^2 + 1 define things."));
-  }
-  memoryState.items.forEach((item, i) => {
-    const li = el("li", "var" + (i === memoryState.index ? " active" : ""));
-    const math = el("div", "math");
-    tex(math, item.latex, false);
-    li.append(math, el("span", "kind", item.kind));
-    li.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      memoryState.index = i;
-      renderMemory();
-    });
-    li.addEventListener("dblclick", insertFromMemory);
-    memoryList.append(li);
-    if (i === memoryState.index) requestAnimationFrame(() => li.scrollIntoView({ block: "nearest" }));
-  });
-}
-
-function insertFromMemory() {
-  const item = memoryState.items[memoryState.index];
-  if (!item) return;
-  closeMemory();
-  requestAnimationFrame(() => insertName(item.name, item.kind === "function"));
-}
-
-memoryPanel.addEventListener("keydown", (e) => {
-  const n = memoryState.items.length;
-  const item = memoryState.items[memoryState.index];
-  if (e.key === "ArrowDown" && n) memoryState.index = (memoryState.index + 1) % n;
-  else if (e.key === "ArrowUp" && n) memoryState.index = (memoryState.index - 1 + n) % n;
-  else if (e.key === "Enter") return void (e.preventDefault(), insertFromMemory());
-  else if (e.key === "Escape") return void (e.preventDefault(), closeMemory());
-  else if ((e.key === "Backspace" || e.key === "Delete") && item && item.name !== "ans") forgetVariable(item.name);
-  else if (e.key === "z" && e.ctrlKey) send({ type: "undo" }); // the list refreshes when it's back
-  else return;
-  e.preventDefault();
-  renderMemory();
-});
-memoryEl.addEventListener("mousedown", (e) => {
-  if (e.target === memoryEl) {
-    e.preventDefault();
-    closeMemory();
-  }
-});
-
-// --- help (:help) ----------------------------------------------------------------
-
-const helpEl = document.getElementById("help");
-const helpPanel = helpEl.querySelector(".panel");
-const helpBody = helpEl.querySelector(".body");
-
-function openHelp() {
-  helpEl.hidden = false;
-  helpBody.scrollTop = 0;
-  helpBody.focus(); // the focused scroller is what ↑ ↓ PageUp PageDown scroll
-  return true;
-}
-
-function closeHelp() {
-  helpBody.blur(); // see hideCatalog
-  helpEl.hidden = true;
-  requestAnimationFrame(focusEditor);
-}
-
-helpPanel.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    e.preventDefault();
-    closeHelp();
-  }
-});
-helpEl.addEventListener("mousedown", (e) => {
-  if (e.target === helpEl) {
-    e.preventDefault();
-    closeHelp();
-  }
-});
-
-// --- mouse: optional, but clicks shouldn't strand the focus ------------------
+// --- taps and clicks on the tape: they shouldn't strand the focus ------------------
 
 tapeEl.addEventListener("click", (e) => {
   const item = e.target.closest(".item[data-part]");
@@ -1254,9 +895,7 @@ document.addEventListener("copy", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   // typing anywhere lands in the input
-  if (catalogEl.hidden && memoryEl.hidden && helpEl.hidden && document.activeElement !== editorElement() && !e.metaKey && !e.ctrlKey) {
-    focusEditor();
-  }
+  if (document.activeElement !== editorElement() && !e.metaKey && !e.ctrlKey) focusEditor();
 });
 
 // --- math input ------------------------------------------------------------------
@@ -1458,30 +1097,11 @@ async function setMode(mode, { convert = true } = {}) {
   });
   schedulePreview();
   renderHints();
-  renderModeButton();
 }
 
 function toggleMode() {
   setMode(state.mode === "math" ? "text" : "math");
 }
-
-const modeButton = document.getElementById("mode-toggle");
-
-function renderModeButton() {
-  // a toggle: grey when off, lit while the math input is on
-  const on = state.mode === "math";
-  modeButton.textContent = "Math input";
-  setTip(
-    modeButton,
-    on
-      ? "On. Ctrl+M or click to go back to plain text"
-      : "Type math as it looks, like in Desmos: / makes a fraction, ^ an exponent (Ctrl+M)",
-  );
-  modeButton.setAttribute("aria-pressed", String(on));
-}
-
-modeButton.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus in the input
-modeButton.addEventListener("click", toggleMode);
 
 function restoreMode() {
   let saved = null;
@@ -1561,9 +1181,6 @@ function onMessage(msg) {
   }
 }
 
-renderCommands();
-renderAbout();
 renderHints();
-renderModeButton();
 backend.start();
 restoreMode();

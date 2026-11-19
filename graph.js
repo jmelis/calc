@@ -109,9 +109,8 @@ class Graph {
   }
 
   height(width) {
-    // on a phone's keypad layout the tape is short: the graph fits in it, legend and all
-    if (TOUCH) return Math.round(Math.max(110, Math.min(tapeEl.clientHeight - 60, width * 0.55)));
-    return Math.round(Math.max(200, Math.min(320, width * 0.55)));
+    // the calculator's tape is short: the graph fits in it, legend and all
+    return Math.round(Math.max(110, Math.min(tapeEl.clientHeight - 60, width * 0.55)));
   }
 
   destroy() {
