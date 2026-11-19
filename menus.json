@@ -36,7 +36,8 @@
     ],
     "matrix": [
       ["M", "V", "det", "inverse", "transpose"],
-      ["eye", "dot", "cross", "eigenvals", "rref"]
+      ["eye", "dot", "cross", "eigenvals", "rref"],
+      ["zeros", "ones", null, null, null]
     ],
     "stat": [
       ["mean", "median", "stdev", "variance", "sum"],
