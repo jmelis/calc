@@ -8,8 +8,9 @@
 // shift F1–F5 the upper one. The labels are a soft menu (menus.json: the menu key lists
 // the menus, trig has a key of its own), what can be done with the selected result, or
 // completions of the name being typed. They're never letters, so completions show while
-// typing in alpha. Letters run a–d on trig and the arrows (with alpha on, ◀ ▼ ▶ type b c d),
-// then e–y five to a row (x has its own key), z on 0, a space on the point.
+// typing in alpha, and neither are the arrows. Letters run a on menu, b on trig, c–v five to
+// a row, w y z on 0 . ans (x has its own key); a space, quotes and the other characters are
+// in the chars menu (shift alpha).
 //
 // The keys drive the code the keyboard does. A character key first dispatches a keydown
 // on the editor, so app.js's rules apply unchanged (an operator on an empty line
@@ -74,12 +75,13 @@ function menuRows(name) {
   return (name === "top" ? MENUS?.top : MENUS?.menus[name]) ?? [];
 }
 
-// The views a menu can open by name
+// The views a menu can open by name (and abc)
 const VIEW_ITEMS = {
   vars: () => openView("vars"),
   catalog: () => openView("catalog"),
   help: () => openView("help"),
   setup: () => openView("settings"),
+  abc: () => setTyping(true), // the system keyboard, on a phone
 };
 
 // A name from a menu, as a soft key
@@ -145,7 +147,7 @@ const ALPHA = action("alpha", () => setAlpha(touch.alpha === "once" ? "lock" : t
   kind: "alpha",
   modifier: true,
   tip: "The letter printed on a key; twice keeps them coming until alpha again",
-  second: second("abc", action("abc", () => setTyping(true))),
+  second: second("chars", action("chars", () => openMenu("chars"), { anywhere: true })),
 });
 const X = typed("x", "x", { tex: true, letter: "x", ownLetter: true, second: second("vars", action("vars", () => openView("vars"), { anywhere: true })) });
 
@@ -155,43 +157,43 @@ const KEYPAD = [
   SHIFT,
   ALPHA,
   { label: "▲", kind: "nav", repeat: true, nav: "up", action: () => walkTape(-1), tip: "Earlier entries", second: second("pg", action("pg", () => turnPage(-1), { nav: "pgup" })) },
-  action("menu", menuKey, { kind: "menu", anywhere: true, tip: "The menus; again, back to the one you were in", second: second("catalog", action("catalog", openCatalog, { anywhere: true })) }),
+  action("menu", menuKey, { kind: "menu", letter: "a", anywhere: true, tip: "The menus; again, back to the one you were in", second: second("catalog", action("catalog", openCatalog, { anywhere: true })) }),
   action("esc", escKey, { kind: "esc", nav: "clear", tip: "Back out: alpha, a view, a selection, or the line", second: second("clear", action("clear", clearTapeKey, { anywhere: true })) }),
 
-  action("trig", () => openMenu("trig"), { kind: "menu", letter: "a", anywhere: true, second: second("hyp", action("hyp", () => openMenu("hyp"), { anywhere: true })) }),
-  { label: "◀", kind: "nav", repeat: true, nav: "left", letter: "b", action: () => moveCaret(-1), second: second("⇤", action("⇤", () => caretToEnd(-1), { nav: "home" })) },
-  { label: "▼", kind: "nav", repeat: true, nav: "down", letter: "c", action: () => walkTape(1), second: second("pg", action("pg", () => turnPage(1), { nav: "pgdown" })) },
-  { label: "▶", kind: "nav", repeat: true, nav: "right", letter: "d", action: () => moveCaret(1), second: second("⇥", action("⇥", () => caretToEnd(1), { nav: "end" })) },
+  action("trig", () => openMenu("trig"), { kind: "menu", letter: "b", anywhere: true, second: second("hyp", action("hyp", () => openMenu("hyp"), { anywhere: true })) }),
+  { label: "◀", kind: "nav", repeat: true, nav: "left", action: () => moveCaret(-1), second: second("⇤", action("⇤", () => caretToEnd(-1), { nav: "home" })) },
+  { label: "▼", kind: "nav", repeat: true, nav: "down", action: () => walkTape(1), second: second("pg", action("pg", () => turnPage(1), { nav: "pgdown" })) },
+  { label: "▶", kind: "nav", repeat: true, nav: "right", action: () => moveCaret(1), second: second("⇥", action("⇥", () => caretToEnd(1), { nav: "end" })) },
   { label: "⌫", kind: "del", repeat: true, nav: "del", action: backspace, tip: "Delete before the cursor, or the selected entry", second: second("undo", action("undo", () => undo(), { anywhere: true })) }, // app.js
 
-  typed("^", "^", { letter: "e", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result", second: second("√", fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}")) }),
-  typed("(", "(", { letter: "f", second: second("[", typed("[", "[")) }),
-  typed(")", ")", { letter: "g", second: second("]", typed("]", "]")) }),
-  typed(",", ",", { letter: "h", second: second(":", typed(":", ":")) }),
-  op("÷", "/", { letter: "i" }),
+  typed("^", "^", { letter: "c", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result", second: second("√", fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}")) }),
+  typed("(", "(", { letter: "d", second: second("[", typed("[", "[")) }),
+  typed(")", ")", { letter: "e", second: second("]", typed("]", "]")) }),
+  typed(",", ",", { letter: "f", second: second(":", typed(":", ":")) }),
+  op("÷", "/", { letter: "g" }),
 
-  word("ln", "log(|)", "\\ln\\left(#0\\right)", { letter: "j", second: second("eˣ", fn("e^x", "exp(|)", "e^{#0}")) }),
-  digit("7", "k"),
-  digit("8", "l"),
-  digit("9", "m"),
-  op("×", "*", { letter: "n" }),
+  word("ln", "log(|)", "\\ln\\left(#0\\right)", { letter: "h", second: second("eˣ", fn("e^x", "exp(|)", "e^{#0}")) }),
+  digit("7", "i"),
+  digit("8", "j"),
+  digit("9", "k"),
+  op("×", "*", { letter: "l" }),
 
-  fn("\\pi", "pi", "\\pi", { letter: "o", second: second("i", fn("i", "I", "i")) }),
-  digit("4", "p"),
-  digit("5", "q"),
-  digit("6", "r"),
-  op("−", "-", { letter: "s", second: second("(−)", action("(−)", negate)) }),
+  fn("\\pi", "pi", "\\pi", { letter: "m", second: second("i", fn("i", "I", "i")) }),
+  digit("4", "n"),
+  digit("5", "o"),
+  digit("6", "p"),
+  op("−", "-", { letter: "q", second: second("(−)", action("(−)", negate)) }),
 
-  typed("=", "=", { letter: "t", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: second("≤≠", action("test", () => openMenu("test"), { anywhere: true })) }),
-  digit("1", "u"),
-  digit("2", "v"),
-  digit("3", "w"),
-  op("+", "+", { letter: "y" }),
+  typed("=", "=", { letter: "r", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: second("≤≠", action("test", () => openMenu("test"), { anywhere: true })) }),
+  digit("1", "s"),
+  digit("2", "t"),
+  digit("3", "u"),
+  op("+", "+", { letter: "v" }),
 
   X,
-  digit("0", "z", { second: second("∞", fn("\\infty", "oo", "\\infty")) }),
-  digit(".", "␣"),
-  typed("ans", "ans", { word: "ans", math: "\\mathrm{ans}", letter: '"', tip: "The last result", second: second("E", fn("E", "E", "\\cdot 10^{#0}")) }),
+  digit("0", "w", { second: second("∞", fn("\\infty", "oo", "\\infty")) }),
+  digit(".", "y"),
+  typed("ans", "ans", { word: "ans", math: "\\mathrm{ans}", letter: "z", tip: "The last result", second: second("E", fn("E", "E", "\\cdot 10^{#0}")) }),
   action("enter", enter, { kind: "enter", nav: "enter", tip: "Evaluate; on an empty line, the last one again", second: second("≈", action("≈", () => submitApprox())) }), // app.js
 ];
 
@@ -255,7 +257,7 @@ function keyPressed(spec, mods = { shift: touch.shift, alpha: touch.alpha }) {
     }
     return run(spec);
   }
-  if (touch.alpha && spec.nav === "clear" && !mods.shift) return setAlpha(null); // esc: out of alpha first
+  if (touch.alpha && spec.nav === "clear" && !mods.shift && !touch.view?.locked) return setAlpha(null); // esc: out of alpha first
   if (mods.alpha && spec.letter) {
     const letter = mods.shift ? spec.letter.toUpperCase() : spec.letter;
     if (touch.shift) setShift(false);
@@ -662,14 +664,16 @@ const VIEWS = {
     ],
   },
 
-  // The list (a group of it, or all of it sorted by name; letters with alpha jump to a
-  // name) and, from it, help pages: an entry in full, its related entries on the soft keys.
+  // The list (a group of it, or all of it sorted by name; it opens in A-LOCK, so letters
+  // jump to a name) and, from it, help pages: an entry in full, its related entries on the soft keys.
   // ▶ goes into a page, ◀ (or esc) back out the way it came; enter inserts from either.
   catalog: {
     title: (view) => (view.pages.length ? "help" : "catalog"),
-    hint: (view) => (view.pages.length ? "enter insert · ◀ back" : "enter insert · ▶ help"),
+    hint: (view) => (view.pages.length ? "enter insert · ◀ back" : "letters jump · ▶ help"),
     open({ query = "", replaceFrom = null }) {
-      const view = { query: "", replaceFrom, group: ALL, items: catalogGroup(ALL), ready: state.ready, pages: [] };
+      const locked = touch.alpha !== "lock";
+      if (locked) setAlpha("lock"); // the letters jump; let go of again on the way out
+      const view = { query: "", replaceFrom, group: ALL, items: catalogGroup(ALL), ready: state.ready, pages: [], locked };
       jumpCatalog(view, query); // shift menu, ? or Tab on a name half typed opens it there
       return view;
     },
@@ -764,8 +768,10 @@ function openView(name, options = {}) {
 }
 
 function closeView() {
-  if (!touch.view) return true;
+  const view = touch.view;
+  if (!view) return true;
   touch.view = null;
+  if (view.locked && touch.alpha === "lock") setAlpha(null);
   viewEl.hidden = true;
   viewEl.replaceChildren();
   renderStrip();

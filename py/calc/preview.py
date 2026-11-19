@@ -11,6 +11,8 @@ import ast
 from sympy import Symbol, latex
 from sympy.printing.latex import greek_letters_set
 
+GREEK = greek_letters_set | {"lamda"}  # SymPy's λ: lambda is Python's
+
 from .matrices import MatrixMaker
 from .parser import _GLOBALS, DEG_NAME, REFS_NAME, _callable, classify, to_python
 
@@ -32,7 +34,7 @@ def _paren(s):
 def _symbol(name):
     if name in CONSTANTS:
         return CONSTANTS[name]
-    if len(name) > 1 and name.lower() not in greek_letters_set and "_" not in name:
+    if len(name) > 1 and name.lower() not in GREEK and "_" not in name:
         return rf"\mathrm{{{name}}}"
     return latex(Symbol(name))
 
@@ -209,7 +211,7 @@ class _Renderer:
             head = NAMED_FUNCS[name]
         elif name in KATEX_FUNCS:
             head = "\\" + name
-        elif len(name) == 1 or name.lower() in greek_letters_set:
+        elif len(name) == 1 or name.lower() in GREEK:
             head = _symbol(name)
         else:
             head = rf"\operatorname{{{name}}}"

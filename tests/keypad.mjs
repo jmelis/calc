@@ -51,9 +51,9 @@ const now = () =>
 const settle = (what, arg) => page.waitForFunction(what, arg, { timeout: 10000 });
 const last = () => page.evaluate(() => state.entries.at(-1));
 
-// a = 3/7 and f(x) = x^2 + 1, with alpha for the letters (a on trig, f on ()
-await keys("alpha", "trig", "=", "3", "÷", "7", "enter");
-await keys("alpha", "(", "(", "x", ")", "=", "x", "^", "2", "+", "1", "enter");
+// a = 3/7 and f(x) = x^2 + 1, with alpha for the letters (a on menu, f on the comma)
+await keys("alpha", "menu", "=", "3", "÷", "7", "enter");
+await keys("alpha", ",", "(", "x", ")", "=", "x", "^", "2", "+", "1", "enter");
 await settle(() => state.names.defined.includes("f"));
 
 // vars (shift x): ▼ to f, enter inserts f(
@@ -75,16 +75,16 @@ await key("esc");
 s = await now();
 check(s.view === null && s.names.includes("a"), "vars: forget, undo, esc", s);
 
-// alpha twice locks the letters, the arrows' row included; esc lets go of them first
-await keys("alpha", "alpha", "◀", "▼", "▶", "esc");
+// alpha twice locks the letters; the arrows stay arrows; esc lets go of the letters first
+await keys("alpha", "alpha", "menu", "trig", "◀", "^", "esc");
 s = await now();
-check(s.input === "bcd" && !s.lock, "A-LOCK: ◀ ▼ ▶ type b c d, esc ends it", s);
+check(s.input === "acb" && !s.lock, "A-LOCK: a, b, ◀ moves back, c; esc ends it", s);
 await key("esc");
 check((await now()).input === "", "esc: then the line", await now());
 
 // shift and alpha: a capital; shift's functions
 await keys("alpha", "shift", "trig", "shift", "π", "shift", "ans");
-check((await now()).input === "AIE", "alpha shift: a capital; shift π: i; shift ans: E", await now());
+check((await now()).input === "BIE", "alpha shift: a capital; shift π: i; shift ans: E", await now());
 await key("esc");
 
 // the menus: the menu key lists them, F picks one, menu goes back up and back again
@@ -112,7 +112,7 @@ await keys("shift", "=");
 check((await now()).path === "top/test", "shift =: the comparisons", await now());
 
 // completions on the soft keys while typing in alpha
-await keys("alpha", "alpha", "−", "÷"); // s i
+await keys("alpha", "alpha", "1", "7"); // s i
 s = await now();
 check(s.soft.includes("sin"), "completions while typing", s);
 await keys("alpha", "F1");
@@ -128,22 +128,23 @@ check((await last()).view === "exact", "▲ ◀: exact again", await last());
 await keys("▶", "esc");
 check((await last()).view === "float", "▶: the decimal", await last());
 
-// the catalog (shift menu): groups on the soft keys, alpha's letters jump, enter inserts
+// the catalog (shift menu): opens in A-LOCK, groups on the soft keys, letters jump, enter
+// inserts and lets go of the letters
 await keys("shift", "menu");
 s = await now();
-check(s.view === "catalog" && !s.lock && s.soft[0] === "all", "catalog: the groups on the soft keys", s);
+check(s.view === "catalog" && s.lock && s.soft[0] === "all", "catalog: A-LOCK, the groups on the soft keys", s);
 await key("F3");
 check((await now()).group === "Calculator", "catalog: a soft key picks a group", await now());
-await keys("alpha", "alpha", "−", "5", "alpha"); // s q
+await keys("1", "−"); // s q
 s = await now();
 check(s.row === "sqrt", "catalog: letters jump to the entry", s);
 await key("enter");
 s = await now();
-check(s.view === null && s.input === "sqrt()", "catalog: enter inserts", s);
+check(s.view === null && s.input === "sqrt()" && !s.lock, "catalog: enter inserts, A-LOCK goes", s);
 await key("esc");
 
 // a help page: ▶ opens it, its related entries on the soft keys, ◀ back the way it came
-await keys("shift", "menu", "alpha", "alpha", "−", "π", "8", "alpha"); // s o l: solve
+await keys("shift", "menu", "1", "5", "×"); // s o l: solve
 await key("▶");
 s = await now();
 check(s.title === "help" && s.soft.includes("nsolve"), "catalog: ▶ a help page, related on the soft keys", s);
@@ -184,13 +185,21 @@ await keys("shift", "x", "7", "ln", "esc");
 s = await now();
 check(s.input === "", "a view keeps keys from the line", s);
 
-// the last row's letters: z on 0, a space on the point
-await keys("alpha", "0", "alpha", ".", "x");
+// the last row's letters: w y z on 0 . ans; the rest in chars (shift alpha), Greek in it
+await keys("alpha", "0", "alpha", ".", "alpha", "ans");
+check((await now()).input === "wyz", "alpha 0 . ans: w y z", await now());
+await keys("shift", "alpha");
+check((await now()).path === "top/chars", "shift alpha: chars", await now());
+await keys("F1", "F2", "x", "shift", "F1");
+check((await now()).input === "wyz _x!", "chars: a space, _, and ! with shift", await now());
+await keys("shift", "▼", "F4");
+check((await now()).path === "top/chars/greek", "chars' page 2: greek", await now());
+await keys("F5", "menu");
 s = await now();
-check(s.input === "z x", "alpha 0: z; alpha .: a space", s);
+check(s.input === "wyz _x!lamda" && s.path === "top/chars", "greek F5: lamda; menu back up to chars", s);
 await key("esc");
 
-// a keyboard (?layout=touch on a computer) works a view as the keypad does
+// a computer's keyboard works a view as the keypad does
 await keys("shift", "x");
 await settle(() => memoryState.items.length === 3);
 await page.keyboard.press("ArrowDown");

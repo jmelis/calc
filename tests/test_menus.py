@@ -12,8 +12,8 @@ from calc.session import Session
 
 ROOT = Path(__file__).resolve().parent.parent
 MENUS = json.loads((ROOT / "menus.json").read_text())
-VIEWS = {"vars", "catalog", "help", "setup"}  # keypad.js's VIEW_ITEMS
-OPENED_BY_KEYS = {"trig", "hyp", "test"}  # the trig key, shift trig, shift =
+VIEWS = {"vars", "catalog", "help", "setup", "abc"}  # keypad.js's VIEW_ITEMS
+OPENED_BY_KEYS = {"trig", "hyp", "test", "chars"}  # the trig key, shift trig, shift =, shift alpha
 KEY_FIELDS = {"label", "tex", "insert", "math"}
 NS = Session().ns
 

@@ -2,9 +2,9 @@
   "about": [
     "The keypad's soft menus. 'top' is what the menu key shows; 'menus' holds every other menu by name; 'keys' says what the names in them insert.",
     "A menu is rows of up to five names: the first row is F1-F5, the second shift F1-F5 (drawn above it on the screen); a third and fourth row make a second page (shift up/down turns it). null leaves a slot empty.",
-    "A name is, first that applies: another menu (opens it; the menu key goes back up), one of the views vars, catalog, help or setup, or a key.",
+    "A name is, first that applies: another menu (opens it; the menu key goes back up), one of the views vars, catalog, help or setup, abc (a phone's own keyboard), or a key.",
     "A key needs no entry in 'keys' if it's a function: 'factor' alone shows factor and inserts factor(). An entry changes that: label (the text shown) or tex (LaTeX shown instead), insert (what's typed; | is where the cursor goes, around the selection if there's one; one starting with . applies to the last result on an empty line), math (the same for the math input, in LaTeX: #0 is the cursor, #? an empty box; null if it only works as text).",
-    "The trig key opens 'trig', shift trig 'hyp', shift = 'test'.",
+    "The trig key opens 'trig', shift trig 'hyp', shift = 'test', shift alpha 'chars'.",
     "tools/menus.html edits this file by drag and drop: make serve, then open http://127.0.0.1:8000/tools/menus.html."
   ],
 
@@ -45,6 +45,16 @@
     "test": [
       ["<", ">", "<=", ">=", "!="],
       ["==", null, null, null, null]
+    ],
+    "chars": [
+      ["space", "_", "$", ";", "quotes"],
+      ["!", "%", "braces", "|", "&"],
+      ["quote", "~", "@", "greek", "abc"]
+    ],
+    "greek": [
+      ["theta", "phi", "alpha", "omega", "lamda"],
+      ["mu", "sigma", "rho", "delta", "epsilon"],
+      ["tau", "psi", "xi", "nu", "eta"]
     ]
   },
 
@@ -97,6 +107,36 @@
     "<=": { "tex": "\\le", "insert": "<=", "math": "\\le" },
     ">=": { "tex": "\\ge", "insert": ">=", "math": "\\ge" },
     "!=": { "tex": "\\ne", "insert": "!=", "math": "\\ne" },
-    "==": { "insert": "==", "math": null }
+    "==": { "insert": "==", "math": null },
+
+    "space": { "label": "␣", "insert": " ", "math": "\\," },
+    "_": { "insert": "_", "math": "_{#0}" },
+    "$": { "insert": "$", "math": null },
+    ";": { "insert": "; ", "math": null },
+    "quotes": { "label": "\" \"", "insert": "\"|\"", "math": null },
+    "!": { "insert": "!", "math": "!" },
+    "%": { "insert": "%", "math": null },
+    "braces": { "label": "{ }", "insert": "{|}", "math": null },
+    "|": { "insert": "|", "math": null },
+    "&": { "insert": "&", "math": null },
+    "quote": { "label": "' '", "insert": "'|'", "math": null },
+    "~": { "insert": "~", "math": null },
+    "@": { "insert": "@", "math": null },
+
+    "theta": { "tex": "\\theta", "insert": "theta", "math": "\\theta" },
+    "phi": { "tex": "\\phi", "insert": "phi", "math": "\\phi" },
+    "alpha": { "tex": "\\alpha", "insert": "alpha", "math": "\\alpha" },
+    "omega": { "tex": "\\omega", "insert": "omega", "math": "\\omega" },
+    "lamda": { "tex": "\\lambda", "insert": "lamda", "math": "\\lambda" },
+    "mu": { "tex": "\\mu", "insert": "mu", "math": "\\mu" },
+    "sigma": { "tex": "\\sigma", "insert": "sigma", "math": "\\sigma" },
+    "rho": { "tex": "\\rho", "insert": "rho", "math": "\\rho" },
+    "delta": { "tex": "\\delta", "insert": "delta", "math": "\\delta" },
+    "epsilon": { "tex": "\\epsilon", "insert": "epsilon", "math": "\\epsilon" },
+    "tau": { "tex": "\\tau", "insert": "tau", "math": "\\tau" },
+    "psi": { "tex": "\\psi", "insert": "psi", "math": "\\psi" },
+    "xi": { "tex": "\\xi", "insert": "xi", "math": "\\xi" },
+    "nu": { "tex": "\\nu", "insert": "nu", "math": "\\nu" },
+    "eta": { "tex": "\\eta", "insert": "eta", "math": "\\eta" }
   }
 }

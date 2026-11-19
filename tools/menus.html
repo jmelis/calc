@@ -118,9 +118,9 @@
 // The model is menus.json itself, with every row padded to five; render() draws it, and
 // every change goes through change(), which keeps an undo history.
 
-const VIEWS = ["vars", "catalog", "help", "setup"]; // keypad.js's VIEW_ITEMS
+const VIEWS = ["vars", "catalog", "help", "setup", "abc"]; // keypad.js's VIEW_ITEMS
 const BUILTINS = ["abs", "sum", "min", "max", "sorted", "len", "round", "list", "range", "set", "tuple", "zip", "map", "filter", "any", "all", "pow", "divmod", "reversed", "enumerate", "print"]; // Python's, in the namespace too
-const OPENED_BY = { top: "the menu key", trig: "the trig key", hyp: "shift trig", test: "shift =" }; // keypad.js's KEYPAD
+const OPENED_BY = { top: "the menu key", trig: "the trig key", hyp: "shift trig", test: "shift =", chars: "shift alpha" }; // keypad.js's KEYPAD
 const KEY_FIELDS = [
   ["label", "what the soft key shows (default: its name)"],
   ["tex", "LaTeX to show instead of the label"],
@@ -524,7 +524,7 @@ function renderInspector() {
   const k = kind(selected);
   box.append(el("div", "what", selected));
   if (k === "menu" || k === "view") {
-    box.append(el("div", "kind", k === "menu" ? "a menu: on a soft key, it opens it" : "a view: on a soft key, it opens it"));
+    box.append(el("div", "kind", k === "menu" ? "a menu: on a soft key, it opens it" : selected === "abc" ? "a phone's own keyboard" : "a view: on a soft key, it opens it"));
     return;
   }
   box.append(el("div", "kind", { key: "a key defined in menus.json", function: "a catalog function: inserts its name(…)", unknown: "not in the catalog: check SymPy has it" }[k]));
@@ -560,7 +560,7 @@ function renderProblems() {
   const list = $("#problems");
   list.replaceChildren();
   const add = (cls, text) => list.append(el("li", cls, text));
-  for (const name of ["trig", "hyp", "test"]) if (!data.menus[name]) add("bad", `No menu "${name}": ${OPENED_BY[name]} opens it`);
+  for (const name of ["trig", "hyp", "test", "chars"]) if (!data.menus[name]) add("bad", `No menu "${name}": ${OPENED_BY[name]} opens it`);
   for (const name of Object.keys(data.menus)) {
     if (!linkedFrom(name).filter((n) => n !== name).length && !OPENED_BY[name]) add("warn", `Nothing opens "${name}": drop it in a menu`);
   }

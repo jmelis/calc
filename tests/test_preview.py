@@ -34,6 +34,7 @@ from calc.preview import preview
         ("binomial(5, 2)", r"\binom{5}{2}"),
         ("Matrix([[1,2],[3,4]])", r"\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}"),
         ("theta_1 + alpha", r"\theta_{1} + \alpha"),
+        ("lamda + x_1", r"\lambda + x_{1}"),  # SymPy's spelling of λ (lambda is Python's)
         ("3/7+sqrt2", r"\frac{3}{7} + \mathrm{sqrt2}"),  # how it will evaluate: sqrt2 is one name
         ("x y + xy", r"x y + \mathrm{xy}"),
     ],

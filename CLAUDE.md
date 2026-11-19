@@ -134,10 +134,13 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   on the R47; a label can be tapped too), then 40 equal keys, five by eight:
   `F1–F5`, `shift alpha ▲ menu esc`, `trig ◀ ▼ ▶ ⌫`, `^ ( ) , ÷`, `ln 7 8 9 ×`, `π 4 5 6 −`,
   `= 1 2 3 +`, `x 0 . ans enter`. Each key prints its shift function (top left, `second`: √ [ ] :
-  eˣ i (−) ≤≠ ∞ E ≈, abc on alpha, clear (the tape) on esc, undo on ⌫, hyp on trig, catalog on menu, vars on
-  x, pg/⇤/⇥ on the arrows) and its alpha letter (top right, `letter`): a–d on trig and the
-  arrows, then e–y five to a row (x has its own key, `ownLetter`), z on 0, a space on .; the soft
-  keys never type letters, so completions show while typing in alpha. Shift and alpha apply to
+  eˣ i (−) ≤≠ ∞ E ≈, chars on alpha, clear (the tape) on esc, undo on ⌫, hyp on trig, catalog on menu, vars on
+  x, pg/⇤/⇥ on the arrows) and its alpha letter (top right, `letter`): a on menu, b on trig,
+  c–v five to a row, w y z on 0 . ans (x has its own key, `ownLetter`). Neither the arrows nor the
+  soft keys type letters: the caret moves in A-LOCK, and completions show while typing in alpha.
+  A space, quotes, `_ $ ;` and the rare characters are in the `chars` menu (shift alpha), with
+  Greek letters (`greek`: names SymPy prints as Greek; λ is `lamda`, which preview.py's `GREEK`
+  knows) and `abc` (the phone's keyboard). Shift and alpha apply to
   the next key (both: a capital), alpha twice locks letters, esc lets go of alpha first, and
   holding a key does its shift function. With a mouse, shift-click is shift and option-click alpha (`clickMod`, the `mods`
   keyPressed takes). The soft keys show, first that applies: the view's own, the selected entry's
@@ -154,8 +157,9 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   so they'd work on a device without a touch screen (`tests/keypad.mjs` checks): ▲ ▼ move (round
   from the end; shift: a page), ◀ ▶ change a setting or help's section, enter picks, esc (or the
   view's key again) goes back, and the soft keys do the rest (insert, forget, undo, help's
-  sections). The catalog is a list (▲ ▼, its groups on the soft keys, enter inserts; alpha's
-  letters jump to the first name that starts with them, in this group or else in all of it) and
+  sections). The catalog is a list (▲ ▼, its groups on the soft keys, enter inserts; it opens in
+  A-LOCK, `view.locked`, so letters jump to the first name that starts with them, in this group
+  or else in all of it, and esc closes it rather than ending the lock) and
   help pages (▶ from the list: the entry in full, its `see` entries on the soft keys and as links;
   ◀ or esc back the way it came, `view.pages`). Keys that would type into the line behind do
   nothing (`viewKey`); keys marked `anywhere` (menus, views, undo, F1–F5) work as ever. A
