@@ -106,6 +106,12 @@ s = await now();
 check(s.path === "top/trig" && s.input === "sin()", "trig F1: sin", s);
 await keys("esc", "shift", "F1");
 check((await now()).input === "asin()", "trig shift F1: sin⁻¹", await now());
+// the upper row stays lit after a pick: F2 is cos⁻¹; typing (2) brings back the plain row
+await keys("F2", "2", "F1");
+check((await now()).input === "asin(acos(2sin()))", "the upper row stays until another key", await now());
+// esc lets go of the upper row first, keeping the line
+await keys("shift", "F1", "esc", "F1");
+check((await now()).input === "asin(acos(2sin(asin(sin()))))", "esc: back to the plain row", await now());
 await keys("esc", "shift", "trig");
 check((await now()).path === "top/hyp", "shift trig: hyp", await now());
 await keys("shift", "=");

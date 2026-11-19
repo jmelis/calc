@@ -131,7 +131,8 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   screen, holding a status line (shift/alpha, messages with *stop* and *undo* links,
   what the soft keys show), the tape, the input and two rows of soft key labels on its bottom edge
   (in the keys' columns: F1–F5 do the lower row, shift F1–F5 or holding the key the upper one, as
-  on the R47; a label can be tapped too), then 40 equal keys, five by eight:
+  on the R47; a label can be tapped too; the row picked from stays lit, `upperRow`, until another
+  key, esc or another menu), then 40 equal keys, five by eight:
   `F1–F5`, `shift alpha ▲ menu esc`, `trig ◀ ▼ ▶ ⌫`, `^ ( ) , ÷`, `ln 7 8 9 ×`, `π 4 5 6 −`,
   `= 1 2 3 +`, `x 0 . ans enter`. Each key prints its shift function (top left, `second`: √ [ ] :
   eˣ i (−) ≤≠ ∞ E ≈, chars on alpha, clear (the tape) on esc, undo on ⌫, hyp on trig, catalog on menu, vars on

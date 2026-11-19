@@ -39,6 +39,7 @@ const touch = {
   press: null, // the key being pressed: {key, spec, id, timer, held, x, y}
   view: null, // the view taking the screen over: {name, index, ...} (VIEWS)
   switching: false, // moving the focus on purpose: not the system keyboard going away
+  upperRow: false, // F1–F5 do the upper labels without shift: the row last picked from, until another key
   resetArmed: 0, // until when setup's Reset needs only a second enter
   keyRepeat: false, // a keyboard's key held down, repeating (onKeyboard)
 };
@@ -249,7 +250,7 @@ function setAlpha(mode) {
 // A key let go: its letter with alpha (a capital with shift too), its shift function
 // with shift, else what it does. mods are the ones on, or the ones a mouse held (clickMod).
 function keyPressed(spec, mods = { shift: touch.shift, alpha: touch.alpha }) {
-  if (spec.soft !== undefined) return pressSoft(spec.soft, mods.shift);
+  if (spec.soft !== undefined) return pressSoft(spec.soft, mods.shift || touch.upperRow);
   if (spec.modifier) {
     if (mods.shift && spec.second) {
       setShift(false);
@@ -258,6 +259,8 @@ function keyPressed(spec, mods = { shift: touch.shift, alpha: touch.alpha }) {
     return run(spec);
   }
   if (touch.alpha && spec.nav === "clear" && !mods.shift && !touch.view?.locked) return setAlpha(null); // esc: out of alpha first
+  if (touch.upperRow && spec.nav === "clear" && !mods.shift) return setUpperRow(false); // then back to F1–F5's own row
+  setUpperRow(false); // any other key: the plain labels again
   if (mods.alpha && spec.letter) {
     const letter = mods.shift ? spec.letter.toUpperCase() : spec.letter;
     if (touch.shift) setShift(false);
@@ -537,6 +540,7 @@ function renderSoft() {
   const context = softContext();
   if (context.id !== touch.softFor) {
     touch.softFor = context.id;
+    touch.upperRow = false; // another menu (or view, or the completions): its plain row first
     touch.softPage = 0;
   }
   const pages = Math.max(1, Math.ceil(context.keys.length / PAGE));
@@ -554,16 +558,26 @@ function renderSoft() {
     for (let p = 0; p < pages; p++) dots.append(el("span", p === touch.softPage ? "dot on" : "dot"));
   }
   softEl.replaceChildren(upper, lower, dots);
-  softEl.classList.toggle("shifted", touch.shift);
+  softEl.classList.toggle("shifted", touch.shift || touch.upperRow);
   statusEl.querySelector(".ind").textContent = context.name.toUpperCase() + (pages > 1 ? ` ${touch.softPage + 1}/${pages}` : "");
 }
 
-// F1–F5 (shift: the upper row), or a tap on a label
-function pressSoft(i, upper = touch.shift) {
+// F1–F5 (the upper row with shift, or while it's the row last picked from), or a tap on a
+// label. The row picked from stays lit, so the next one comes from it too, until another key
+// (or esc, or another menu) brings back the plain row.
+function pressSoft(i, upper = touch.shift || touch.upperRow) {
   const spec = touch.soft[(upper ? SOFT_KEYS : 0) + i];
+  touch.upperRow = upper && !!spec;
   if (touch.shift) setShift(false);
   if (touch.alpha === "once") setAlpha(null);
   if (spec) activate(spec);
+  renderSoft();
+}
+
+function setUpperRow(on) {
+  if (touch.upperRow === on) return;
+  touch.upperRow = on;
+  renderSoft();
 }
 
 // --- views: setup, vars, the catalog, help --------------------------------------------
@@ -1187,6 +1201,7 @@ function onPointerDown(e) {
   else if (!spec.modifier && spec.softLabel === undefined && (spec.second || spec.tip)) {
     hold(() => {
       if (!spec.second) return flash(spec.tip);
+      setUpperRow(false);
       if (touch.shift) setShift(false);
       if (touch.alpha === "once") setAlpha(null);
       run(spec.second);
