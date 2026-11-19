@@ -134,11 +134,11 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   what the soft keys show), the tape, the input and two rows of soft key labels on its bottom edge
   (in the keys' columns: F1–F5 do the lower row, shift F1–F5 or holding the key the upper one, as
   on the R47; a label can be tapped too), then 40 equal keys, five by eight:
-  `F1–F5`, `shift alpha ▲ esc ⌫`, `trig ◀ ▼ ▶ menu`, `^ ( ) , ÷`, `ln 7 8 9 ×`, `π 4 5 6 −`,
+  `F1–F5`, `shift alpha ▲ menu esc`, `trig ◀ ▼ ▶ ⌫`, `^ ( ) , ÷`, `ln 7 8 9 ×`, `π 4 5 6 −`,
   `= 1 2 3 +`, `x 0 . ans enter`. Each key prints its shift function (top left, `second`: √ [ ] :
   eˣ i (−) ≤≠ ∞ E ≈, abc on alpha, clear (the tape) on esc, undo on ⌫, hyp on trig, catalog on menu, vars on
-  x, pg/⇤/⇥ on the arrows) and its alpha letter (top right, `letter`): a–z run down five rows
-  from trig, the arrows' row included, except x, whose own key types it (`ownLetter`); the soft
+  x, pg/⇤/⇥ on the arrows) and its alpha letter (top right, `letter`): a–d on trig and the
+  arrows, then e–y five to a row (x has its own key, `ownLetter`), z on 0, a space on .; the soft
   keys never type letters, so completions show while typing in alpha. Shift and alpha apply to
   the next key (both: a capital), alpha twice locks letters, esc lets go of alpha first, and
   holding a key does its shift function. With a mouse, which the layout also gets on a computer
@@ -166,8 +166,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   shows works it as the keypad does (`onKeyboard`: arrows, ⏎, Esc, ⌫, Page Up/Down, letters,
   ⌃Z). Taps are extra: a tap selects a row, a tap on the selected row picks it (setup acts on the
   first). They are app.js's panels, shown differently: `setupTouch` puts `openView` into
-  `panels`, so `:help`, `:vars`, `:catalog` and `?` open them (alpha's `?` is sent as a keydown,
-  `typeLetter`, so an empty line's `?` is the catalog here too), and help reads the Help panel's
+  `panels`, so `:help`, `:vars`, `:catalog` and `?` (a keyboard's) open them, and help reads the Help panel's
   sections (`#help section`, `data-tab` naming their soft keys). The look re-themes the screen's
   content by overriding the page's tokens (`--text`, `--muted`, …) on `.screen`. The keyboard
   layout must look and behave exactly as without it: touch styles live under `html.touch` only,

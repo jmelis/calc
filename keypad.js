@@ -10,8 +10,8 @@
 // shift F1–F5 the upper one. The labels are a soft menu (menus.json: the menu key lists
 // the menus, trig has a key of its own), what can be done with the selected result, or
 // completions of the name being typed. They're never letters, so completions show while
-// typing in alpha. Letters a–z (but x, which has its own key) run down five rows from
-// trig, the arrows' row included: with alpha on, ◀ ▼ ▶ type b c d.
+// typing in alpha. Letters run a–d on trig and the arrows (with alpha on, ◀ ▼ ▶ type b c d),
+// then e–y five to a row (x has its own key), z on 0, a space on the point.
 //
 // The keys drive the code the keyboard does. A character key first dispatches a keydown
 // on the editor, so app.js's rules apply unchanged (an operator on an empty line
@@ -158,42 +158,42 @@ const KEYPAD = [
   SHIFT,
   ALPHA,
   { label: "▲", kind: "nav", repeat: true, nav: "up", action: () => walkTape(-1), tip: "Earlier entries", second: second("pg", action("pg", () => turnPage(-1), { nav: "pgup" })) },
+  action("menu", menuKey, { kind: "menu", anywhere: true, tip: "The menus; again, back to the one you were in", second: second("catalog", action("catalog", openCatalog, { anywhere: true })) }),
   action("esc", escKey, { kind: "esc", nav: "clear", tip: "Back out: alpha, a view, a selection, or the line", second: second("clear", action("clear", clearTapeKey, { anywhere: true })) }),
-  { label: "⌫", kind: "del", repeat: true, nav: "del", action: backspace, tip: "Delete before the cursor, or the selected entry", second: second("undo", action("undo", () => undo(), { anywhere: true })) }, // app.js
 
   action("trig", () => openMenu("trig"), { kind: "menu", letter: "a", anywhere: true, second: second("hyp", action("hyp", () => openMenu("hyp"), { anywhere: true })) }),
   { label: "◀", kind: "nav", repeat: true, nav: "left", letter: "b", action: () => moveCaret(-1), second: second("⇤", action("⇤", () => caretToEnd(-1), { nav: "home" })) },
   { label: "▼", kind: "nav", repeat: true, nav: "down", letter: "c", action: () => walkTape(1), second: second("pg", action("pg", () => turnPage(1), { nav: "pgdown" })) },
   { label: "▶", kind: "nav", repeat: true, nav: "right", letter: "d", action: () => moveCaret(1), second: second("⇥", action("⇥", () => caretToEnd(1), { nav: "end" })) },
-  action("menu", menuKey, { kind: "menu", letter: "e", anywhere: true, tip: "The menus; again, back to the one you were in", second: second("catalog", action("catalog", openCatalog, { anywhere: true })) }),
+  { label: "⌫", kind: "del", repeat: true, nav: "del", action: backspace, tip: "Delete before the cursor, or the selected entry", second: second("undo", action("undo", () => undo(), { anywhere: true })) }, // app.js
 
-  typed("^", "^", { letter: "f", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result", second: second("√", fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}")) }),
-  typed("(", "(", { letter: "g", second: second("[", typed("[", "[")) }),
-  typed(")", ")", { letter: "h", second: second("]", typed("]", "]")) }),
-  typed(",", ",", { letter: "i", second: second(":", typed(":", ":")) }),
-  op("÷", "/", { letter: "j" }),
+  typed("^", "^", { letter: "e", tip: "A power: x^2, 2^(1/3); on an empty line, of the last result", second: second("√", fn("\\sqrt{x}", "sqrt(|)", "\\sqrt{#0}")) }),
+  typed("(", "(", { letter: "f", second: second("[", typed("[", "[")) }),
+  typed(")", ")", { letter: "g", second: second("]", typed("]", "]")) }),
+  typed(",", ",", { letter: "h", second: second(":", typed(":", ":")) }),
+  op("÷", "/", { letter: "i" }),
 
-  word("ln", "log(|)", "\\ln\\left(#0\\right)", { letter: "k", second: second("eˣ", fn("e^x", "exp(|)", "e^{#0}")) }),
-  digit("7", "l"),
-  digit("8", "m"),
-  digit("9", "n"),
-  op("×", "*", { letter: "o" }),
+  word("ln", "log(|)", "\\ln\\left(#0\\right)", { letter: "j", second: second("eˣ", fn("e^x", "exp(|)", "e^{#0}")) }),
+  digit("7", "k"),
+  digit("8", "l"),
+  digit("9", "m"),
+  op("×", "*", { letter: "n" }),
 
-  fn("\\pi", "pi", "\\pi", { letter: "p", second: second("i", fn("i", "I", "i")) }),
-  digit("4", "q"),
-  digit("5", "r"),
-  digit("6", "s"),
-  op("−", "-", { letter: "t", second: second("(−)", action("(−)", negate)) }),
+  fn("\\pi", "pi", "\\pi", { letter: "o", second: second("i", fn("i", "I", "i")) }),
+  digit("4", "p"),
+  digit("5", "q"),
+  digit("6", "r"),
+  op("−", "-", { letter: "s", second: second("(−)", action("(−)", negate)) }),
 
-  typed("=", "=", { letter: "u", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: second("≤≠", action("test", () => openMenu("test"), { anywhere: true })) }),
-  digit("1", "v"),
-  digit("2", "w"),
-  digit("3", "y"),
-  op("+", "+", { letter: "z" }),
+  typed("=", "=", { letter: "t", tip: "Assigns (a = 3), defines (f(x) = x²) or makes an equation (x² = 4)", second: second("≤≠", action("test", () => openMenu("test"), { anywhere: true })) }),
+  digit("1", "u"),
+  digit("2", "v"),
+  digit("3", "w"),
+  op("+", "+", { letter: "y" }),
 
   X,
-  digit("0", "␣", { second: second("∞", fn("\\infty", "oo", "\\infty")) }),
-  digit(".", "?"),
+  digit("0", "z", { second: second("∞", fn("\\infty", "oo", "\\infty")) }),
+  digit(".", "␣"),
   typed("ans", "ans", { word: "ans", math: "\\mathrm{ans}", letter: '"', tip: "The last result", second: second("E", fn("E", "E", "\\cdot 10^{#0}")) }),
   action("enter", enter, { kind: "enter", nav: "enter", tip: "Evaluate; on an empty line, the last one again", second: second("≈", action("≈", () => submitApprox())) }), // app.js
 ];
@@ -326,10 +326,8 @@ function typeText(text, math) {
   edited();
 }
 
-// alpha's letters type as they are (in the tape, f d c would act on a selection), but ? goes
-// to app.js first: on an empty line it opens the catalog, as on the keyboard
+// alpha's letters type as they are (in the tape, f d c would act on a selection)
 function typeLetter(letter) {
-  if (letter === "?" && sendKey("?")) return;
   insertRaw(letter === "␣" ? " " : letter);
   edited();
 }

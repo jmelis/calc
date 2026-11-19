@@ -51,9 +51,9 @@ const now = () =>
 const settle = (what, arg) => page.waitForFunction(what, arg, { timeout: 10000 });
 const last = () => page.evaluate(() => state.entries.at(-1));
 
-// a = 3/7 and f(x) = x^2 + 1, with alpha for the letters (a on trig, f on ^)
+// a = 3/7 and f(x) = x^2 + 1, with alpha for the letters (a on trig, f on ()
 await keys("alpha", "trig", "=", "3", "÷", "7", "enter");
-await keys("alpha", "^", "(", "x", ")", "=", "x", "^", "2", "+", "1", "enter");
+await keys("alpha", "(", "(", "x", ")", "=", "x", "^", "2", "+", "1", "enter");
 await settle(() => state.names.defined.includes("f"));
 
 // vars (shift x): ▼ to f, enter inserts f(
@@ -112,7 +112,7 @@ await keys("shift", "=");
 check((await now()).path === "top/test", "shift =: the comparisons", await now());
 
 // completions on the soft keys while typing in alpha
-await keys("alpha", "alpha", "6", ","); // s i
+await keys("alpha", "alpha", "−", "÷"); // s i
 s = await now();
 check(s.soft.includes("sin"), "completions while typing", s);
 await keys("alpha", "F1");
@@ -134,7 +134,7 @@ s = await now();
 check(s.view === "catalog" && !s.lock && s.soft[0] === "all", "catalog: the groups on the soft keys", s);
 await key("F3");
 check((await now()).group === "Calculator", "catalog: a soft key picks a group", await now());
-await keys("alpha", "alpha", "6", "4", "alpha"); // s q
+await keys("alpha", "alpha", "−", "5", "alpha"); // s q
 s = await now();
 check(s.row === "sqrt", "catalog: letters jump to the entry", s);
 await key("enter");
@@ -143,7 +143,7 @@ check(s.view === null && s.input === "sqrt()", "catalog: enter inserts", s);
 await key("esc");
 
 // a help page: ▶ opens it, its related entries on the soft keys, ◀ back the way it came
-await keys("shift", "menu", "alpha", "alpha", "6", "×", "7", "alpha"); // s o l: solve
+await keys("shift", "menu", "alpha", "alpha", "−", "π", "8", "alpha"); // s o l: solve
 await key("▶");
 s = await now();
 check(s.title === "help" && s.soft.includes("nsolve"), "catalog: ▶ a help page, related on the soft keys", s);
@@ -184,13 +184,10 @@ await keys("shift", "x", "7", "ln", "esc");
 s = await now();
 check(s.input === "", "a view keeps keys from the line", s);
 
-// alpha ? on an empty line: the catalog, as ? on the keyboard; after something, a ?
-await keys("alpha", ".");
+// the last row's letters: z on 0, a space on the point
+await keys("alpha", "0", "alpha", ".", "x");
 s = await now();
-check(s.view === "catalog", "? on an empty line opens the catalog", s);
-await keys("esc", "7", "alpha", ".");
-s = await now();
-check(s.view === null && s.input === "7?", "? after something types", s);
+check(s.input === "z x", "alpha 0: z; alpha .: a space", s);
 await key("esc");
 
 // a keyboard (?layout=touch on a computer) works a view as the keypad does
