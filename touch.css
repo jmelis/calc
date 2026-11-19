@@ -17,8 +17,8 @@ html.touch {
   --rule: rgba(35, 40, 31, 0.16);
   --soft-bg: #23281f;
   --soft-text: #c9cdc0;
-  --soft-up: #9a3a0c; /* the shifted labels, in shift's colour */
-  --soft-up-bg: rgba(181, 71, 15, 0.1);
+  --soft-dim: #4c5446; /* the row of labels F1–F5 don't do (shift's, until shift) */
+  --soft-dim-bg: rgba(35, 40, 31, 0.13);
   --key: #3b3e44;
   --key-text: #ecedef;
   --hi: rgba(255, 255, 255, 0.06);
@@ -152,7 +152,8 @@ html.touch #input { font-size: 20px; min-width: 0; color: var(--ink); caret-colo
 html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
 
 /* bottom: the soft keys' labels, two rows over F1–F5 (the keypad's first row), in its
-   columns: the upper row is shift's, and lights up while shift is on */
+   columns. The row F1–F5 do now is lit (dark labels), the other dim (gray): the lower one,
+   or with shift on, the upper one */
 .screen .softline {
   position: relative;
   display: grid;
@@ -161,15 +162,24 @@ html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
   padding: 2px 0 11px;
   touch-action: pan-y;
 }
-.screen .softline .row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); }
+.screen .softline .row {
+  --sk-bg: var(--soft-bg);
+  --sk-text: var(--soft-text);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--gap);
+}
+.screen .softline .upper,
+.screen .softline.shifted .lower { --sk-bg: var(--soft-dim-bg); --sk-text: var(--soft-dim); }
+.screen .softline.shifted .upper { --sk-bg: var(--soft-bg); --sk-text: var(--soft-text); }
 .screen .softline .sk {
   height: 24px;
   min-width: 0;
   padding: 0 2px;
   border: 0;
-  border-radius: 3px 3px 0 0;
-  background: var(--soft-bg);
-  color: var(--soft-text);
+  border-radius: 3px;
+  background: var(--sk-bg);
+  color: var(--sk-text);
   font-family: var(--sans);
   font-size: 13px;
   white-space: nowrap;
@@ -177,19 +187,16 @@ html.touch #mathinput { color: var(--ink); --caret-color: var(--ink); }
   text-overflow: ellipsis;
   touch-action: none;
 }
-.screen .softline .upper .sk { height: 18px; border-radius: 3px; background: var(--soft-up-bg); color: var(--soft-up); font-size: 11.5px; font-weight: 600; }
+.screen .softline .upper .sk { height: 18px; font-size: 11.5px; }
 .screen .softline .sk .katex { font-size: 1.05em; }
 .screen .softline .upper .sk .katex { font-size: 1em; }
 .screen .softline .sk.empty { background: transparent; }
 .screen .softline .sk.danger { text-decoration: underline; text-underline-offset: 3px; }
 .screen .softline .sk.down { opacity: 0.7; }
-.screen .softline .sk.on { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--soft-bg); }
-.screen .softline .upper .sk.on { box-shadow: inset 0 0 0 1.5px var(--soft-up); color: var(--soft-up); }
+/* the group or section showing (the catalog's, help's): outlined */
+.screen .softline .sk.on { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
 /* a menu inside the menu: a bar over the label, as on the R47 */
-.screen .softline .sk.submenu { box-shadow: inset 0 2px 0 var(--soft-text); }
-.screen .softline .upper .sk.submenu { box-shadow: inset 0 2px 0 var(--soft-up); }
-.screen .softline.shifted .upper .sk:not(.empty) { background: var(--l2-digit); color: #fff; }
-.screen .softline.shifted .lower .sk { opacity: 0.35; }
+.screen .softline .sk.submenu { box-shadow: inset 0 2px 0 var(--sk-text); }
 /* more than a page: a dot for each, the one showing filled */
 .screen .softline .pages {
   position: absolute;
