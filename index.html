@@ -59,7 +59,8 @@
         <dt><kbd>shift</kbd> <kbd>alpha</kbd></dt><dd>The chars menu: a space, <code>_</code> (for names like <code>x_1</code>), <code>$</code>, <code>;</code>, quotes, <code>! % { } | &amp;</code>; on its second page <code>~ @</code>, Greek letters (θ φ α ω λ…, which SymPy shows as Greek) and <kbd>abc</kbd>, the phone's own keyboard (<kbd>123</kbd> puts it away)</dd>
         <dt><kbd>shift</kbd> <kbd>enter</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
         <dt><kbd>▲</kbd> <kbd>▼</kbd></dt><dd>Earlier entries. Then <kbd>◀</kbd> <kbd>▶</kbd> show a result exact, as a decimal or in degrees, <kbd>enter</kbd> inserts it (or tap it; tap again to let go), <kbd>⌫</kbd> deletes it</dd>
-        <dt><kbd>esc</kbd> <kbd>⌫</kbd></dt><dd>Back out one step (alpha, then a view or a selection, then the line); delete before the cursor. <kbd>shift</kbd> <kbd>esc</kbd> clears the whole tape, and <kbd>shift</kbd> <kbd>⌫</kbd> brings it back</dd>
+        <dt>select, copy</dt><dd>On an entry, the <em>select</em> soft key starts a selection there: <kbd>▲</kbd> <kbd>▼</kbd> (or a tap) take in more, then <em>copy</em> copies it as text (<code>sqrt(8)</code> and <code>= 2*sqrt(2)</code>), <em>LaTeX</em> as LaTeX, <em>delete</em> deletes those entries. <kbd>esc</kbd> goes back to one</dd>
+        <dt><kbd>esc</kbd> <kbd>⌫</kbd></dt><dd>Back out one step (alpha, then a view, a selection, then the line); delete before the cursor. <kbd>shift</kbd> <kbd>esc</kbd> clears the whole tape, and <kbd>shift</kbd> <kbd>⌫</kbd> brings it back</dd>
         <dt>catalog</dt><dd>All the functions (<kbd>shift</kbd> <kbd>menu</kbd>; after a name half typed, it opens there). <kbd>▲</kbd> <kbd>▼</kbd> move, the soft keys pick a group, <kbd>enter</kbd> inserts, <kbd>▶</kbd> opens the function's help, where the soft keys go to related ones and <kbd>◀</kbd> comes back. It opens with the letters on (A-LOCK): type a few to jump to a name</dd>
         <dt>setup, vars, help</dt><dd>Take over the screen too: <kbd>▲</kbd> <kbd>▼</kbd> move, <kbd>◀</kbd> <kbd>▶</kbd> change a setting or help's section, <kbd>enter</kbd> picks, <kbd>esc</kbd> goes back. A keyboard's arrows, <kbd>⏎</kbd>, <kbd>Esc</kbd> and <kbd>⌫</kbd> do the same</dd>
         <dt>drag, pinch</dt><dd>On an <code>iplot</code> graph: pan, zoom</dd>
@@ -144,9 +145,9 @@
       <dl class="keys">
         <dt><kbd>⏎</kbd></dt><dd>Evaluate; on an empty line, repeat the last one</dd>
         <dt><kbd>⇧⏎</kbd></dt><dd>Evaluate, showing the result as a decimal; on an empty line, the last result as a decimal (or exact again)</dd>
-        <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select tape items, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>⌫</kbd> delete</dd>
-        <dt><kbd>⇧</kbd><kbd>↑</kbd> <kbd>⇧</kbd><kbd>↓</kbd></dt><dd>Select several cells (or Shift+click)</dd>
-        <dt><kbd>c</kbd> &nbsp; <kbd>⇧C</kbd></dt><dd>Copy the selected cells as text (<code>sqrt(8)</code> and <code>= 2*sqrt(2)</code>); copy the selected item's LaTeX</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Earlier entries, then: <kbd>⏎</kbd> insert, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>⌫</kbd> delete</dd>
+        <dt><kbd>⇧</kbd><kbd>↑</kbd> <kbd>⇧</kbd><kbd>↓</kbd></dt><dd>Select several (or Shift+click); then <kbd>↑</kbd> <kbd>↓</kbd> take in more, <kbd>Esc</kbd> goes back to one</dd>
+        <dt><kbd>c</kbd> &nbsp; <kbd>⇧C</kbd></dt><dd>Copy what's selected as text (<code>sqrt(8)</code> and <code>= 2*sqrt(2)</code>), or as LaTeX</dd>
         <dt><kbd>⌃Z</kbd></dt><dd>On an empty line: undo deleting an entry, forgetting a variable, or <code>:clear</code> (not <code>:reset</code>)</dd>
         <dt><kbd>Tab</kbd></dt><dd>Complete a name</dd>
         <dt><kbd>?</kbd></dt><dd>On an empty line: the function catalog</dd>

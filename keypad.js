@@ -403,8 +403,9 @@ function backspace() {
   edited();
 }
 
-// esc backs out one step: a selection, then the line (alpha before either: keyPressed)
+// esc backs out one step: select mode, a selection, then the line (alpha before any: keyPressed)
 function escKey() {
+  if (state.anchor) return endRange(); // app.js
   if (state.selected) return select(null);
   clearEditor();
   edited();
@@ -474,7 +475,11 @@ function softContext() {
     const id = `view:${touch.view.name}:${def.softId?.(touch.view) ?? ""}`;
     return { id, name: title(touch.view), keys: def.soft?.(touch.view) ?? [] };
   }
-  if (state.selected) return { id: `sel:${state.selected.id}:${state.selected.part}`, name: `$${state.selected.id}`, keys: selectionKeys() };
+  if (state.anchor) {
+    const n = selectedRange().length; // app.js
+    return { id: "sel:range", name: n > 1 ? `${n} items` : "1 item", keys: selectionKeys() };
+  }
+  if (state.selected) return { id: `sel:${state.selected.part === "graph" ? "graph" : "item"}`, name: `$${state.selected.id}`, keys: selectionKeys() };
   if (!touch.menuShown) {
     const names = completions();
     if (names.length) return { id: "names", name: "names", keys: names.map((s) => action(s.name, () => insertSuggestion(s))) };
@@ -483,19 +488,19 @@ function softContext() {
   return { id: `menu:${touch.path.join("/")}`, name: name === "top" ? "menu" : name, keys: menuKeys(name) };
 }
 
-// The hint line's actions (app.js) for the selection: the ones it's selected for on F1–F5
-// (insert, its forms, copy, delete; a graph's zoom), the rest with shift
+// The selection's actions (app.js) on the soft keys, each by its keyboard key in a place of
+// its own, so a key means the same as the selection moves and changes: insert (browsing) or
+// copy (selecting) on F1, select or LaTeX on F2, a graph's zoom on F3 F4 (shift F3: back to
+// the start), delete always on F5
+const SELECTION_SLOTS = { "⏎": 0, c: 0, "⇧↑": 1, "⇧C": 1, "+": 2, "−": 3, "⌫": 4, 0: 7 };
+
 function selectionKeys() {
-  const primary = ["⏎", "+", "−", "0", "f", "d", "c", "⌫"];
-  const actions = selectionActions().filter((a) => a.key !== "Esc"); // esc lets go
-  const keys = actions.map((a) => {
-    const text = a.chip ?? a.label;
+  const keys = [];
+  for (const a of selectionActions()) {
     const run = a.key === "⌫" ? () => (a.run(), select(null)) : a.run;
-    return { key: a.key, spec: action(/^[A-Z][^A-Z]*$/.test(text) ? text.toLowerCase() : text, run, { danger: a.danger }) }; // insert, copy, LaTeX
-  });
-  const lower = keys.filter((k) => primary.includes(k.key)).map((k) => k.spec);
-  const upper = [...lower.splice(SOFT_KEYS), ...keys.filter((k) => !primary.includes(k.key)).map((k) => k.spec)];
-  return [...Array.from({ length: SOFT_KEYS }, (_, i) => lower[i]), ...upper];
+    keys[SELECTION_SLOTS[a.key]] = action(/^[A-Z][^A-Z]*$/.test(a.label) ? a.label.toLowerCase() : a.label, run, { danger: a.danger }); // insert, copy, LaTeX
+  }
+  return Array.from({ length: Math.max(SOFT_KEYS, keys.length) }, (_, i) => keys[i]);
 }
 
 // Completions of the name being typed (two letters or more), defined names first
@@ -1123,6 +1128,7 @@ function renderStatus() {
   if (touch.shift) msg.append(el("span", "badge second", "SHIFT"));
   if (touch.alpha) msg.append(el("span", "badge alpha", touch.alpha === "lock" ? "A-LOCK" : "α"));
   if (state.mode === "math") msg.append(el("span", "badge", "MATH"));
+  if (state.anchor && !touch.view) msg.append(el("span", "badge", "SELECT"));
   let said = false;
   const text = (html) => {
     const span = el("span", "text");
@@ -1142,12 +1148,13 @@ function renderStatus() {
   if (!said) msg.append(statusHint());
 }
 
-// Nothing else to say: how to work a view, a selected result's forms, or (nothing on the
-// tape yet) where the menus are
+// Nothing else to say: how to work a view or select mode, a selected result's forms, or
+// (nothing on the tape yet) where the menus are
 function statusHint() {
   const hint = el("span", "hint");
   const entry = state.selected?.part === "result" && !state.anchor && entryById(state.selected.id);
   if (touch.view) hint.textContent = viewHint(touch.view);
+  else if (state.anchor) hint.textContent = "▲ ▼ more · esc back";
   else if (entry && resultViews(entry).length > 1) {
     const names = { exact: "exact", float: "decimal", degrees: "degrees" };
     hint.append("◀ ▶ ");

@@ -134,6 +134,30 @@ check((await last()).view === "exact", "▲ ◀: exact again", await last());
 await keys("▶", "esc");
 check((await last()).view === "float", "▶: the decimal", await last());
 
+// select and copy: ▲ browses (insert, select, delete on F1 F2 F5); select starts a range that
+// ▲ ▼ grow (◀ ▶ don't end it); copy takes it as text, LaTeX as LaTeX, then back to the line
+await page.evaluate(() => (navigator.clipboard.writeText = async (text) => (window.copied = text)));
+const copied = () => page.evaluate(() => window.copied ?? null);
+const selection = () => page.evaluate(() => ({ items: selectedRange().length, ranging: !!state.anchor, selected: !!state.selected }));
+await key("▲");
+s = await now();
+check(s.soft[0] === "insert" && s.soft[1] === "select" && s.soft[4] === "delete", "▲: insert, select, delete", s);
+await keys("F2", "▲", "◀");
+s = await now();
+check(s.soft[0] === "copy" && s.soft[1] === "LaTeX" && s.soft[4] === "delete", "select: copy, LaTeX, delete", s);
+check((await selection()).items === 2 && (await selection()).ranging, "select ▲: two items", await selection());
+await key("F1");
+check(/^1\/3\n≈ 0\.333/.test(await copied()) && !(await selection()).selected, "copy: the input and ≈ the result, back to the line", await copied());
+await keys("▲", "F2", "F2");
+check(/^0\.333/.test(await copied()), "select LaTeX: one result, as shown", await copied());
+await keys("▲", "▲", "F2", "▼", "F2");
+check(/^\\frac\{1\}\{3\} \\approx 0\.333/.test(await copied()), "LaTeX of an input and its result: one line", await copied());
+await keys("▲", "F2", "▲", "esc");
+s = await selection();
+check(!s.ranging && s.items === 1 && s.selected, "esc: select mode back to one", s);
+await key("esc");
+check(!(await selection()).selected, "esc again: the line", await selection());
+
 // the catalog (shift menu): opens in A-LOCK, groups on the soft keys, letters jump, enter
 // inserts and lets go of the letters
 await keys("shift", "menu");
@@ -223,6 +247,14 @@ check((await now()).view === "catalog", "keyboard: Esc clears what was typed fir
 await page.keyboard.press("Escape");
 s = await now();
 check(s.view === null && s.input === "", "keyboard: then Esc goes back", s);
+
+// a keyboard's Shift+↑ starts select mode, ↑ then grows it, c copies it
+await page.keyboard.press("Shift+ArrowUp");
+await page.keyboard.press("ArrowUp");
+await page.keyboard.press("ArrowUp");
+check((await selection()).items === 3 && (await selection()).ranging, "keyboard: Shift+↑ then ↑", await selection());
+await page.keyboard.press("c");
+check((await copied()).split("\n\n").length === 2 && !(await selection()).selected, "keyboard: c copies two entries", await copied());
 
 console.log(failures.join("\n"));
 await browser.close();

@@ -182,8 +182,13 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   handling is pointer events on `#keypad` and the labels, acting on release; `touchstart` is
   `preventDefault`ed on keys (no double-tap zoom, no focus change). `iplot` graphs pan with one
   finger and pinch with two (`touchToMove` in graph.js, touch pointers only).
-- **A selection's actions** (Insert, Decimal, Copy…) come from `selectionActions()`, each with
-  the key that does the same on a keyboard; the soft keys show them. Flash messages ending in
+- **A selection's actions** come from `selectionActions()`, each with the key that does the
+  same on a keyboard; the soft keys show them, each in a slot of its own (`SELECTION_SLOTS`), so
+  F5 is always delete. Two steps: browsing (▲ ▼ move one item: insert, select, delete) and
+  select mode (`state.anchor` set: the *select* soft key or Shift+↑/↓ fixes one end, ▲ ▼ or a
+  tap move the other, ◀ ▶ do nothing; copy, LaTeX, delete; esc back to browsing). A copy takes
+  exactly what's highlighted (`selectedParts`, `cellText`, `cellLatex`: one item as it is, a
+  result as shown; several a line each) and goes back to the line. Flash messages ending in
   "· ⌃Z undo" (`UNDO_HINT`) get an *undo* link on the status line and stay 5 s instead of 1.5.
 - **Help** (`:help`, menu then shift F5) is static HTML in `index.html` (`#help`, hidden). It's
   the user's manual: keep it in step with the syntax, short and with examples. The help view
@@ -280,8 +285,8 @@ clean, call `backend.stopWorker()` and delete the `calc` database, then reload.
 | `def …`, `for …`, `import …`, anything else | Run as plain Python, one line (`;` between statements) |
 
 With a keyboard: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entry), <kbd>⇧⏎</kbd> evaluate to a decimal, <kbd>↑</kbd>/<kbd>↓</kbd>
-select tape items (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> or Shift+click: a range), <kbd>⏎</kbd> insert
-the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy the cells as text
-(`cellText`), <kbd>Shift</kbd>+<kbd>C</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entries (one undo), <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>
+select tape items (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> or Shift+click: select mode, a range that plain ↑/↓ then grow), <kbd>⏎</kbd> insert
+the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy what's selected as text
+(`cellText`), <kbd>Shift</kbd>+<kbd>C</kbd> as LaTeX (`cellLatex`), <kbd>⌫</kbd> delete the entries (one undo), <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>
 complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+<kbd>C</kbd> interrupt (with nothing running: the line goes on the tape
 unrun, `KeyboardInterrupt`, as at Python's prompt), <kbd>Ctrl</kbd>+<kbd>L</kbd> clear the tape, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.

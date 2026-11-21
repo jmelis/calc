@@ -4,7 +4,7 @@
 //
 // Focus never leaves the input. "Browsing" the tape is just a selection: while something
 // is selected, ↑/↓/⏎/f/c/Esc act on it and any other key drops the selection and types
-// normally.
+// normally. Select mode (Shift+↑/↓, the keypad's select) makes it a range to copy.
 //
 // The input line is either a text <input> or, after Ctrl+M (or setup's Input), a MathLive
 // math field (loaded on first use). The math field's LaTeX is turned back into calculator
@@ -25,7 +25,7 @@ const state = {
   catalog: [],
   names: { variables: [], functions: [], defined: [] },
   selected: null, // {id, part: "input" | "graph" | "result"}: where ↑ ↓ are, and what ⏎ f d act on
-  anchor: null, // where a Shift+↑/↓ range started; c copies and ⌫ deletes the whole range
+  anchor: null, // select mode: the range's fixed end (↑ ↓ move the other); c copies and ⌫ deletes the range
   ready: false, // Python loaded
   status: null, // what's loading or failing, shown on the status line (startup has a bar)
   flash: null,
@@ -222,32 +222,25 @@ function busy() {
 }
 
 // What can be done with the selection, and the key that does it on a keyboard: the
-// keypad's soft keys show them (keypad.js's selectionKeys; chip is the label there)
+// keypad's soft keys show them (keypad.js's selectionKeys). Browsing (one item): insert it,
+// or start selecting from it; selecting (a range): copy it, as text or LaTeX. Either deletes.
 function selectionActions() {
-  const entries = selectedEntries();
   const { id, part } = state.selected;
-  const entry = entryById(id);
   const actions = [];
   const add = (key, label, run, extra = {}) => actions.push({ key, label, run, ...extra });
-  if (entries.length > 1) {
-    add("c", `Copy ${entries.length}`, copySelected);
-    add("⌫", `Delete ${entries.length}`, deleteSelected, { danger: true });
+  if (state.anchor) {
+    add("c", "Copy", copySelected);
+    add("⇧C", "LaTeX", copyLatex);
   } else {
     add("⏎", "Insert", insertSelected);
+    add("⇧↑", "Select", startRange);
     if (part === "graph") {
       add("+", "Zoom in", () => graphKey(id, "+")); // graph.js
       add("−", "Zoom out", () => graphKey(id, "-"));
       add("0", "Reset", () => graphKey(id, "0"));
     }
-    if (part === "result" && entry?.result?.float) add("f", entry.view === "float" ? "Exact" : "Decimal", () => toggleView("float"));
-    if (part === "result" && entry?.result?.degrees) add("d", entry.view === "degrees" ? "Radians" : "Degrees", () => toggleView("degrees"));
-    add("c", "Copy", copySelected);
-    if (part === "result" ? entry?.result?.latex !== undefined : entry?.input_latex) add("⇧C", "LaTeX", copyLatex);
-    add("⌫", "Delete", deleteSelected, { danger: true });
   }
-  add("⇧↑", "More", () => extendSelection(-1), { chip: "More ↑" });
-  add("⇧↓", "More", () => extendSelection(1), { chip: "More ↓" });
-  add("Esc", "Back", () => select(null), { chip: "✕" });
+  add("⌫", "Delete", deleteSelected, { danger: true });
   return actions;
 }
 
@@ -312,7 +305,19 @@ function selectedEntries() {
   return ids.map(entryById).filter(Boolean);
 }
 
-// Shift+↑/↓: grow or shrink a range from where it started
+// Select mode: a range from the selected item, which stays put while ↑ ↓ move the other end
+function startRange() {
+  state.anchor = state.selected;
+  renderSelection();
+}
+
+// Esc in select mode: back to browsing, at the end that moved
+function endRange() {
+  state.anchor = null;
+  renderSelection();
+}
+
+// ↑ ↓ in select mode, or Shift+↑/↓ (which starts it): grow or shrink the range
 function extendSelection(delta) {
   const items = selectableItems();
   const at = selectedIndex(items);
@@ -396,23 +401,77 @@ function toggleView(view) {
   replaceEntryNode(entry);
 }
 
-// A tape cell as plain text: the input, any printed output, and "= result" (≈ for the
-// float view) unless that only repeats what was typed (a = 3/7, f(x) = x^2, x^2 = 4)
-function cellText(entry) {
-  const lines = [entry.input];
-  for (const out of entry.outputs ?? []) if (out.kind === "text") lines.push(out.text.replace(/\n$/, ""));
+// --- copying: exactly what's selected ------------------------------------------------
+//
+// One item copies as it is (a result as shown: exact, decimal or degrees). Several copy a
+// line each, entry by entry: an input with what it printed, a result as "= …" (≈ when
+// rounded), the two on one line in LaTeX; a result that only repeats its input (a = 3/7,
+// f(x) = x^2, x^2 = 4) is left out.
+
+// The selected items by entry, in tape order: [{entry, parts}]
+function selectedParts() {
+  const byId = new Map();
+  for (const item of selectedRange()) {
+    if (!byId.has(item.id)) byId.set(item.id, { entry: entryById(item.id), parts: new Set() });
+    byId.get(item.id).parts.add(item.part);
+  }
+  return [...byId.values()].filter((p) => p.entry);
+}
+
+function resultView(entry) {
   const r = entry.result;
-  if (entry.error) lines.push(entry.error);
-  else if (r) {
-    const view = entry.view === "float" ? r.float : entry.view === "degrees" ? r.degrees : null;
-    const text = view?.text ?? (r.latex === undefined ? r.plain ?? r.text : r.text);
-    const squash = (s) => s.replace(/\s+/g, "").replaceAll("**", "^");
-    const assigned = r.label ? entry.input.replace(/^[^=]*?:?=(?!=)/, "") : entry.input;
-    const defined = r.label && /^\s*\w+\s*\(/.test(entry.input) && /^\w+$/.test(r.text) && !view;
-    const equation = !r.label && !view && r.text.startsWith("Eq(") && /[^=<>!:]=[^=]/.test(entry.input);
-    if (!defined && !equation && squash(text) !== squash(assigned)) lines.push(`${entry.view === "float" ? "≈" : "="} ${text}`);
+  return entry.view === "float" ? r.float : entry.view === "degrees" ? r.degrees : null;
+}
+
+function resultText(entry) {
+  const r = entry.result;
+  return resultView(entry)?.text ?? (r.latex === undefined ? r.plain ?? r.text : r.text);
+}
+
+// = or ≈ (a decimal that was rounded)
+function relation(entry) {
+  return entry.view === "float" && entry.result.float && !entry.result.float.exact ? "≈" : "=";
+}
+
+// The result says nothing the input didn't: an assignment, a definition, an equation
+function repeatsInput(entry) {
+  const r = entry.result;
+  const view = resultView(entry);
+  const squash = (s) => s.replace(/\s+/g, "").replaceAll("**", "^");
+  const assigned = r.label ? entry.input.replace(/^[^=]*?:?=(?!=)/, "") : entry.input;
+  const defined = r.label && /^\s*\w+\s*\(/.test(entry.input) && /^\w+$/.test(r.text) && !view;
+  const equation = !r.label && !view && r.text.startsWith("Eq(") && /[^=<>!:]=[^=]/.test(entry.input);
+  return defined || equation || squash(resultText(entry)) === squash(assigned);
+}
+
+// A graph stands for the input that drew it
+function cellText({ entry, parts }) {
+  const input = parts.has("input") || parts.has("graph");
+  const lines = input ? [entry.input] : [];
+  if (parts.has("input")) {
+    for (const out of entry.outputs ?? []) if (out.kind === "text") lines.push(out.text.replace(/\n$/, ""));
+    if (entry.error) lines.push(entry.error);
+  }
+  if (parts.has("result") && entry.result) {
+    if (!repeatsInput(entry)) lines.push(`${relation(entry)} ${resultText(entry)}`);
+    else if (!input) lines.push(entry.input); // shown as it was typed: a = 3/7, f(x) = x^2
   }
   return lines.join("\n");
+}
+
+function cellLatex({ entry, parts }) {
+  const input = (parts.has("input") || parts.has("graph")) && entry.input_latex;
+  const result = parts.has("result") && entry.result?.latex !== undefined;
+  if (!result) return input || "";
+  if (!input) return resultLatex(entry); // as the tape shows it: a = …, ≈ …
+  if (repeatsInput(entry)) return input;
+  return `${input} ${relation(entry) === "≈" ? "\\approx" : "="} ${viewLatex(entry)}`;
+}
+
+// What a copy took, for the status line
+function copiedWhat() {
+  const items = selectedRange();
+  return items.length > 1 ? `${items.length} items` : items[0].part === "result" ? "the result" : "the input";
 }
 
 async function writeClipboard(text, what) {
@@ -424,18 +483,30 @@ async function writeClipboard(text, what) {
   }
 }
 
-// c: the selected cells (a whole range), as plain text
+// c: what's selected, as text; then back to the line
 function copySelected() {
-  const entries = selectedEntries();
-  writeClipboard(entries.map(cellText).join("\n\n"), entries.length > 1 ? `${entries.length} cells` : "the cell");
+  const items = selectedRange();
+  const [item] = items;
+  const entry = entryById(item.id);
+  const text = items.length > 1 ? selectedParts().map(cellText).join("\n\n") : item.part === "result" && entry.result ? resultText(entry) : entry.input;
+  writeClipboard(text, copiedWhat());
+  select(null);
 }
 
-// Shift+C: the selected item's LaTeX, for papers and notes with math
+// Shift+C: what's selected, as LaTeX (for papers and notes with math); then back to the line
 function copyLatex() {
-  const entry = entryById(state.selected.id);
-  const latex = state.selected.part === "result" && entry.result.latex !== undefined ? viewLatex(entry) : entry.input_latex;
-  if (latex) writeClipboard(latex, "LaTeX");
-  else flash("This one has no LaTeX: c copies it as text");
+  const items = selectedRange();
+  const [item] = items;
+  const entry = entryById(item.id);
+  const latex =
+    items.length > 1
+      ? selectedParts().map(cellLatex).filter(Boolean).join("\n")
+      : item.part === "result"
+        ? entry.result?.latex !== undefined && viewLatex(entry)
+        : entry.input_latex;
+  if (!latex) return flash(items.length > 1 ? "None of these has LaTeX: copy takes them as text" : "This one has no LaTeX: copy takes it as text");
+  writeClipboard(latex, `${copiedWhat()} as LaTeX`);
+  select(null);
 }
 
 // --- input -------------------------------------------------------------------
@@ -656,6 +727,7 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "ArrowUp") {
     e.preventDefault();
     moveSelection(-1);
+    if (e.shiftKey) startRange(); // Shift+↑: select mode, from the last item
   } else if (e.key === "Enter") {
     e.preventDefault();
     if (e.shiftKey) submitApprox();
@@ -680,24 +752,28 @@ input.addEventListener("keydown", (e) => {
   }
 });
 
+// A key while the tape has a selection. Browsing (one item): ↑ ↓ move, ⏎ inserts, f d its
+// forms, a graph's own keys; selecting (a range): ↑ ↓ move its far end, Esc back to
+// browsing. Either: Shift+↑/↓ extend (starting a range), c ⇧C copy, ⌫ delete.
 function browseKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (state.selected.part === "graph" && graphKey(state.selected.id, e.key)) { // graph.js
+  const ranging = !!state.anchor;
+  if (!ranging && state.selected.part === "graph" && graphKey(state.selected.id, e.key)) { // graph.js
     e.preventDefault();
     return;
   }
-  const handled = {
-    ArrowUp: () => (e.shiftKey ? extendSelection(-1) : moveSelection(-1)),
-    ArrowDown: () => (e.shiftKey ? extendSelection(1) : moveSelection(1)),
-    Enter: insertSelected,
-    Escape: () => select(null),
-    f: () => toggleView("float"),
-    d: () => toggleView("degrees"),
+  const shared = {
+    ArrowUp: () => (e.shiftKey || ranging ? extendSelection(-1) : moveSelection(-1)),
+    ArrowDown: () => (e.shiftKey || ranging ? extendSelection(1) : moveSelection(1)),
     c: copySelected,
     C: copyLatex,
     Backspace: deleteSelected,
     Delete: deleteSelected,
-  }[e.key];
+  };
+  const own = ranging
+    ? { Escape: endRange, Enter: () => {}, ArrowLeft: () => {}, ArrowRight: () => {} } // ◀ ▶ (and ⏎) would end it
+    : { Enter: insertSelected, Escape: () => select(null), f: () => toggleView("float"), d: () => toggleView("degrees") };
+  const handled = { ...shared, ...own }[e.key];
   if (handled) {
     e.preventDefault();
     handled();
@@ -891,8 +967,8 @@ tapeEl.addEventListener("click", (e) => {
   const item = e.target.closest(".item[data-part]");
   if (item && !item.closest(".pending")) {
     const clicked = { id: Number(item.dataset.id), part: item.dataset.part };
-    if (e.shiftKey && state.selected) {
-      // Shift+click: a range from where the selection was, as Shift+↑/↓ makes
+    if ((e.shiftKey || state.anchor) && state.selected) {
+      // Shift+click, or a tap while selecting: a range from where the selection was, as Shift+↑/↓ makes
       state.anchor ??= state.selected;
       state.selected = clicked;
       renderSelection();
@@ -901,7 +977,7 @@ tapeEl.addEventListener("click", (e) => {
   if (!window.getSelection().toString()) focusEditor();
 });
 tapeEl.addEventListener("dblclick", (e) => {
-  if (e.target.closest(".item[data-part]") && state.selected) insertSelected();
+  if (e.target.closest(".item[data-part]") && state.selected && !state.anchor) insertSelected();
 });
 // copying typeset math with the mouse would give KaTeX's rendered text (with hidden
 // duplicates); within one tape row, copy what you'd type instead
@@ -1020,8 +1096,9 @@ function onMathKey(e) {
   }
   if (state.selected) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const graphKeys = state.selected.part === "graph" ? ["ArrowLeft", "ArrowRight", "+", "=", "-", "0"] : [];
-    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "f", "d", "c", "C", "Backspace", "Delete", ...graphKeys].includes(e.key)) {
+    // browseKey's keys: browsing, f d (and a graph's); selecting, ← → (which do nothing)
+    const own = state.anchor ? ["ArrowLeft", "ArrowRight"] : ["f", "d", ...(state.selected.part === "graph" ? ["ArrowLeft", "ArrowRight", "+", "=", "-", "0"] : [])];
+    if (["ArrowUp", "ArrowDown", "Enter", "Escape", "c", "C", "Backspace", "Delete", ...own].includes(e.key)) {
       stop(e);
       browseKey(e);
     } else select(null); // and the key reaches the math field
@@ -1033,7 +1110,10 @@ function onMathKey(e) {
     stop(e);
     const before = mathField.position;
     mathField.executeCommand("moveUp");
-    if (mathField.position === before) moveSelection(-1);
+    if (mathField.position === before) {
+      moveSelection(-1);
+      if (e.shiftKey) startRange();
+    }
   } else if (e.key === "Enter") {
     stop(e);
     submit();
