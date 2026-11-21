@@ -1,7 +1,7 @@
 // What a server would do, in the page: keeps the tape, saves it and the Python
 // variables in IndexedDB, and runs the Python worker (worker.js).
 //
-// The page sends it messages ({type: "eval" | "preview" | "interrupt" | "clear" |
+// The page sends it messages ({type: "eval" | "preview" | "interrupt" | "cancel" | "clear" |
 // "delete" | "reset" | "vars" | "forget" | "undo" | "sample", ...}) and gets back the same
 // kinds of messages a server would push ({type: "init" | "pending" | "entry" | "tape" |
 // "preview" | "names" | "vars" | "status" | "ready" | "undone" | "samples", ...}). Like a server's, they're copies: the page
@@ -113,7 +113,7 @@ class Backend {
 
   stopWorker() {
     this.worker?.terminate();
-    for (const { reject } of this.requests.values()) reject(new Interrupted("Interrupted"));
+    for (const { reject } of this.requests.values()) reject(new Interrupted("KeyboardInterrupt"));
     this.requests.clear();
     this.running = 0;
     this.deferredPreviews.clear();
@@ -165,6 +165,13 @@ class Backend {
       case "interrupt":
         this.interrupt();
         break;
+      case "cancel": { // msg.src: a line abandoned with Ctrl+C, never run
+        const entry = { id: this.tape.next_id++, input: msg.src, input_latex: null, outputs: [], result: null, error: "KeyboardInterrupt" };
+        this.tape.entries.push(entry);
+        this.save();
+        this.emit({ type: "entry", entry, names: this.names });
+        break;
+      }
       case "clear":
         if (this.tape.entries.length) this.undoStack.push({ kind: "clear", entries: this.tape.entries });
         this.tape.entries = [];

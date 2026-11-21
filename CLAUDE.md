@@ -64,7 +64,7 @@ menus.json: the keypad's soft menus (data only, fetched by keypad.js)
 
 ### Messages
 
-Page → backend: `eval`, `preview` (`target`: `input`, `catalog`, `convert`), `interrupt`, `clear`,
+Page → backend: `eval`, `preview` (`target`: `input`, `catalog`, `convert`), `interrupt`, `cancel`, `clear`,
 `delete`, `reset`, `vars`, `forget`, `undo`, `sample`. Backend → page: `init` (saved tape, before Python is
 up), `ready` (catalog, names), `pending`, `entry`, `tape`, `preview`, `names`, `vars`, `undone`
 (text to flash), `samples`, `status` (text, and a `fraction` while starting up). The backend `structuredClone`s what it emits: the page mutates what
@@ -77,7 +77,7 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
 ### Behaviour worth knowing
 
 - **Interrupt** (Ctrl+C) terminates the worker and starts a new one from the state saved after the
-  last result. Interrupting Python in place needs SharedArrayBuffer, i.e. cross-origin isolation
+  last result; the entry it stopped shows `KeyboardInterrupt`. Interrupting Python in place needs SharedArrayBuffer, i.e. cross-origin isolation
   headers that GitHub Pages can't send.
 - **Startup**: the saved tape shows immediately; input submitted before Python is ready queues as
   "computing". An empty tape shows nothing: the status line's "menu: the menus, and help" says
@@ -283,4 +283,5 @@ With a keyboard: <kbd>⏎</kbd> evaluate (on an empty line: repeat the last entr
 select tape items (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> or Shift+click: a range), <kbd>⏎</kbd> insert
 the selection, <kbd>f</kbd> exact/float, <kbd>d</kbd> degrees, <kbd>c</kbd> copy the cells as text
 (`cellText`), <kbd>Shift</kbd>+<kbd>C</kbd> copy LaTeX, <kbd>⌫</kbd> delete the entries (one undo), <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Tab</kbd>
-complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+<kbd>C</kbd> interrupt, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.
+complete, <kbd>?</kbd> catalog, <kbd>Ctrl</kbd>+<kbd>C</kbd> interrupt (with nothing running: the line goes on the tape
+unrun, `KeyboardInterrupt`, as at Python's prompt), <kbd>Ctrl</kbd>+<kbd>L</kbd> clear the tape, <kbd>Ctrl</kbd>+<kbd>M</kbd> math input.

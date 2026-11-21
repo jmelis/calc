@@ -505,7 +505,7 @@ const COMMANDS = {
   help: { help: "how to type things: syntax, vectors and matrices, Python, keys", run: () => panels.help() },
   catalog: { help: "the functions, searchable, with examples (? on an empty line)", run: () => panels.catalog() },
   vars: { help: "show everything you've defined, with its value", run: () => panels.vars() },
-  clear: { help: "empty the tape; variables are kept (⌃Z brings it back)", run: clearTape },
+  clear: { help: "empty the tape (also ⌃L); variables are kept (⌃Z brings it back)", run: clearTape },
   reset: { help: "empty the tape and forget all variables", run: () => send({ type: "reset" }) },
 };
 
@@ -576,6 +576,32 @@ function clearEditor() {
   clearPreview();
 }
 
+// Ctrl+C while nothing runs abandons the line, as Python's prompt does: it goes on the
+// tape, unrun, with KeyboardInterrupt under it
+function cancelLine() {
+  let src;
+  try {
+    src = editorSource();
+  } catch {
+    src = mathField.value.trim(); // math input that doesn't read as text yet
+  }
+  if (!src) return;
+  select(null);
+  send({ type: "cancel", src });
+  clearEditor();
+}
+
+// Ctrl+C (with no text selected, so it isn't a copy) and Ctrl+L, in either input
+function controlKey(e, collapsed) {
+  if (!e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.key === "c" && collapsed) {
+    if (busy()) send({ type: "interrupt" });
+    else cancelLine();
+  } else if (e.key === "l") clearTape();
+  else return false;
+  return true;
+}
+
 // approx: show the result as a decimal (shift enter, Shift+⏎), when it has one
 function submit({ approx = false } = {}) {
   let src;
@@ -611,9 +637,8 @@ function submit({ approx = false } = {}) {
 }
 
 input.addEventListener("keydown", (e) => {
-  if (e.key === "c" && e.ctrlKey && busy() && input.selectionStart === input.selectionEnd) {
+  if (controlKey(e, input.selectionStart === input.selectionEnd)) {
     e.preventDefault();
-    send({ type: "interrupt" });
     return;
   }
   if (e.key === "m" && e.ctrlKey) {
@@ -979,9 +1004,8 @@ function stop(e) {
 }
 
 function onMathKey(e) {
-  if (e.key === "c" && e.ctrlKey && busy() && mathField.selectionIsCollapsed) {
+  if (controlKey(e, mathField.selectionIsCollapsed)) {
     stop(e);
-    send({ type: "interrupt" });
     return;
   }
   if (e.key === "m" && e.ctrlKey) {
