@@ -118,6 +118,16 @@
         <dt>plt.plot(xs, ys)</dt><dd>Data rather than expressions: <code>plt</code> is matplotlib's pyplot, ready to use (<code>plt.scatter</code>, <code>plt.bar</code>, <code>plt.hist</code>…)</dd>
       </dl>
     </section>
+    <section data-tab="prob">
+      <h2>Probability</h2>
+      <dl>
+        <dt>X = Poisson("X", 4)</dt><dd>A random variable (the stat menu's second page): also <code>Binomial("X", n, p)</code>, <code>Normal("X", μ, σ)</code>, <code>Geometric</code>, <code>Exponential</code>, <code>Uniform</code>, <code>Bernoulli</code></dd>
+        <dt>pdf(X, 1) &nbsp; cdf(X, 2)</dt><dd>P(X = 1) (the density, for a continuous X) and P(X ≤ 2)</dd>
+        <dt>P(X > 2) &nbsp; P(X > 2, X > 1)</dt><dd>The probability of a condition; given another</dd>
+        <dt>mean(X) &nbsp; variance(X) &nbsp; stdev(X)</dt><dd>E(X), V(X) and the standard deviation (<code>E</code> is Euler's number)</dd>
+      </dl>
+      <p class="note">Normal takes the standard deviation, not the variance. <code>density(X)(1)</code> as in SymPy's documentation reads as a product here, as <code>(a)(b)</code> does: use <code>pdf(X, 1)</code>.</p>
+    </section>
     <section data-tab="sympy">
       <h2>All of SymPy</h2>
       <dl>
@@ -127,6 +137,7 @@
         <dt>(x^2 + 1).subs(x, 3)</dt><dd>Methods work as in SymPy</dd>
         <dt>a = symbols("a", positive=True)</dt><dd>Symbols with assumptions: then <code>sqrt(a^2)</code> is <code>a</code></dd>
         <dt>series(sin x, x, 0, 6) &nbsp; isprime(97)</dt><dd>And every other SymPy function</dd>
+        <dt>help(factor)</dt><dd>SymPy's own documentation of one (the first <code>help</code> fetches it, ~1.7 MB)</dd>
       </dl>
     </section>
     <section data-tab="python">

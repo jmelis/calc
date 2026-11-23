@@ -25,7 +25,7 @@ from sympy import Basic, Eq, Float, Function, Integer, Lambda, NumberSymbol, Rat
 from sympy.matrices import MatrixBase
 from sympy.printing.latex import LatexPrinter
 
-from . import stats
+from . import docs, stats
 from .catalog import catalog_entries
 from .graphs import Graph, iplot, sample_text
 from .matrices import MAKERS, matrix_text
@@ -110,6 +110,7 @@ class Session:
         self.ns[REFS_NAME] = self.out
         self.ns["ans"] = Integer(0)
         self.ns.update(stats.FUNCTIONS)
+        self.ns["help"] = docs.help  # SymPy's docstrings, which the browser's bundle leaves out
         self.ns["iplot"] = iplot
         self.ns["plt"] = _LazyModule("matplotlib.pyplot")  # plt.plot(xs, ys): data, not expressions
         self.ns.update(MAKERS)  # M[1, 2], V[1, 2]; here, not only in _GLOBALS, or the parser makes M a Symbol

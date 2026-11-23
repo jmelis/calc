@@ -41,7 +41,9 @@
     ],
     "stat": [
       ["mean", "median", "stdev", "variance", "sum"],
-      ["min", "max", "pstdev", "pvariance", "sorted"]
+      ["min", "max", "pstdev", "pvariance", "sorted"],
+      ["Binomial", "Poisson", "Normal", "pdf", "cdf"],
+      ["Geometric", "Exponential", "Uniform", "Bernoulli", "P"]
     ],
     "test": [
       ["<", ">", "<=", ">=", "!="],
@@ -102,6 +104,14 @@
     "cross": { "tex": "u\\times v", "insert": ".cross(|)" },
     "eigenvals": { "label": "eigen", "insert": ".eigenvals()" },
     "rref": { "insert": ".rref()" },
+
+    "Binomial": { "insert": "Binomial(\"X\", |, )", "math": null },
+    "Poisson": { "insert": "Poisson(\"X\", |)", "math": null },
+    "Normal": { "insert": "Normal(\"X\", |, )", "math": null },
+    "Geometric": { "insert": "Geometric(\"X\", |)", "math": null },
+    "Exponential": { "insert": "Exponential(\"X\", |)", "math": null },
+    "Uniform": { "insert": "Uniform(\"X\", |, )", "math": null },
+    "Bernoulli": { "insert": "Bernoulli(\"X\", |)", "math": null },
 
     "<": { "insert": "<" },
     ">": { "insert": ">" },

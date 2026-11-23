@@ -1,6 +1,7 @@
 """
 The bundles tools/build_bundle.py builds. sympy-bytecode.zip: SymPy and mpmath load
 from it, docstrings stripped and all, and the calculator works on top.
+sympy-docs.zip: those docstrings, back for help().
 plot-bytecode.zip: bytecode where Python looks for it next to installed sources.
 Skipped until they're built (make bundle); CI builds them before the tests.
 """
@@ -15,6 +16,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = ROOT / "sympy-bytecode.zip"
+DOCS = ROOT / "sympy-docs.zip"
 PLOT_BUNDLE = ROOT / "plot-bytecode.zip"
 pytestmark = pytest.mark.skipif(not BUNDLE.exists(), reason="sympy-bytecode.zip isn't built (make bundle)")
 
@@ -39,6 +41,27 @@ for src, expected in [
 
 def test_sympy_runs_from_the_bundle():
     result = subprocess.run([sys.executable, "-I", "-W", "ignore", "-c", CHECK], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+HELP = f"""
+import sys
+sys.path[:0] = [{str(BUNDLE)!r}, {str(ROOT / "py")!r}]
+from calc import docs
+from calc.session import Session
+s = Session()
+help = lambda name: s.run(f"help({{name}})", 1)["outputs"][0]["text"]
+assert "Poisson distribution" not in help("Poisson")  # stripped
+docs.load({str(DOCS)!r})
+assert "Create a discrete random variable with a Poisson distribution" in help("Poisson")
+assert "Compute the factorization of expression" in help("factor")
+assert "Return a list of real and complex roots with multiplicities" in help("Poly")  # a method's
+"""
+
+
+@pytest.mark.skipif(not DOCS.exists(), reason="sympy-docs.zip isn't built (make bundle)")
+def test_docs_bring_back_docstrings():
+    result = subprocess.run([sys.executable, "-I", "-W", "ignore", "-c", HELP], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 
 

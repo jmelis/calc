@@ -9,7 +9,7 @@
 
 const PYODIDE_VERSION = "314.0.7"; // ships sympy 1.14.0; keep pyproject.toml's dev pin in step
 const PYODIDE_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catalog.py", "stats.py", "matrices.py", "graphs.py"];
+const PY_FILES = ["__init__.py", "parser.py", "preview.py", "session.py", "catalog.py", "stats.py", "matrices.py", "graphs.py", "docs.py"];
 
 // SymPy and mpmath precompiled to bytecode by tools/build_bundle.py at deploy time:
 // imports ~5x faster than Pyodide's source packages. Without it (a checkout where it
@@ -26,6 +26,9 @@ const BUNDLE_PATH = `/home/pyodide/${BUNDLE}`;
 // The same for matplotlib and its dependencies, fetched with them on the first plot
 const PLOT_BUNDLE = "plot-bytecode.zip";
 const PLOT_BUNDLE_PATH = `/home/pyodide/${PLOT_BUNDLE}`;
+// The docstrings the bundle leaves out, fetched on the first help() (see py/calc/docs.py)
+const DOCS = "sympy-docs.zip";
+const DOCS_PATH = `/home/pyodide/${DOCS}`;
 
 // Download sizes as the browser sees them (decompressed), for the progress bar.
 // Pyodide doesn't report download progress, so these are fetched first, counting
@@ -44,6 +47,7 @@ import base64, json, sys
 sys.path.insert(0, "/home/pyodide")
 from calc.session import Session, configure_matplotlib, warm_up_plotting
 from calc.graphs import warm_up_iplot
+from calc.docs import load as load_docs
 
 def _start(state_b64):
     global session
@@ -198,7 +202,10 @@ const OPS = {
 
   preview({ src, target }) {
     // typing a plot: start loading what it needs now, so it's ready (or nearly) by ⏎
-    if (target === "input") for (const name of extrasFor(src)) loadExtra(name).catch(() => {}); // run reports failures
+    if (target === "input") {
+      for (const name of extrasFor(src)) loadExtra(name).catch(() => {}); // run reports failures
+      if (wantsDocs(src)) loadDocs().catch(() => {});
+    }
     return call("preview", src);
   },
 
@@ -252,9 +259,30 @@ function loadExtra(name) {
   return loading[name];
 }
 
+// help(): the docstrings the bundle leaves out (the source packages have theirs); not
+// :help, which is the help view
+const wantsDocs = (src) => usingBundle && /(?<![:\w])help\b/.test(src);
+
+function loadDocs() {
+  loading.docs ??= (async () => {
+    progress("Loading SymPy's documentation (first help only)…");
+    const response = await fetch(bundleURL(DOCS));
+    if (!response.ok) throw new Error(`couldn't download ${DOCS} (HTTP ${response.status})`);
+    pyodide.FS.writeFile(DOCS_PATH, new Uint8Array(await response.arrayBuffer()));
+    pyodide.runPython(`load_docs("${DOCS_PATH}")`);
+  })()
+    .catch((e) => {
+      delete loading.docs; // try again next time
+      throw e;
+    })
+    .finally(() => progress(null));
+  return loading.docs;
+}
+
 // imports in Python lines (import numpy) are fetched the same way
 async function loadPackagesFor(src) {
   for (const name of extrasFor(src)) await loadExtra(name);
+  if (wantsDocs(src)) await loadDocs();
   if (/\bimport\b/.test(src)) {
     const findImports = pyodide.pyimport("pyodide.code").find_imports;
     // sympy and mpmath already come from the bundle; don't fetch their source packages too

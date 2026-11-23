@@ -7,7 +7,7 @@ serve: sympy-bytecode.zip
 # SymPy and matplotlib precompiled for the browser (optional: without them the page
 # uses Pyodide's source packages)
 bundle: sympy-bytecode.zip
-sympy-bytecode.zip: worker.js tools/build_bundle.py  # writes plot-bytecode.zip too
+sympy-bytecode.zip: worker.js tools/build_bundle.py  # writes sympy-docs.zip and plot-bytecode.zip too
 	@uv run python tools/build_bundle.py
 
 test:

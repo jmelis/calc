@@ -96,6 +96,39 @@ def test_statistics():
     assert run(s, "median(3, 1, 4, 1)")["result"]["text"] == "2"
 
 
+@pytest.mark.parametrize(
+    "src, text",
+    [
+        ("pdf(X, 1)", "4*exp(-4)"),  # P(X = 1)
+        ("cdf(X, 2)", "13*exp(-4)"),  # P(X <= 2)
+        ("P(X <= 2)", "13*exp(-4)"),
+        ("[N(cdf(X, n), 4) for n in range(4)]", "[0.01832, 0.09158, 0.2381, 0.4335]"),
+        ("mean(X)", "4"),  # E(X): E is Euler's number here
+        ("variance(X)", "4"),
+        ("stdev(2X + 1)", "4"),
+        ("pdf(Binomial(\"B\", 10, 1/2), 3)", "15/128"),  # a finite one's density is a dict
+        ("cdf(Binomial(\"B\", 10, 1/2), 2.5)", "7/128"),
+        ("cdf(Uniform(\"U\", 0, 4), 1)", "1/4"),
+        ("mean([2, 4, 4, 5])", "15/4"),  # values still have their mean
+    ],
+)
+def test_random_variables(src, text):
+    s = Session()
+    run(s, 'X = Poisson("X", 4)', 1)
+    assert run(s, src, 2)["result"]["text"] == text
+
+
+def test_random_variables_are_saved():
+    s = Session()
+    run(s, 'X = Poisson("X", 4)')
+    assert run(Session(s.state()), "pdf(X, 0)")["result"]["text"] == "exp(-4)"
+
+
+def test_help_prints_the_documentation():
+    output = run(Session(), "help(cdf)")["outputs"][0]["text"]
+    assert "P(X <= x)" in output
+
+
 def test_state_restores_variables():
     s = Session()
     run(s, "a = 22/35", 1)

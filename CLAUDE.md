@@ -11,13 +11,13 @@ published at https://jmelis.github.io/calc/.
 ```bash
 make serve        # builds the bundle if needed, then serves http://127.0.0.1:8000 (file:// doesn't work)
 make test         # uv run pytest; test_latex.py and test_roundtrip_fuzz.py (random expressions typeset and read back) also need node, test_bundle.py the bundle, test_keypad.py node's Playwright
-make bundle       # sympy-bytecode.zip, plot-bytecode.zip: precompiled for the browser (tools/build_bundle.py)
+make bundle       # sympy-bytecode.zip, plot-bytecode.zip: precompiled for the browser; sympy-docs.zip (tools/build_bundle.py)
 uv sync           # dev env: sympy pinned to Pyodide's version, matplotlib, pytest
 ```
 
 Deployment is `.github/workflows/pages.yml`: every push to `main` builds the bundles and runs the
 tests, then publishes only the files the browser loads (`index.html`, `*.css`, `*.js`,
-`menus.json`, `py/calc/*.py`, `sympy-bytecode.zip`, `plot-bytecode.zip`, `manifest.webmanifest`,
+`menus.json`, `py/calc/*.py`, `sympy-bytecode.zip`, `sympy-docs.zip`, `plot-bytecode.zip`, `manifest.webmanifest`,
 `icon-*.png`).
 A new top-level file the page needs must be added to that workflow's copy step
 (`tests/test_site.py` fails until it is).
@@ -53,14 +53,15 @@ menus.json: the keypad's soft menus (data only, fetched by keypad.js)
 | `app.css`, `touch.css` | The content (tape, results, preview, input line), and what holds it: the screen, the soft keys' labels, the keys and the views. One look: graphite keys and an LCD, the same by day and by night; `.screen` sets the content's colour tokens (`--text`, `--muted`, …) to the LCD's ink |
 | `graph.js` | `iplot` graphs on the tape: draws Python's samples with uPlot (fetched on the first graph), asks for new samples when zoomed or panned, keys for a selected graph, x = 0 and y = 0 drawn under the curves (`drawAxisLines`) |
 | `backend.js` | Plays the part a server would: keeps the tape, saves it and the pickled variables in IndexedDB, runs and restarts the worker, defers previews while computing, keeps the undo stack |
-| `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed) |
-| `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages. Also `plot-bytecode.zip`: the same for matplotlib and its dependencies, as `__pycache__/*.pyc` unpacked over the installed packages (their extension modules can't load from a zip) |
+| `worker.js` | Module worker: loads Pyodide and SymPy (with a byte-counted download for the progress bar), writes `py/calc/*.py` into Pyodide's filesystem, loads matplotlib on the first `plot` (or as soon as one is typed), and `sympy-docs.zip` on the first `help` |
+| `tools/build_bundle.py` | Builds `sympy-bytecode.zip`: SymPy and mpmath from the exact wheels Pyodide ships, compiled to sourceless bytecode with docstrings stripped (`-OO`). The worker puts the zip on `sys.path` (zipimport); without it, it falls back to Pyodide's source packages. The stripped docstrings go to `sympy-docs.zip` (a JSON per module, by qualified name, from the source's AST: `docstrings`). Also `plot-bytecode.zip`: the same for matplotlib and its dependencies, as `__pycache__/*.pyc` unpacked over the installed packages (their extension modules can't load from a zip) |
 | `py/calc/parser.py` | Calculator syntax → SymPy: `2x`, `sin x`, `^`, `5!`, `=` handling (assign / define / equation, also inside calls), `°`/`º`, `$n` |
 | `py/calc/preview.py` | Input → LaTeX by walking the AST of the transformed source. Never evaluates, so it's cheap and safe on every keystroke, and shows what was typed (`integrate(…)` renders as ∫) |
 | `py/calc/session.py` | The namespace and the API the worker calls: `run`, `preview`, `names`, `variables`, `forget`, `state`. Result views (exact / float / degrees), Python fallback, stdout capture, plots as PNGs. `plt` is matplotlib's pyplot for plotting data, a `_LazyModule` so nothing is imported until it's used |
 | `py/calc/graphs.py` | `iplot`: samples expressions with numpy (mpmath for what numpy lacks), gaps at poles, a y range that ignores spikes; `sample_text` resamples for the page. A range is `(x, a, b)` or `[x, a, b]` (`_is_range`: a list is otherwise several expressions) |
 | `py/calc/matrices.py` | `M[…]` and `V[…]`: matrices and column vectors, and how they print back as text |
-| `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy), each entry with its related ones (`SEE_ALSO`: the help pages' links); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev` |
+| `py/calc/catalog.py`, `stats.py` | The `?` catalog (curated, not all of SymPy), each entry with its related ones (`SEE_ALSO`: the help pages' links); `mean`/`median`/`variance`/`stdev`/`pvariance`/`pstdev`, which also take a random variable (`mean(X)` is sympy.stats' `E`, a name `E` the calculator gives Euler's number), the distributions on the stat menu's second page, `P`, and `pdf(X, x)`/`cdf(X, x)` (sympy's `density(X)(x)` would read as a product) |
+| `py/calc/docs.py` | `help`: puts back the docstrings of the modules imported so far from `sympy-docs.zip` (once the worker has `load`ed it), then is pydoc's help. Natively there's nothing to put back |
 
 ### Messages
 
@@ -95,6 +96,11 @@ arrival order, so requests sent before `init` finishes simply wait. Python retur
   soon as `plot` appears in the input (a preview with `target: "input"`), so it's usually ready by ⏎. Its bytecode comes from
   `plot-bytecode.zip`, and `warm_up_plotting` draws a throwaway plot so the first real one costs
   what any other does (~0.1 s, against ~2 s of compiling and first-time setup before).
+- **`help(name)`** prints SymPy's docstring to the tape. The bundle is built without them (they'd
+  add ~1.7 MB, +23%, to every first load), so `sympy-docs.zip` (~1.7 MB) is fetched on the first
+  `help`, or as soon as one is typed (not `:help`), and `docs.help` puts back the docstrings of
+  every module imported by then, setting `__doc__` on the objects themselves. Without the bundle
+  (Pyodide's source packages) nothing is missing and nothing is fetched.
 - **Preview** (above the input): takes no room while the input is empty; its room opens with
   a line's first keystroke and stays until ⏎ or Esc, so the composer moves once per line, not per
   keystroke. An unfinished line (`1/100+`) keeps the last preview, dimmed.
